@@ -12,10 +12,10 @@ import {
 interface SidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
-  onOpenGovernance: () => void;
+  onOpenGovernance?: () => void;
 }
 
-export function Sidebar({ currentTab, onSelectTab, onOpenGovernance }: SidebarProps) {
+export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'reviews', label: 'Reviews', icon: MessageSquare },
@@ -43,11 +43,11 @@ export function Sidebar({ currentTab, onSelectTab, onOpenGovernance }: SidebarPr
     }}>
       <div>
         {/* Brand Logo */}
-        <div style={{ padding: '0 8px 28px 8px' }}>
+        <div style={{ padding: '4px 10px 24px 10px' }}>
           <img 
             src="/insight-logo.png" 
             alt="InSight - Real Feedback. Real Insights." 
-            style={{ height: '34px', width: 'auto', display: 'block', objectFit: 'contain' }}
+            style={{ height: '32px', width: 'auto', display: 'block', objectFit: 'contain' }}
           />
         </div>
 
@@ -97,41 +97,8 @@ export function Sidebar({ currentTab, onSelectTab, onOpenGovernance }: SidebarPr
         </nav>
       </div>
 
-      {/* Bottom CTA Card & Hackathon Trust Badge */}
+      {/* Bottom CTA Card */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <button
-          onClick={onOpenGovernance}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            backgroundColor: '#F3F4F6',
-            border: '1px solid #E5E7EB',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            color: '#374151',
-            fontWeight: 600,
-            transition: 'background 0.15s'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}
-          title="Inspect Platt Calibration, Confusion Matrix, and PSI Drift"
-        >
-          <span>Model Trust & Drift</span>
-          <span style={{ 
-            fontSize: '0.68rem', 
-            padding: '2px 6px', 
-            background: '#ECFDF5', 
-            color: '#065F46', 
-            borderRadius: '999px',
-            fontWeight: 700 
-          }}>
-            88.2%
-          </span>
-        </button>
-
         <div style={{
           backgroundColor: '#F0FDF4',
           border: '1px solid #D1FAE5',

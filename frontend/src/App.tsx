@@ -203,6 +203,7 @@ export function App() {
           onUploadCsv={handleUploadCsv}
           timeRange={timeRange}
           onChangeTimeRange={setTimeRange}
+          onOpenGovernance={() => setIsGovernanceOpen(true)}
         />
 
         {/* Global Loading Bar */}

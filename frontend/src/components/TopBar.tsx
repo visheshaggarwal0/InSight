@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Calendar, Bell, ChevronDown, Database, Upload } from 'lucide-react';
+import { Search, Calendar, Bell, ChevronDown, Database, Upload, ShieldCheck } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 
 interface TopBarProps {
@@ -11,6 +11,7 @@ interface TopBarProps {
   onUploadCsv: (file: File) => void;
   timeRange: string;
   onChangeTimeRange: (range: string) => void;
+  onOpenGovernance?: () => void;
 }
 
 export function TopBar({
@@ -21,12 +22,16 @@ export function TopBar({
   onSelectDomain,
   onUploadCsv,
   timeRange,
-  onChangeTimeRange
+  onChangeTimeRange,
+  onOpenGovernance
 }: TopBarProps) {
   const [isDomainOpen, setIsDomainOpen] = useState(false);
   const [isDateOpen, setIsDateOpen] = useState(false);
 
   const activeDatasetObj = datasets.find(d => d.id === activeDomain);
+  const domainDisplayName = activeDatasetObj?.name
+    ? (activeDatasetObj.name.includes('(') ? activeDatasetObj.name.split('(')[0].trim() : activeDatasetObj.name)
+    : 'Switch Dataset';
 
   return (
     <header style={{
@@ -34,7 +39,7 @@ export function TopBar({
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: '16px',
-      padding: '16px 32px',
+      padding: '14px 36px',
       backgroundColor: '#FFFFFF',
       borderBottom: '1px solid #E8ECE9',
       position: 'sticky',
@@ -44,8 +49,9 @@ export function TopBar({
       {/* Search Input with Ctrl K */}
       <div style={{
         position: 'relative',
-        flex: 1,
-        maxWidth: '460px'
+        flex: '1 1 220px',
+        minWidth: '200px',
+        maxWidth: '440px'
       }}>
         <Search 
           size={16} 
@@ -61,7 +67,7 @@ export function TopBar({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search for a theme, keyword or review..."
+          placeholder="Search feedback, themes, quotes..."
           style={{
             width: '100%',
             padding: '9px 72px 9px 38px',
@@ -89,7 +95,7 @@ export function TopBar({
           right: '12px',
           top: '50%',
           transform: 'translateY(-50%)',
-          fontSize: '0.7rem',
+          fontSize: '0.68rem',
           color: '#6B7280',
           backgroundColor: '#E5E7EB',
           padding: '2px 6px',
@@ -102,7 +108,31 @@ export function TopBar({
       </div>
 
       {/* Right Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        {/* Model Trust Score Pill */}
+        {onOpenGovernance && (
+          <button
+            onClick={onOpenGovernance}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 12px',
+              borderRadius: '999px',
+              border: '1px solid #A7F3D0',
+              backgroundColor: '#ECFDF5',
+              color: '#065F46',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Inspect Platt Calibration (88.2% Accuracy), 3x3 Confusion Matrix, and PSI Drift"
+          >
+            <ShieldCheck size={14} style={{ color: '#10B981' }} />
+            <span>88.2% Trust</span>
+          </button>
+        )}
         {/* Domain Switcher */}
         <div style={{ position: 'relative' }}>
           <button
@@ -122,7 +152,7 @@ export function TopBar({
             }}
           >
             <Database size={15} style={{ color: '#10B981' }} />
-            <span>{activeDatasetObj?.name || 'Switch Dataset'}</span>
+            <span>{domainDisplayName}</span>
             <ChevronDown size={14} style={{ color: '#9CA3AF' }} />
           </button>
 
