@@ -3,6 +3,7 @@ import { DomainSwitcher } from './components/DomainSwitcher';
 import { OverviewCards } from './components/OverviewCards';
 import { ThemeCard } from './components/ThemeCard';
 import { VerbatimDrawer } from './components/VerbatimDrawer';
+import { InteractiveTimelineChart } from './components/InteractiveTimelineChart';
 import { DriftTimeline } from './components/DriftTimeline';
 import { ModelGovernanceModal } from './components/ModelGovernanceModal';
 import { TicketModal } from './components/TicketModal';
@@ -14,7 +15,7 @@ import type {
   ModelGovernanceData,
   GeneratedTicket
 } from './types/telemetry';
-import { Shield, Sparkles, ListFilter } from 'lucide-react';
+import { Shield, Sparkles, ListFilter, Activity, LayoutGrid } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -26,6 +27,10 @@ export function App() {
   const [driftData, setDriftData] = useState<DriftData | null>(null);
   const [governanceData, setGovernanceData] = useState<ModelGovernanceData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'themes' | 'drift' | 'governance'>('themes');
+  const [themeFilter, setThemeFilter] = useState<'all' | 'critical' | 'high'>('all');
 
   // Modals & Drawers
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
@@ -135,54 +140,72 @@ export function App() {
     }
   };
 
+  const filteredThemes = themes.filter((t) => {
+    if (themeFilter === 'critical') return t.severity === 'CRITICAL';
+    if (themeFilter === 'high') return t.severity === 'HIGH' || t.severity === 'CRITICAL';
+    return true;
+  });
+
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 32px' }}>
-      {/* Top Navbar */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '28px 36px', minHeight: '100vh' }}>
+      {/* Top Navigation Cockpit */}
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div
             style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)'
+              boxShadow: '0 0 25px rgba(59, 130, 246, 0.45)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
             }}
           >
-            <Sparkles size={22} color="#fff" />
+            <Sparkles size={24} color="#fff" />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-              InSight <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600 }}>v1.0</span>
-            </h1>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Universal Product & Review Telemetry Intelligence • Team The Lookouts
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em', color: '#fff' }}>
+                InSight
+              </h1>
+              <span style={{ fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                v1.0 ENTERPRISE
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.72rem', color: '#34d399', fontWeight: 600 }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} className="pulse-indicator" />
+                TELEMETRY LIVE
+              </span>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Universal Product &amp; Review Telemetry Intelligence &bull; Team The Lookouts
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Global Action Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={handleInspectAllVerbatims}
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-subtle)',
-              background: 'var(--bg-card)',
+              gap: '7px',
+              padding: '9px 16px',
+              borderRadius: '9px',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'rgba(15, 23, 42, 0.7)',
               color: 'var(--text-secondary)',
               fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer'
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
             }}
           >
             <ListFilter size={15} />
-            Explore All Verbatims
+            Inspect 10,000 Verbatims
           </button>
 
           <button
@@ -190,19 +213,21 @@ export function App() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-              background: 'rgba(59, 130, 246, 0.1)',
-              color: '#60a5fa',
+              gap: '7px',
+              padding: '9px 18px',
+              borderRadius: '9px',
+              border: '1px solid rgba(59, 130, 246, 0.45)',
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1))',
+              color: '#93c5fd',
               fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: 'pointer'
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 0 15px rgba(59, 130, 246, 0.25)',
+              transition: 'all 0.15s ease'
             }}
           >
-            <Shield size={15} />
-            Model Governance (Acc &amp; F1)
+            <Shield size={16} color="#60a5fa" />
+            Model Governance (88.2% Acc)
           </button>
         </div>
       </header>
@@ -222,27 +247,85 @@ export function App() {
         onOpenGovernance={() => setIsGovernanceOpen(true)}
       />
 
-      {/* Release & Batch Drift Engine Timeline */}
+      {/* Interactive Visual Timeline & Drift Bar Chart */}
+      <InteractiveTimelineChart driftData={driftData} />
+
+      {/* Regression Alert Banners */}
       <DriftTimeline driftData={driftData} />
 
-      {/* Unsupervised Thematic Cluster Explorer */}
-      <section style={{ marginBottom: '40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Discovered Themes &amp; Anomaly Clusters
-            </h2>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Unsupervised semantic groupings surfaced across 10,000 reviews without predefined categories.
-            </p>
-          </div>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            {themes.length} Active Semantic Neighborhoods
-          </span>
+      {/* Navigation Pills: Themes vs Governance */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={() => setActiveTab('themes')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: activeTab === 'themes' ? '1px solid #3b82f6' : '1px solid transparent',
+              background: activeTab === 'themes' ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+              color: activeTab === 'themes' ? '#60a5fa' : 'var(--text-muted)'
+            }}
+          >
+            <LayoutGrid size={15} />
+            Discovered Thematic Clusters ({themes.length})
+          </button>
+
+          <button
+            onClick={() => setIsGovernanceOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: '1px solid transparent',
+              background: 'transparent',
+              color: 'var(--text-muted)'
+            }}
+          >
+            <Activity size={15} />
+            Supervised Validation Benchmark
+          </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '18px' }}>
-          {themes.map((theme) => (
+        {/* Severity Filter Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: '4px' }}>Severity:</span>
+          {(['all', 'critical', 'high'] as const).map((lvl) => (
+            <button
+              key={lvl}
+              onClick={() => setThemeFilter(lvl)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                border: themeFilter === lvl ? '1px solid #3b82f6' : '1px solid var(--border-subtle)',
+                background: themeFilter === lvl ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-card)',
+                color: themeFilter === lvl ? '#93c5fd' : 'var(--text-secondary)'
+              }}
+            >
+              {lvl === 'all' ? 'All Clusters' : lvl === 'critical' ? 'Critical Only' : 'High & Critical'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Thematic Cluster Cards Grid */}
+      <section style={{ marginBottom: '40px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+          {filteredThemes.map((theme) => (
             <ThemeCard
               key={theme.cluster_id}
               theme={theme}

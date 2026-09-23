@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, FileText, Quote } from 'lucide-react';
+import { Eye, FileText, Quote, AlertOctagon, Star } from 'lucide-react';
 import type { ThemeCluster } from '../types/telemetry';
 
 interface Props {
@@ -13,55 +13,95 @@ export const ThemeCard: React.FC<Props> = ({
   onInspectVerbatims,
   onGenerateTicket
 }) => {
-  const getBadgeClass = (severity: string) => {
-    switch (severity) {
-      case 'CRITICAL': return 'badge badge-critical';
-      case 'HIGH': return 'badge badge-high';
-      case 'MEDIUM': return 'badge badge-medium';
-      default: return 'badge badge-low';
-    }
-  };
+  const isCritical = theme.severity === 'CRITICAL';
+  const isHigh = theme.severity === 'HIGH';
+
+  const severityColor = isCritical ? 'var(--color-crit)' : isHigh ? 'var(--color-neg)' : theme.severity === 'MEDIUM' ? 'var(--color-neu)' : 'var(--color-pos)';
 
   return (
-    <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <div
+      className="glass-card"
+      style={{
+        padding: '22px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        borderLeft: `4px solid ${severityColor}`
+      }}
+    >
       <div>
         {/* Header: Title & Severity */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '14px' }}>
           <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              {theme.title}
-            </h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
-              <span className={getBadgeClass(theme.severity)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span
+                className={`badge ${
+                  isCritical
+                    ? 'badge-critical'
+                    : isHigh
+                    ? 'badge-high'
+                    : theme.severity === 'MEDIUM'
+                    ? 'badge-medium'
+                    : 'badge-low'
+                }`}
+              >
+                {isCritical && <AlertOctagon size={12} />}
                 {theme.severity} SEVERITY
               </span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                • {theme.review_count.toLocaleString()} customer verbatims
+              <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                • Cluster #{theme.cluster_id}
               </span>
             </div>
+
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.01em', lineHeight: '1.3' }}>
+              {theme.title}
+            </h3>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: theme.negative_rate > 50 ? 'var(--status-neg)' : 'var(--text-secondary)' }}>
+
+          {/* Negative Ratio Dial */}
+          <div
+            style={{
+              textAlign: 'right',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              background: 'rgba(0, 0, 0, 0.3)',
+              border: '1px solid var(--border-subtle)'
+            }}
+          >
+            <div style={{ fontSize: '1.15rem', fontWeight: 800, color: theme.negative_rate > 50 ? '#fb7185' : 'var(--text-secondary)' }}>
               {theme.negative_rate}%
-            </span>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Negative Rate
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+              Negative
             </div>
           </div>
         </div>
 
-        {/* Semantic Keyword Tags */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '14px 0' }}>
+        {/* Volume & Distribution Micro-bar */}
+        <div style={{ margin: '14px 0 12px 0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: 'var(--text-secondary)', marginBottom: '5px' }}>
+            <span><b>{theme.review_count.toLocaleString()}</b> Customer Verbatims</span>
+            <span>{theme.sentiment_distribution.NEGATIVE} Neg / {theme.sentiment_distribution.POSITIVE} Pos</span>
+          </div>
+          <div style={{ display: 'flex', height: '5px', width: '100%', borderRadius: '3px', overflow: 'hidden', background: '#111827' }}>
+            <div style={{ width: `${theme.negative_rate}%`, background: 'var(--color-neg)' }} />
+            <div style={{ width: `${100 - theme.negative_rate}%`, background: 'var(--color-pos)' }} />
+          </div>
+        </div>
+
+        {/* c-TF-IDF Keyword Tags */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '16px' }}>
           {theme.keywords.map((kw, i) => (
             <span
               key={i}
               style={{
-                fontSize: '0.74rem',
-                background: 'rgba(30, 41, 59, 0.7)',
-                color: '#94a3b8',
+                fontSize: '0.72rem',
+                fontFamily: "'JetBrains Mono', monospace",
+                background: 'rgba(30, 41, 59, 0.6)',
+                color: '#93c5fd',
                 padding: '2px 8px',
-                borderRadius: '4px',
-                border: '1px solid #2d3748'
+                borderRadius: '5px',
+                border: '1px solid rgba(59, 130, 246, 0.2)'
               }}
             >
               #{kw}
@@ -69,26 +109,33 @@ export const ThemeCard: React.FC<Props> = ({
           ))}
         </div>
 
-        {/* Sample Customer Verbatim */}
+        {/* Representative Masked Verbatim Quote */}
         {theme.sample_verbatims.length > 0 && (
           <div
             style={{
-              background: 'rgba(10, 14, 23, 0.6)',
-              borderLeft: `3px solid ${theme.severity === 'CRITICAL' ? 'var(--status-crit)' : 'var(--accent-blue)'}`,
-              padding: '10px 12px',
-              borderRadius: '0 6px 6px 0',
-              marginBottom: '16px'
+              background: 'rgba(9, 13, 22, 0.7)',
+              borderLeft: `3px solid ${severityColor}`,
+              padding: '12px 14px',
+              borderRadius: '0 8px 8px 0',
+              marginBottom: '18px'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-              <Quote size={12} color="var(--text-muted)" />
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                {theme.sample_verbatims[0].batch_or_version} • {theme.sample_verbatims[0].rating}★
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Quote size={12} color="var(--accent-blue)" />
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {theme.sample_verbatims[0].batch_or_version} • {theme.sample_verbatims[0].sku_or_module}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', color: '#fbbf24', fontSize: '0.72rem', fontWeight: 700 }}>
+                <Star size={11} fill="#fbbf24" style={{ marginRight: '2px' }} />
+                {theme.sample_verbatims[0].rating}★
+              </div>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4', fontStyle: 'italic' }}>
-              "{theme.sample_verbatims[0].text.length > 140
-                ? theme.sample_verbatims[0].text.substring(0, 140) + '...'
+
+            <p style={{ fontSize: '0.82rem', color: '#cbd5e1', lineHeight: '1.45', fontStyle: 'italic' }}>
+              "{theme.sample_verbatims[0].text.length > 150
+                ? theme.sample_verbatims[0].text.substring(0, 150) + '...'
                 : theme.sample_verbatims[0].text}"
             </p>
           </div>
@@ -96,7 +143,7 @@ export const ThemeCard: React.FC<Props> = ({
       </div>
 
       {/* Action Footer */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
         <button
           onClick={() => onInspectVerbatims(theme.cluster_id, theme.title)}
           style={{
@@ -105,18 +152,19 @@ export const ThemeCard: React.FC<Props> = ({
             alignItems: 'center',
             justifyContent: 'center',
             gap: '6px',
-            padding: '8px 12px',
-            borderRadius: '6px',
-            background: 'rgba(59, 130, 246, 0.1)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
+            padding: '9px 14px',
+            borderRadius: '8px',
+            background: 'rgba(59, 130, 246, 0.12)',
+            border: '1px solid rgba(59, 130, 246, 0.35)',
             color: '#60a5fa',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            cursor: 'pointer'
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
           }}
         >
-          <Eye size={14} />
-          Trace Reviews
+          <Eye size={15} />
+          Trace {theme.review_count} Reviews
         </button>
 
         <button
@@ -126,17 +174,18 @@ export const ThemeCard: React.FC<Props> = ({
             alignItems: 'center',
             justifyContent: 'center',
             gap: '6px',
-            padding: '8px 12px',
-            borderRadius: '6px',
-            background: 'rgba(244, 63, 94, 0.1)',
-            border: '1px solid rgba(244, 63, 94, 0.3)',
+            padding: '9px 14px',
+            borderRadius: '8px',
+            background: 'rgba(244, 63, 94, 0.12)',
+            border: '1px solid rgba(244, 63, 94, 0.35)',
             color: '#fb7185',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            cursor: 'pointer'
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
           }}
         >
-          <FileText size={14} />
+          <FileText size={15} />
           Draft Ticket
         </button>
       </div>
