@@ -24,35 +24,35 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
       <div
         className="glass-panel"
         style={{
-          width: '92%',
-          maxWidth: '720px',
-          maxHeight: '88vh',
+          width: '90%',
+          maxWidth: '700px',
+          maxHeight: '85vh',
           display: 'flex',
           flexDirection: 'column',
-          padding: '28px',
-          borderRadius: '18px',
-          background: '#090d16',
-          border: '1px solid rgba(244, 63, 94, 0.35)',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.9), 0 0 30px rgba(244, 63, 94, 0.15)'
+          padding: '24px',
+          borderRadius: '14px',
+          background: '#101014',
+          border: '1px solid #272730',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.8)'
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'rgba(244, 63, 94, 0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileCheck size={18} color="#fb7185" />
+            <div style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#1c1c24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileCheck size={16} color="var(--text-secondary)" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff' }}>
+                <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                   Incident Report &amp; Engineering Ticket
                 </h2>
                 <span className="badge badge-critical">
-                  {ticket.severity} SEVERITY
+                  {ticket.severity}
                 </span>
               </div>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Structured markdown with cited verbatims ready for Jira, Linear, or Manufacturing QA
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Structured markdown with cited verbatims ready for Jira or GitHub Issues
               </span>
             </div>
           </div>
@@ -60,29 +60,29 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
           <button
             onClick={onClose}
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: 'transparent',
               border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
+              borderRadius: '6px',
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              padding: '6px'
+              padding: '5px'
             }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Ticket Content Box */}
-        <div style={{ flex: 1, overflowY: 'auto', margin: '20px 0' }}>
+        {/* Code Box */}
+        <div style={{ flex: 1, overflowY: 'auto', margin: '16px 0' }}>
           <pre
             style={{
-              background: '#05070c',
-              border: '1px solid #1e293b',
-              borderRadius: '10px',
-              padding: '18px',
-              color: '#cbd5e1',
-              fontSize: '0.84rem',
-              lineHeight: '1.65',
+              background: '#09090c',
+              border: '1px solid #1e1e24',
+              borderRadius: '8px',
+              padding: '16px',
+              color: 'var(--text-primary)',
+              fontSize: '0.82rem',
+              lineHeight: '1.6',
               whiteSpace: 'pre-wrap',
               fontFamily: "'JetBrains Mono', monospace"
             }}
@@ -91,10 +91,10 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
           </pre>
         </div>
 
-        {/* Actions Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#34d399' }}>
-            <CheckCircle2 size={15} />
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            <CheckCircle2 size={13} color="var(--color-pos)" />
             <span>Includes 100% verified customer verbatim citations</span>
           </div>
 
@@ -103,21 +103,20 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '10px 20px',
-              borderRadius: '8px',
-              background: copied ? 'var(--color-pos)' : 'linear-gradient(135deg, #3b82f6, #2563eb)',
-              color: '#fff',
+              gap: '6px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              background: copied ? 'var(--color-pos)' : '#fafafa',
+              color: copied ? '#fff' : '#09090b',
               border: 'none',
-              fontWeight: 800,
-              fontSize: '0.85rem',
+              fontWeight: 600,
+              fontSize: '0.82rem',
               cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(59, 130, 246, 0.35)',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.15s ease'
             }}
           >
-            {copied ? <Check size={16} /> : <Copy size={16} />}
-            {copied ? 'Copied to Clipboard!' : 'Copy Ticket Markdown'}
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            {copied ? 'Copied to Clipboard' : 'Copy Ticket Markdown'}
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Sparkles, Smartphone, UploadCloud, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Sparkles, Smartphone, UploadCloud, Check, RefreshCw } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 
 interface Props {
@@ -26,26 +26,26 @@ export const DomainSwitcher: React.FC<Props> = ({
   };
 
   return (
-    <div className="glass-panel" style={{ padding: '18px 24px', marginBottom: '24px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+    <div className="glass-panel" style={{ padding: '16px 20px', marginBottom: '24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              ACTIVE PRODUCT DOMAIN
+            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              TELEMETRY SOURCE
             </span>
             {isLoading && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: '#60a5fa', fontWeight: 600 }}>
-                <RefreshCw size={12} className="pulse-indicator" />
-                Processing 10,000 telemetry records...
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                <RefreshCw size={11} style={{ animation: 'spin 1s linear infinite' }} />
+                Indexing corpus...
               </span>
             )}
           </div>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Switch between physical consumer goods (D2C skincare/cosmetics), mobile app stores, or upload custom review batches.
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '3px' }}>
+            Select an enterprise feedback domain or upload a custom review batch.
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {datasets.map((d) => {
             const isSelected = activeDomain === d.id;
             const Icon = d.id === 'd2c_cosmetics' ? Sparkles : d.id === 'tech_saas' ? Smartphone : UploadCloud;
@@ -58,28 +58,27 @@ export const DomainSwitcher: React.FC<Props> = ({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '9px 16px',
-                  borderRadius: '10px',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
+                  gap: '7px',
+                  padding: '7px 14px',
+                  borderRadius: '7px',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
                   cursor: isLoading ? 'not-allowed' : 'pointer',
-                  border: isSelected ? '1px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.08)',
-                  background: isSelected ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.12))' : 'rgba(15, 22, 38, 0.6)',
-                  color: isSelected ? '#93c5fd' : 'var(--text-secondary)',
-                  boxShadow: isSelected ? '0 0 15px rgba(59, 130, 246, 0.25)' : 'none',
-                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                  border: isSelected ? '1px solid #3f3f4e' : '1px solid var(--border-subtle)',
+                  background: isSelected ? '#202026' : 'var(--bg-card)',
+                  color: isSelected ? '#f4f4f5' : 'var(--text-secondary)',
+                  transition: 'all 0.15s ease'
                 }}
               >
-                <Icon size={16} color={isSelected ? '#60a5fa' : 'currentColor'} />
+                <Icon size={14} color={isSelected ? '#fafafa' : '#71717a'} />
                 <span>
                   {d.id === 'd2c_cosmetics'
-                    ? 'D2C Skincare & Beauty'
+                    ? 'D2C Consumer & Cosmetics'
                     : d.id === 'tech_saas'
-                    ? 'Fintech Mobile App'
-                    : 'Upload Custom CSV'}
+                    ? 'Fintech / Mobile SaaS'
+                    : 'Upload CSV'}
                 </span>
-                {isSelected && <CheckCircle2 size={15} color="#60a5fa" />}
+                {isSelected && <Check size={13} color="#fafafa" style={{ marginLeft: '2px' }} />}
               </button>
             );
           })}

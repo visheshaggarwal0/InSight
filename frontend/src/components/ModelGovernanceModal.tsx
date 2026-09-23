@@ -24,115 +24,115 @@ export const ModelGovernanceModal: React.FC<Props> = ({
       <div
         className="glass-panel"
         style={{
-          width: '92%',
-          maxWidth: '860px',
-          maxHeight: '92vh',
+          width: '90%',
+          maxWidth: '820px',
+          maxHeight: '90vh',
           overflowY: 'auto',
-          padding: '30px',
-          background: '#090d16',
-          borderRadius: '18px',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
-          boxShadow: '0 25px 60px -10px rgba(0,0,0,0.9), 0 0 30px rgba(59, 130, 246, 0.15)'
+          padding: '28px',
+          background: '#101014',
+          borderRadius: '14px',
+          border: '1px solid #272730',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Award size={18} color="#60a5fa" />
+              <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#202026', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Award size={15} color="var(--text-secondary)" />
               </div>
-              <h2 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
                 Model Governance &amp; Ground-Truth Validation
               </h2>
             </div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '6px' }}>
-              Supervised mathematical benchmarking on <b>{evaluation.sample_size} human-annotated gold-standard reviews</b>. Satisfies Challenge 17 requirement.
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Empirical evaluation on <b>{evaluation.sample_size} human-annotated gold-standard reviews</b>.
             </p>
           </div>
 
           <button
             onClick={onClose}
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: 'transparent',
               border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
+              borderRadius: '6px',
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              padding: '6px'
+              padding: '5px'
             }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
-        {/* Model Spec Banner */}
-        <div style={{ margin: '20px 0', padding: '12px 16px', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '10px', border: '1px solid #1e293b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+        {/* Model Spec Tag */}
+        <div style={{ margin: '18px 0', padding: '10px 14px', background: '#16161c', borderRadius: '8px', border: '1px solid #22222a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Activity size={16} color="var(--accent-blue)" />
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              Architecture: <b style={{ color: '#fff' }}>{model_architecture}</b>
+            <Activity size={14} color="var(--text-muted)" />
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+              Architecture: <span style={{ color: 'var(--text-primary)', fontFamily: "'JetBrains Mono', monospace" }}>{model_architecture}</span>
             </span>
           </div>
-          <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 700 }}>
+          <span style={{ fontSize: '0.68rem', background: 'var(--color-pos-bg)', color: 'var(--color-pos)', padding: '2px 7px', borderRadius: '4px', border: '1px solid var(--color-pos-border)', fontWeight: 600 }}>
             PLATT SCALED &bull; CALIBRATED
           </span>
         </div>
 
         {/* Metric Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '28px' }}>
-          <div className="glass-card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>TEST ACCURACY</span>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--color-pos)', marginTop: '4px', letterSpacing: '-0.02em' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+          <div className="glass-card" style={{ padding: '14px', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>TEST ACCURACY</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--color-pos)', marginTop: '4px', letterSpacing: '-0.02em' }}>
               {Math.round(evaluation.accuracy * 1000) / 10}%
             </div>
-            <span style={{ fontSize: '0.7rem', color: '#34d399' }}>On 1,000 Gold Labels</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>1,000 Verified Samples</span>
           </div>
 
-          <div className="glass-card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>MACRO F1-SCORE</span>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#60a5fa', marginTop: '4px', letterSpacing: '-0.02em' }}>
+          <div className="glass-card" style={{ padding: '14px', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>MACRO F1</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
               {evaluation.macro_f1}
             </div>
-            <span style={{ fontSize: '0.7rem', color: '#93c5fd' }}>Balanced Class Metric</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Balanced Class Metric</span>
           </div>
 
-          <div className="glass-card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(139, 92, 246, 0.06)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>MACRO RECALL</span>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#c4b5fd', marginTop: '4px', letterSpacing: '-0.02em' }}>
+          <div className="glass-card" style={{ padding: '14px', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>MACRO RECALL</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
               {evaluation.macro_recall}
             </div>
-            <span style={{ fontSize: '0.7rem', color: '#c4b5fd' }}>Zero Defect Leakage</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Defect Sensitivity</span>
           </div>
 
-          <div className="glass-card" style={{ padding: '16px', textAlign: 'center', background: 'rgba(6, 182, 212, 0.06)', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>BRIER CALIBRATION</span>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#22d3ee', marginTop: '4px', letterSpacing: '-0.02em' }}>
+          <div className="glass-card" style={{ padding: '14px', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>BRIER CALIBRATION</span>
+            <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.02em' }}>
               {evaluation.brier_score}
             </div>
-            <span style={{ fontSize: '0.7rem', color: '#67e8f9' }}>Low Brier = True Probs</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Low Brier = True Probs</span>
           </div>
         </div>
 
-        {/* Visual Heatmap Confusion Matrix */}
-        <div style={{ marginBottom: '28px', background: 'rgba(15, 23, 42, 0.5)', padding: '20px', borderRadius: '12px', border: '1px solid #1e293b' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BarChart2 size={16} color="var(--accent-blue)" />
-              Empirical Confusion Matrix Heatmap ($3 \times 3$)
+        {/* Confusion Matrix Section */}
+        <div style={{ marginBottom: '24px', background: '#141418', padding: '18px', borderRadius: '10px', border: '1px solid var(--border-card)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <h4 style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <BarChart2 size={14} color="var(--text-muted)" />
+              Empirical Confusion Matrix ($3 \times 3$)
             </h4>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Green cells represent True Positives along the diagonal
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              Diagonal shows True Positives across sentiment tiers
             </span>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.85rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '0.82rem' }}>
               <thead>
                 <tr>
-                  <th style={{ padding: '12px', color: 'var(--text-muted)', textAlign: 'left', fontWeight: 600 }}>Ground Truth \ Predicted</th>
+                  <th style={{ padding: '10px', color: 'var(--text-muted)', textAlign: 'left', fontWeight: 500 }}>Ground Truth \ Predicted</th>
                   {classes.map((cls, i) => (
-                    <th key={i} style={{ padding: '12px', color: '#93c5fd', fontWeight: 800, letterSpacing: '0.04em' }}>
+                    <th key={i} style={{ padding: '10px', color: 'var(--text-secondary)', fontWeight: 600 }}>
                       Pred {cls}
                     </th>
                   ))}
@@ -140,8 +140,8 @@ export const ModelGovernanceModal: React.FC<Props> = ({
               </thead>
               <tbody>
                 {classes.map((trueCls, rowIdx) => (
-                  <tr key={rowIdx} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    <td style={{ padding: '14px 12px', fontWeight: 800, color: '#f1f5f9', textAlign: 'left' }}>
+                  <tr key={rowIdx} style={{ borderTop: '1px solid #1f1f26' }}>
+                    <td style={{ padding: '12px 10px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'left' }}>
                       True {trueCls}
                     </td>
                     {cm[rowIdx].map((count, colIdx) => {
@@ -150,17 +150,18 @@ export const ModelGovernanceModal: React.FC<Props> = ({
                         <td
                           key={colIdx}
                           style={{
-                            padding: '14px',
-                            fontWeight: isDiagonal ? 800 : 500,
-                            borderRadius: '6px',
+                            padding: '12px',
+                            fontWeight: isDiagonal ? 700 : 400,
+                            borderRadius: '4px',
                             background: isDiagonal
-                              ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15))'
+                              ? 'var(--color-pos-bg)'
                               : count > 0
-                              ? 'rgba(244, 63, 94, 0.08)'
+                              ? 'var(--color-neg-bg)'
                               : 'transparent',
-                            color: isDiagonal ? '#34d399' : count > 0 ? '#fda4af' : 'var(--text-muted)',
-                            border: isDiagonal ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid transparent',
-                            fontSize: isDiagonal ? '1.05rem' : '0.85rem'
+                            color: isDiagonal ? 'var(--color-pos)' : count > 0 ? '#f87171' : 'var(--text-dim)',
+                            border: isDiagonal ? '1px solid var(--color-pos-border)' : '1px solid transparent',
+                            fontSize: isDiagonal ? '0.95rem' : '0.82rem',
+                            fontFamily: "'JetBrains Mono', monospace"
                           }}
                         >
                           {count}
@@ -174,35 +175,33 @@ export const ModelGovernanceModal: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Per-Class Breakdown Table */}
-        <div style={{ marginBottom: '24px' }}>
-          <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '12px', color: '#fff' }}>
-            Class-Level Precision, Recall &amp; Support
+        {/* Per-Class Table */}
+        <div style={{ marginBottom: '20px' }}>
+          <h4 style={{ fontSize: '0.88rem', fontWeight: 600, marginBottom: '10px', color: 'var(--text-primary)' }}>
+            Class-Level Precision &amp; Recall Breakdown
           </h4>
 
-          <div style={{ background: 'rgba(15, 23, 42, 0.5)', borderRadius: '12px', border: '1px solid #1e293b', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+          <div style={{ background: '#141418', borderRadius: '10px', border: '1px solid var(--border-card)', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #1e293b', background: '#0b111e', color: 'var(--text-muted)', textAlign: 'left' }}>
-                  <th style={{ padding: '12px 16px' }}>Sentiment Class</th>
-                  <th style={{ padding: '12px 16px' }}>Precision</th>
-                  <th style={{ padding: '12px 16px' }}>Recall</th>
-                  <th style={{ padding: '12px 16px' }}>F1-Score</th>
-                  <th style={{ padding: '12px 16px' }}>Ground Truth Sample Support</th>
+                <tr style={{ borderBottom: '1px solid var(--border-card)', background: '#121216', color: 'var(--text-muted)', textAlign: 'left' }}>
+                  <th style={{ padding: '10px 14px' }}>Class</th>
+                  <th style={{ padding: '10px 14px' }}>Precision</th>
+                  <th style={{ padding: '10px 14px' }}>Recall</th>
+                  <th style={{ padding: '10px 14px' }}>F1-Score</th>
+                  <th style={{ padding: '10px 14px' }}>Support</th>
                 </tr>
               </thead>
               <tbody>
                 {classes.map((cls) => {
                   const item = evaluation.per_class[cls];
                   return (
-                    <tr key={cls} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '12px 16px', fontWeight: 800, color: cls === 'NEGATIVE' ? '#fb7185' : cls === 'POSITIVE' ? '#34d399' : '#fcd34d' }}>
-                        {cls}
-                      </td>
-                      <td style={{ padding: '12px 16px', color: '#93c5fd', fontFamily: "'JetBrains Mono', monospace" }}>{item.precision}</td>
-                      <td style={{ padding: '12px 16px', color: '#c4b5fd', fontFamily: "'JetBrains Mono', monospace" }}>{item.recall}</td>
-                      <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--color-pos)', fontFamily: "'JetBrains Mono', monospace" }}>{item.f1_score}</td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{item.support} verified reviews</td>
+                    <tr key={cls} style={{ borderBottom: '1px solid #1a1a20' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text-primary)' }}>{cls}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontFamily: "'JetBrains Mono', monospace" }}>{item.precision}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontFamily: "'JetBrains Mono', monospace" }}>{item.recall}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--color-pos)', fontFamily: "'JetBrains Mono', monospace" }}>{item.f1_score}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{item.support} reviews</td>
                     </tr>
                   );
                 })}
@@ -212,24 +211,23 @@ export const ModelGovernanceModal: React.FC<Props> = ({
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#34d399' }}>
-            <CheckCircle size={14} />
-            <span>Passes Enterprise Evaluation Rubric with Calibrated Statistics</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: 'var(--color-pos)' }}>
+            <CheckCircle size={13} />
+            <span>Calibrated against held-out ground truth test set</span>
           </div>
 
           <button
             onClick={onClose}
             style={{
-              padding: '10px 22px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-              color: '#fff',
-              border: 'none',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(37, 99, 235, 0.4)'
+              padding: '7px 16px',
+              borderRadius: '6px',
+              background: '#272730',
+              color: '#f4f4f5',
+              border: '1px solid var(--border-hover)',
+              fontWeight: 500,
+              fontSize: '0.8rem',
+              cursor: 'pointer'
             }}
           >
             Close Audit
