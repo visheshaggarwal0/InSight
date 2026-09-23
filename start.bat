@@ -1,0 +1,3 @@
+@echo off
+echo Starting InSight Backend and Frontend...
+npm run dev
