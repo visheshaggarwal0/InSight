@@ -1,119 +1,140 @@
 import React from 'react';
-import { MessageSquare, ShieldCheck, TrendingUp, Award, ArrowUpRight } from 'lucide-react';
+import { MessageCircle, Smile, Meh, Frown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { OverviewMetrics } from '../types/telemetry';
 
 interface Props {
   metrics: OverviewMetrics | null;
-  onOpenGovernance: () => void;
+  onOpenGovernance?: () => void;
 }
 
-export const OverviewCards: React.FC<Props> = ({ metrics, onOpenGovernance }) => {
+export const OverviewCards: React.FC<Props> = ({ metrics }) => {
   if (!metrics) return null;
 
+  const neutralRate = Math.max(0, 100 - metrics.positive_rate - metrics.negative_rate);
+
+  const cards = [
+    {
+      title: 'Total Reviews',
+      value: metrics.total_reviews.toLocaleString(),
+      change: '12%',
+      isPositive: true,
+      arrow: ArrowUp,
+      icon: MessageCircle,
+      iconBg: '#ECFDF5',
+      iconColor: '#10B981',
+      changeText: 'vs. previous period'
+    },
+    {
+      title: 'Positive Sentiment',
+      value: `${metrics.positive_rate}%`,
+      change: '8%',
+      isPositive: true,
+      arrow: ArrowUp,
+      icon: Smile,
+      iconBg: '#ECFDF5',
+      iconColor: '#059669',
+      changeText: 'vs. previous period'
+    },
+    {
+      title: 'Neutral',
+      value: `${neutralRate}%`,
+      change: '4%',
+      isPositive: false,
+      arrow: ArrowDown,
+      icon: Meh,
+      iconBg: '#F3F4F6',
+      iconColor: '#6B7280',
+      changeText: 'vs. previous period'
+    },
+    {
+      title: 'Negative',
+      value: `${metrics.negative_rate}%`,
+      change: '4%',
+      isPositive: false,
+      arrow: ArrowDown,
+      icon: Frown,
+      iconBg: '#FEF2F2',
+      iconColor: '#EF4444',
+      changeText: 'vs. previous period'
+    }
+  ];
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-      {/* 1. Total Telemetry */}
-      <div className="glass-card" style={{ padding: '18px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            TOTAL REVIEWS
-          </span>
-          <MessageSquare size={15} color="var(--text-muted)" />
-        </div>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+      gap: '16px',
+      marginBottom: '28px'
+    }}>
+      {cards.map((c, i) => {
+        const Icon = c.icon;
+        const Arrow = c.arrow;
+        return (
+          <div
+            key={i}
+            className="dashboard-card"
+            style={{
+              padding: '20px 22px',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between'
+            }}
+          >
+            {/* Top Icon */}
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              backgroundColor: c.iconBg,
+              color: c.iconColor,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '14px'
+            }}>
+              <Icon size={20} strokeWidth={2} />
+            </div>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-          <span style={{ fontSize: '1.9rem', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-            {metrics.total_reviews.toLocaleString()}
-          </span>
-          <span style={{ fontSize: '0.72rem', color: 'var(--color-pos)', display: 'flex', alignItems: 'center', fontWeight: 500 }}>
-            <ArrowUpRight size={11} /> 100% Indexed
-          </span>
-        </div>
+            {/* Metric Value & Label */}
+            <div>
+              <div style={{
+                fontSize: '1.95rem',
+                fontWeight: 700,
+                color: '#111827',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1
+              }}>
+                {c.value}
+              </div>
+              <div style={{
+                fontSize: '0.82rem',
+                fontWeight: 500,
+                color: '#4B5563',
+                marginTop: '4px',
+                marginBottom: '14px'
+              }}>
+                {c.title}
+              </div>
+            </div>
 
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-          Real-time semantic vector space
-        </div>
-      </div>
-
-      {/* 2. Sentiment Polarity */}
-      <div className="glass-card" style={{ padding: '18px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            SENTIMENT RATIO
-          </span>
-          <TrendingUp size={15} color="var(--color-pos)" />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-          <span style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            {metrics.positive_rate}%
-          </span>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            positive &bull; <span style={{ color: 'var(--color-neg)' }}>{metrics.negative_rate}%</span> negative
-          </span>
-        </div>
-
-        {/* Micro-bar */}
-        <div style={{ display: 'flex', height: '4px', width: '100%', borderRadius: '2px', overflow: 'hidden', marginTop: '10px', background: '#202026' }}>
-          <div style={{ width: `${metrics.positive_rate}%`, background: 'var(--color-pos)' }} />
-          <div style={{ width: `${100 - metrics.positive_rate - metrics.negative_rate}%`, background: 'var(--color-neu)' }} />
-          <div style={{ width: `${metrics.negative_rate}%`, background: 'var(--color-neg)' }} />
-        </div>
-      </div>
-
-      {/* 3. PII Redacted */}
-      <div className="glass-card" style={{ padding: '18px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            PII REDACTION GATE
-          </span>
-          <ShieldCheck size={15} color="var(--text-muted)" />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-          <span style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            {metrics.pii_redacted_count.toLocaleString()}
-          </span>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            ({metrics.pii_redacted_rate}% masked)
-          </span>
-        </div>
-
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-          Addresses, cards, phones &amp; order IDs
-        </div>
-      </div>
-
-      {/* 4. Model Governance */}
-      <div
-        className="glass-card"
-        onClick={onOpenGovernance}
-        style={{
-          padding: '18px 20px',
-          cursor: 'pointer',
-          border: '1px solid var(--border-active)'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            MODEL GOVERNANCE
-          </span>
-          <Award size={15} color="var(--text-secondary)" />
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '10px' }}>
-          <span style={{ fontSize: '1.9rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            88.2%
-          </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            Test Accuracy (0.89 F1)
-          </span>
-        </div>
-
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-          View Confusion Matrix &amp; Calibration &rarr;
-        </div>
-      </div>
+            {/* Trend Indicator */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              color: c.isPositive ? '#059669' : '#EF4444'
+            }}>
+              <Arrow size={14} strokeWidth={2.5} />
+              <span>{c.change}</span>
+              <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: '2px' }}>
+                {c.changeText}
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 };

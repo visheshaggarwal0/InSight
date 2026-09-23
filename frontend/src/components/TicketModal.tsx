@@ -22,7 +22,6 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
   return (
     <div className="overlay-backdrop">
       <div
-        className="glass-panel"
         style={{
           width: '90%',
           maxWidth: '700px',
@@ -30,28 +29,36 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
           display: 'flex',
           flexDirection: 'column',
           padding: '24px',
-          borderRadius: '14px',
-          background: '#101014',
-          border: '1px solid #272730',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.8)'
+          borderRadius: '16px',
+          backgroundColor: '#FFFFFF',
+          border: '1px solid #E5E7EB',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '30px', height: '30px', borderRadius: '6px', background: '#1c1c24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileCheck size={16} color="var(--text-secondary)" />
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#ECFDF5', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileCheck size={18} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#111827' }}>
                   Incident Report &amp; Engineering Ticket
                 </h2>
-                <span className="badge badge-critical">
+                <span style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  backgroundColor: '#FEF2F2',
+                  color: '#991B1B',
+                  border: '1px solid #FECACA'
+                }}>
                   {ticket.severity}
                 </span>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
                 Structured markdown with cited verbatims ready for Jira or GitHub Issues
               </span>
             </div>
@@ -60,12 +67,12 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
           <button
             onClick={onClose}
             style={{
-              background: 'transparent',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '6px',
-              color: 'var(--text-muted)',
+              background: '#F3F4F6',
+              border: '1px solid #E5E7EB',
+              borderRadius: '8px',
+              color: '#6B7280',
               cursor: 'pointer',
-              padding: '5px'
+              padding: '6px'
             }}
           >
             <X size={16} />
@@ -76,11 +83,11 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
         <div style={{ flex: 1, overflowY: 'auto', margin: '16px 0' }}>
           <pre
             style={{
-              background: '#09090c',
-              border: '1px solid #1e1e24',
-              borderRadius: '8px',
+              backgroundColor: '#F9FAFB',
+              border: '1px solid #E5E7EB',
+              borderRadius: '10px',
               padding: '16px',
-              color: 'var(--text-primary)',
+              color: '#1F2937',
               fontSize: '0.82rem',
               lineHeight: '1.6',
               whiteSpace: 'pre-wrap',
@@ -92,9 +99,9 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            <CheckCircle2 size={13} color="var(--color-pos)" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid #E5E7EB' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.76rem', color: '#6B7280' }}>
+            <CheckCircle2 size={14} style={{ color: '#10B981' }} />
             <span>Includes 100% verified customer verbatim citations</span>
           </div>
 
@@ -104,10 +111,10 @@ export const TicketModal: React.FC<Props> = ({ isOpen, onClose, ticket }) => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              background: copied ? 'var(--color-pos)' : '#fafafa',
-              color: copied ? '#fff' : '#09090b',
+              padding: '9px 18px',
+              borderRadius: '999px',
+              backgroundColor: copied ? '#10B981' : '#0F382E',
+              color: '#FFFFFF',
               border: 'none',
               fontWeight: 600,
               fontSize: '0.82rem',
