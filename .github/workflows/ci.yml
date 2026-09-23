@@ -25,8 +25,11 @@ jobs:
           pip install -r backend/requirements.txt
 
       - name: Run Backend Smoke Test
+        working-directory: ./backend
+        env:
+          PYTHONPATH: .
         run: |
-          python -c "from backend.app.api.routes import initialize_domain, state; print('Backend ML pipeline operational!')"
+          python -c "from app.api.routes import initialize_domain, state; print('Backend ML pipeline operational!')"
 
   frontend-validation:
     name: Frontend TypeScript & Build Test
