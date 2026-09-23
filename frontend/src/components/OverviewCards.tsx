@@ -10,7 +10,15 @@ interface Props {
 export const OverviewCards: React.FC<Props> = ({ metrics }) => {
   if (!metrics) return null;
 
-  const neutralRate = Math.max(0, 100 - metrics.positive_rate - metrics.negative_rate);
+  const formatRate = (rate: number) => {
+    const rounded = Math.round(rate * 10) / 10;
+    return `${rounded}%`;
+  };
+
+  const neutralRate = Math.max(
+    0,
+    Math.round((100 - metrics.positive_rate - metrics.negative_rate) * 10) / 10
+  );
 
   const cards = [
     {
@@ -26,7 +34,7 @@ export const OverviewCards: React.FC<Props> = ({ metrics }) => {
     },
     {
       title: 'Positive Sentiment',
-      value: `${metrics.positive_rate}%`,
+      value: formatRate(metrics.positive_rate),
       change: '8%',
       isPositive: true,
       arrow: ArrowUp,
@@ -37,7 +45,7 @@ export const OverviewCards: React.FC<Props> = ({ metrics }) => {
     },
     {
       title: 'Neutral',
-      value: `${neutralRate}%`,
+      value: formatRate(neutralRate),
       change: '4%',
       isPositive: false,
       arrow: ArrowDown,
@@ -48,7 +56,7 @@ export const OverviewCards: React.FC<Props> = ({ metrics }) => {
     },
     {
       title: 'Negative',
-      value: `${metrics.negative_rate}%`,
+      value: formatRate(metrics.negative_rate),
       change: '4%',
       isPositive: false,
       arrow: ArrowDown,

@@ -28,14 +28,14 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
 
   return (
     <aside style={{
-      width: '240px',
-      minWidth: '240px',
+      width: '200px',
+      minWidth: '200px',
       backgroundColor: '#FFFFFF',
       borderRight: '1px solid #E8ECE9',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'space-between',
-      padding: '24px 16px',
+      padding: '20px 12px',
       height: '100vh',
       position: 'sticky',
       top: 0,
@@ -43,16 +43,16 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
     }}>
       <div>
         {/* Brand Logo */}
-        <div style={{ padding: '4px 10px 24px 10px' }}>
+        <div style={{ padding: '4px 6px 22px 6px' }}>
           <img 
             src="/insight-logo.png" 
             alt="InSight - Real Feedback. Real Insights." 
-            style={{ height: '32px', width: 'auto', display: 'block', objectFit: 'contain' }}
+            style={{ height: '28px', width: 'auto', display: 'block', objectFit: 'contain' }}
           />
         </div>
 
         {/* Navigation List */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
@@ -63,14 +63,14 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '10px',
                   width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
                   border: 'none',
                   backgroundColor: isActive ? '#E6F7F0' : 'transparent',
                   color: isActive ? '#065F46' : '#4B5563',
-                  fontSize: '0.86rem',
+                  fontSize: '0.84rem',
                   fontWeight: isActive ? 600 : 500,
                   cursor: 'pointer',
                   textAlign: 'left',
@@ -89,7 +89,7 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
                   }
                 }}
               >
-                <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} style={{ color: isActive ? '#10B981' : '#6B7280' }} />
+                <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} style={{ color: isActive ? '#10B981' : '#6B7280' }} />
                 <span>{item.label}</span>
               </button>
             );
@@ -103,24 +103,24 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
           backgroundColor: '#F0FDF4',
           border: '1px solid #D1FAE5',
           borderRadius: '12px',
-          padding: '16px',
+          padding: '14px',
           position: 'relative'
         }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '28px',
-            height: '28px',
-            borderRadius: '8px',
+            width: '26px',
+            height: '26px',
+            borderRadius: '6px',
             backgroundColor: '#DCFCE7',
             color: '#10B981',
-            marginBottom: '10px'
+            marginBottom: '8px'
           }}>
-            <Sparkles size={16} />
+            <Sparkles size={15} />
           </div>
           <p style={{
-            fontSize: '0.82rem',
+            fontSize: '0.78rem',
             fontWeight: 700,
             color: '#065F46',
             lineHeight: 1.35,
@@ -129,8 +129,8 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
             Turn feedback into better products.
           </p>
           <div style={{
-            width: '24px',
-            height: '4px',
+            width: '20px',
+            height: '3px',
             borderRadius: '999px',
             backgroundColor: '#10B981'
           }} />
