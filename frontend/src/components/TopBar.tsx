@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Calendar, Bell, ChevronDown, Database, Upload, ShieldCheck } from 'lucide-react';
+import { Search, Calendar, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3 } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 
 interface TopBarProps {
@@ -133,6 +133,32 @@ export function TopBar({
             <span>88.2% Trust</span>
           </button>
         )}
+
+        {/* Power BI Live Connector Bridge */}
+        <a
+          href="http://localhost:8000/api/export/powerbi"
+          download
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 12px',
+            borderRadius: '999px',
+            border: '1px solid #FDE68A',
+            backgroundColor: '#FFFBEB',
+            color: '#92400E',
+            fontSize: '0.78rem',
+            fontWeight: 600,
+            textDecoration: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease'
+          }}
+          title="Download live relational telemetry dataset formatted for Microsoft Power BI"
+        >
+          <BarChart3 size={14} style={{ color: '#D97706' }} />
+          <span>Power BI Feed</span>
+        </a>
+
         {/* Domain Switcher */}
         <div style={{ position: 'relative' }}>
           <button

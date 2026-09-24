@@ -1,29 +1,65 @@
 import { ArrowRight } from 'lucide-react';
+import type { KeywordCloudItem } from '../types/telemetry';
 
 interface KeywordCloudProps {
+  keywords?: KeywordCloudItem[];
   onSelectWord?: (word: string) => void;
   onViewAll?: () => void;
 }
 
-export function KeywordCloud({ onSelectWord, onViewAll }: KeywordCloudProps) {
-  const keywords = [
-    { text: 'barcode', size: '0.85rem', color: '#6EE7B7', weight: 600, top: '12%', left: '16%' },
-    { text: 'dark', size: '1.25rem', color: '#D97706', weight: 700, top: '8%', left: '48%' },
-    { text: 'dark mode', size: '0.88rem', color: '#475569', weight: 500, top: '14%', left: '72%' },
-    { text: 'update', size: '1.2rem', color: '#334155', weight: 600, top: '32%', left: '6%' },
-    { text: 'love', size: '2.5rem', color: '#0F382E', weight: 800, top: '24%', left: '42%' },
-    { text: 'price', size: '1.1rem', color: '#16A34A', weight: 600, top: '34%', left: '80%' },
-    { text: 'login', size: '1.35rem', color: '#065F46', weight: 700, top: '48%', left: '12%' },
-    { text: 'crash', size: '2.4rem', color: '#EF4444', weight: 800, top: '50%', left: '40%' },
-    { text: 'slow', size: '1.4rem', color: '#DC2626', weight: 700, top: '46%', left: '78%' },
-    { text: 'ui', size: '1.3rem', color: '#059669', weight: 700, top: '68%', left: '10%' },
-    { text: 'great', size: '1.25rem', color: '#64748B', weight: 600, top: '60%', left: '78%' },
-    { text: 'feature', size: '1.35rem', color: '#0F766E', weight: 700, top: '74%', left: '26%' },
-    { text: 'payment', size: '1.15rem', color: '#94A3B8', weight: 500, top: '72%', left: '56%' },
-    { text: 'amazing', size: '0.85rem', color: '#94A3B8', weight: 500, top: '88%', left: '14%' },
-    { text: 'suggestion', size: '0.82rem', color: '#94A3B8', weight: 500, top: '88%', left: '46%' },
-    { text: 'premium', size: '0.82rem', color: '#94A3B8', weight: 500, top: '88%', left: '76%' },
-  ];
+const DEFAULT_SLOTS = [
+  { top: '12%', left: '16%' },
+  { top: '8%', left: '48%' },
+  { top: '14%', left: '72%' },
+  { top: '32%', left: '6%' },
+  { top: '24%', left: '42%' },
+  { top: '34%', left: '80%' },
+  { top: '48%', left: '12%' },
+  { top: '50%', left: '40%' },
+  { top: '46%', left: '78%' },
+  { top: '68%', left: '10%' },
+  { top: '60%', left: '78%' },
+  { top: '74%', left: '26%' },
+  { top: '72%', left: '56%' },
+  { top: '88%', left: '14%' },
+  { top: '88%', left: '46%' },
+  { top: '88%', left: '76%' },
+];
+
+const FALLBACK_KEYWORDS = [
+  { text: 'irritation', size: '1.25rem', color: '#EF4444', weight: 800 },
+  { text: 'dropper', size: '1.4rem', color: '#D97706', weight: 700 },
+  { text: 'hydrating', size: '2.4rem', color: '#0F382E', weight: 800 },
+  { text: 'texture', size: '1.2rem', color: '#334155', weight: 600 },
+  { text: 'glowing', size: '1.8rem', color: '#059669', weight: 700 },
+  { text: 'cracked', size: '1.3rem', color: '#DC2626', weight: 700 },
+  { text: 'delivery', size: '1.15rem', color: '#475569', weight: 500 },
+  { text: 'sunscreen', size: '1.35rem', color: '#0F766E', weight: 700 },
+  { text: 'burning', size: '1.5rem', color: '#EF4444', weight: 800 },
+  { text: 'gentle', size: '1.1rem', color: '#16A34A', weight: 600 },
+  { text: 'fragrance', size: '0.9rem', color: '#94A3B8', weight: 500 },
+  { text: 'packaging', size: '1.35rem', color: '#065F46', weight: 700 },
+  { text: 'dermatitis', size: '1.1rem', color: '#EF4444', weight: 700 },
+  { text: 'fast shipping', size: '0.85rem', color: '#6EE7B7', weight: 600 },
+  { text: 'repurchase', size: '0.88rem', color: '#475569', weight: 500 },
+  { text: 'formula', size: '0.82rem', color: '#94A3B8', weight: 500 },
+];
+
+export function KeywordCloud({ keywords, onSelectWord, onViewAll }: KeywordCloudProps) {
+  const activeKeywords = keywords && keywords.length > 0
+    ? keywords.slice(0, 16).map((k, i) => ({
+        text: k.text,
+        size: k.size || '1.1rem',
+        color: k.color || '#0F382E',
+        weight: k.weight || 600,
+        top: DEFAULT_SLOTS[i % DEFAULT_SLOTS.length].top,
+        left: DEFAULT_SLOTS[i % DEFAULT_SLOTS.length].left
+      }))
+    : FALLBACK_KEYWORDS.map((k, i) => ({
+        ...k,
+        top: DEFAULT_SLOTS[i].top,
+        left: DEFAULT_SLOTS[i].left
+      }));
 
   return (
     <div className="dashboard-card" style={{ padding: '22px 24px', flex: 1 }}>
@@ -65,7 +101,7 @@ export function KeywordCloud({ onSelectWord, onViewAll }: KeywordCloudProps) {
         border: '1px dashed #E5E8E5',
         overflow: 'hidden'
       }}>
-        {keywords.map((kw, i) => (
+        {activeKeywords.map((kw, i) => (
           <span
             key={i}
             onClick={() => onSelectWord && onSelectWord(kw.text)}

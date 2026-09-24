@@ -13,12 +13,14 @@ Modern product teams — whether scaling D2C consumer brands (like **L'Oréal**,
 **InSight** is an enterprise-grade feedback telemetry platform that turns 10,000+ unstructured reviews into actionable engineering and product decisions in seconds.
 
 Unlike naive LLM wrappers or static dashboards, InSight pairs:
-1. **Mathematical Ground-Truth Validation** via supervised calibrated sentiment classification.
-2. **Unsupervised Zero-Day Complaint Discovery** using dense semantic clustering to surface unknown defects without predefined taxonomies.
-3. **100% Verbatim Traceability** connecting every metric back to anonymized customer quotes.
-4. **Enterprise PII Scrubbing** protecting customer identity, payment details, phone numbers, and addresses.
-5. **Statistical Temporal & Batch Drift Monitoring** utilizing Population Stability Index (PSI) to trigger automated anomaly alerts across product batches or app releases.
-6. **Closed-Loop Actionability**: One-click generation of structured Jira/GitHub bug reports and Manufacturing QA Incident tickets.
+1. **Omni-Corpus Clause-Level Complaint Extraction**: Scans every review regardless of star rating (1★ to 5★) using contrastive linguistic parsing to isolate specific defect spans from surrounding praise.
+2. **Four-Tier Operational Severity Matrix (P0 to P3)**: Automatically categorizes complaints into P0 (Harm/Crash), P1 (Blocker), P2 (Degradation), and P3 (Minor).
+3. **Dense Semantic Embedding & Non-Parametric Clustering**: Uses contrastive sentence embeddings (`all-MiniLM-L6-v2`) and HDBSCAN to surface uncatalogued zero-day defects and maintain a zero-day outlier radar.
+4. **Mathematical Ground-Truth Validation**: Evaluated on 1,000 human-annotated gold-standard reviews with Platt scaling, 3×3 confusion matrix, macro-F1, and Brier calibration score.
+5. **100% Verbatim Traceability & Span Highlighting**: Direct drilldown from any metric card into customer verbatims with highlighted trigger spans.
+6. **Zero-Trust Enterprise PII Scrubbing**: Masks customer names, phone numbers, delivery addresses, order numbers, and Luhn-validated payment cards with a cryptographic HMAC vault.
+7. **Statistical Causal Attribution & Drift Monitoring**: Couples Population Stability Index (PSI) with Relative Risk ($RR$) and Fisher's Exact Test to trigger automated regression alerts when a defect spikes in a new release or manufacturing lot.
+8. **Closed-Loop Actionability**: One-click generation of structured Jira/GitHub bug reports and Manufacturing QA Incident tickets with customer citation audit trails.
 
 ---
 
@@ -93,6 +95,10 @@ Unlike naive LLM wrappers or static dashboards, InSight pairs:
 ```
 InSight/
 ├── README.md                 # System overview, quickstart, and feature guide
+├── docs/
+│   ├── DEPLOYMENT_PLAN.md    # Azure SWA + Container Apps + budget architecture (<$2.00)
+│   ├── ANALYTICS_PLAN.md     # Power BI live connector, star schema & DAX measures
+│   └── NLP_ARCHITECTURE.md   # Transformer NLP, ONNX embeddings, UMAP+HDBSCAN, c-TF-IDF
 ├── ARCHITECTURE.md           # Deep dive into ML pipelines, drift math, and schemas
 ├── ENTERPRISE_CRITERIA.md    # Detailed mapping against enterprise evaluation rubric
 │

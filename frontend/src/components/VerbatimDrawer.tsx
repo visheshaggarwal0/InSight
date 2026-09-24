@@ -257,10 +257,40 @@ export const VerbatimDrawer: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {/* Review Text */}
-                <p style={{ fontSize: '0.84rem', color: '#1F2937', lineHeight: '1.5', fontWeight: 450 }}>
-                  {r.display_text}
-                </p>
+                {/* Review Text with Clause Span Highlighting */}
+                <div style={{ fontSize: '0.84rem', color: '#1F2937', lineHeight: '1.5', fontWeight: 450 }}>
+                  {r.highlight_span && r.highlight_span.text && r.display_text.includes(r.highlight_span.text) ? (
+                    (() => {
+                      const text = r.display_text;
+                      const spanText = r.highlight_span.text;
+                      const idx = text.indexOf(spanText);
+                      const before = text.slice(0, idx);
+                      const after = text.slice(idx + spanText.length);
+                      const isNegative = r.sentiment_pred === 'NEGATIVE';
+                      return (
+                        <p style={{ margin: 0 }}>
+                          {before}
+                          <mark
+                            style={{
+                              backgroundColor: isNegative ? '#FEE2E2' : '#FEF3C7',
+                              color: isNegative ? '#991B1B' : '#92400E',
+                              padding: '2px 4px',
+                              borderRadius: '4px',
+                              fontWeight: 600,
+                              borderBottom: `2px solid ${isNegative ? '#EF4444' : '#F59E0B'}`
+                            }}
+                            title="Linguistic Defect Span (Contrastive Clause)"
+                          >
+                            {spanText}
+                          </mark>
+                          {after}
+                        </p>
+                      );
+                    })()
+                  ) : (
+                    <p style={{ margin: 0 }}>{r.display_text}</p>
+                  )}
+                </div>
 
                 {/* Footer */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #F3F4F6' }}>

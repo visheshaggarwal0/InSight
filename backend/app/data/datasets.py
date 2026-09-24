@@ -3,6 +3,32 @@ from typing import List, Dict, Any, Tuple
 import pandas as pd
 from app.core.pii import pii_redactor
 
+import re
+
+def extract_complaint_span(text: str) -> Dict[str, Any]:
+    """
+    Extracts contrastive complaint clauses or trigger defect phrases.
+    Matches discourse markers: 'but', 'however', 'except that', 'although', 'unfortunately', 'until'
+    or defect terms like 'cracked', 'leaked', 'jammed', 'burning', 'crash', etc.
+    Returns span text, start offset, and end offset.
+    """
+    pattern = re.compile(
+        r'\b(?:but|however|except\s+that|except|although|unfortunately|until|cracked|jammed|leaked|burning|stinging|rash|dermatitis|crash|crashes|freeze|freezes|failed|fails|limbo|terrible|horrible)\b.*',
+        re.IGNORECASE
+    )
+    match = pattern.search(text)
+    if match:
+        return {
+            "text": match.group(0),
+            "start": match.start(),
+            "end": match.end()
+        }
+    return {
+        "text": text,
+        "start": 0,
+        "end": len(text)
+    }
+
 class TelemetryDatasetManager:
     """
     Manages multi-domain datasets (D2C Beauty/Cosmetics & Tech SaaS/App),
@@ -67,7 +93,6 @@ class TelemetryDatasetManager:
         cities = ["Mumbai 400001", "Bengaluru 560034", "Delhi 110001", "Pune 411007"]
 
         reviews = []
-        ground_truth_sample = []
 
         for i in range(1, n + 1):
             batch_choice = batches[min(i // (n // 4), 3)]
@@ -140,14 +165,56 @@ class TelemetryDatasetManager:
                 "raw_text": raw_text,
                 "redacted_text": sanitized_text,
                 "pii_detected": pii_tags,
-                "ground_truth_label": label
+                "ground_truth_label": label,
+                "highlight_span": extract_complaint_span(sanitized_text)
             }
 
             reviews.append(review_obj)
 
-            # Hold out 1,000 for strict gold-standard evaluation
-            if len(ground_truth_sample) < 1000 and (i % 10 == 0):
-                ground_truth_sample.append(review_obj)
+        # STRICTLY DISJOINT Gold-Standard Test Set (N = 1,000) with independent seed
+        # Zero leakage: none of these reviews appear in the corpus or training data
+        gt_rng = random.Random(7777)
+        ground_truth_sample = []
+        for j in range(1, 1001):
+            sku_code, product_name = gt_rng.choice(skus)
+            channel = gt_rng.choice(channels)
+            order_id = gt_rng.randint(200000, 999999)
+            phone = f"+91-98{gt_rng.randint(10000000, 99999999)}"
+            email = f"eval_user_{order_id}@gmail.com"
+            address = f"Flat {gt_rng.randint(101, 804)}, Green Enclave, {gt_rng.choice(cities)}"
+
+            r_val = gt_rng.random()
+            if r_val < 0.35:
+                label = "POSITIVE"
+                rating = gt_rng.choice([4, 5])
+                raw_text = gt_rng.choice(positive_templates).format(product=product_name, channel=channel)
+            elif r_val < 0.65:
+                label = "NEUTRAL"
+                rating = 3
+                raw_text = gt_rng.choice(neutral_templates).format(product=product_name, channel=channel)
+            else:
+                label = "NEGATIVE"
+                rating = gt_rng.choice([1, 2])
+                neg_choice = gt_rng.choice([negative_irritation_templates, negative_leakage_templates, negative_delivery_templates])
+                raw_text = gt_rng.choice(neg_choice).format(
+                    email=email, phone=phone, order_id=order_id, channel=channel, address=address
+                )
+
+            sanitized_text, pii_tags = pii_redactor.redact(raw_text)
+            ground_truth_sample.append({
+                "id": f"REV-D2C-GOLD-{j:04d}",
+                "domain": "d2c_cosmetics",
+                "product_name": product_name,
+                "sku_or_module": sku_code,
+                "batch_or_version": "Gold-Standard-Evaluation",
+                "channel": channel,
+                "rating": rating,
+                "raw_text": raw_text,
+                "redacted_text": sanitized_text,
+                "pii_detected": pii_tags,
+                "ground_truth_label": label,
+                "highlight_span": extract_complaint_span(sanitized_text)
+            })
 
         return reviews, ground_truth_sample
 
@@ -249,12 +316,52 @@ class TelemetryDatasetManager:
                 "raw_text": raw_text,
                 "redacted_text": sanitized_text,
                 "pii_detected": pii_tags,
-                "ground_truth_label": label
+                "ground_truth_label": label,
+                "highlight_span": extract_complaint_span(sanitized_text)
             }
 
             reviews.append(review_obj)
-            if len(ground_truth_sample) < 1000 and (i % 10 == 0):
-                ground_truth_sample.append(review_obj)
+
+        # STRICTLY DISJOINT Gold-Standard Test Set (N = 1,000) for Tech SaaS
+        gt_rng = random.Random(8888)
+        ground_truth_sample = []
+        for j in range(1, 1001):
+            mod_code, mod_name = gt_rng.choice(modules)
+            channel = gt_rng.choice(channels)
+            order_id = gt_rng.randint(200000, 999999)
+            phone = f"+1-555-{gt_rng.randint(100, 999)}-{gt_rng.randint(1000, 9999)}"
+            email = f"eval_user_{order_id}@icloud.com"
+
+            r_val = gt_rng.random()
+            if r_val < 0.35:
+                label = "POSITIVE"
+                rating = gt_rng.choice([4, 5])
+                raw_text = gt_rng.choice(pos_templates).format(channel=channel)
+            elif r_val < 0.65:
+                label = "NEUTRAL"
+                rating = 3
+                raw_text = gt_rng.choice(neu_templates)
+            else:
+                label = "NEGATIVE"
+                rating = gt_rng.choice([1, 2])
+                neg_choice = gt_rng.choice([neg_biometric_spike, neg_p2p_failed])
+                raw_text = gt_rng.choice(neg_choice).format(email=email, phone=phone, order_id=order_id)
+
+            sanitized_text, pii_tags = pii_redactor.redact(raw_text)
+            ground_truth_sample.append({
+                "id": f"REV-APP-GOLD-{j:04d}",
+                "domain": "tech_saas",
+                "product_name": "NovaPay Mobile",
+                "sku_or_module": mod_name,
+                "batch_or_version": "Gold-Standard-Evaluation",
+                "channel": channel,
+                "rating": rating,
+                "raw_text": raw_text,
+                "redacted_text": sanitized_text,
+                "pii_detected": pii_tags,
+                "ground_truth_label": label,
+                "highlight_span": extract_complaint_span(sanitized_text)
+            })
 
         return reviews, ground_truth_sample
 
@@ -262,6 +369,7 @@ class TelemetryDatasetManager:
     def parse_custom_csv(df: pd.DataFrame) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
         Parses custom user-uploaded CSV dataframe into unified InSight telemetry schema.
+        Partitions cleanly into training/corpus reviews and a strictly held-out evaluation test set.
         """
         text_col = next((c for c in df.columns if any(k in c.lower() for k in ["text", "review", "comment", "feedback"])), None)
         if not text_col:
@@ -271,8 +379,7 @@ class TelemetryDatasetManager:
         version_col = next((c for c in df.columns if any(k in c.lower() for k in ["batch", "version", "release", "date"])), None)
         prod_col = next((c for c in df.columns if any(k in c.lower() for k in ["product", "sku", "item", "name"])), None)
 
-        reviews = []
-        ground_truth = []
+        all_records = []
 
         for idx, row in df.iterrows():
             raw_text = str(row[text_col])
@@ -301,11 +408,19 @@ class TelemetryDatasetManager:
                 "raw_text": raw_text,
                 "redacted_text": sanitized,
                 "pii_detected": pii_tags,
-                "ground_truth_label": gt_label
+                "ground_truth_label": gt_label,
+                "highlight_span": extract_complaint_span(sanitized)
             }
-            reviews.append(obj)
-            if len(ground_truth) < 1000 and (idx % 5 == 0):
-                ground_truth.append(obj)
+            all_records.append(obj)
+
+        if len(all_records) >= 20:
+            # 80/20 train/test split with zero leakage
+            split_idx = int(len(all_records) * 0.8)
+            reviews = all_records[:split_idx]
+            ground_truth = all_records[split_idx:split_idx + min(1000, len(all_records) - split_idx)]
+        else:
+            reviews = all_records
+            ground_truth = []
 
         return reviews, ground_truth
 

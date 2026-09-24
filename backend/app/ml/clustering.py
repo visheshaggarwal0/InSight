@@ -90,8 +90,10 @@ class SemanticThematicClusterer:
                     "id": r["id"],
                     "rating": r["rating"],
                     "text": r["redacted_text"],
+                    "raw_text": r.get("raw_text", r["redacted_text"]),
                     "batch_or_version": r.get("batch_or_version", "N/A"),
-                    "sku_or_module": r.get("sku_or_module", "N/A")
+                    "sku_or_module": r.get("sku_or_module", "N/A"),
+                    "highlight_span": r.get("highlight_span", None)
                 }
                 for r in c_reviews[:3]
             ]

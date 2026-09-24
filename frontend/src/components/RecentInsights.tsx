@@ -1,34 +1,35 @@
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
-import type { DriftData } from '../types/telemetry';
+import type { DriftData, DynamicInsightItem } from '../types/telemetry';
 
 interface RecentInsightsProps {
   driftData?: DriftData | null;
+  insights?: DynamicInsightItem[];
   onViewDrift?: () => void;
 }
 
-export function RecentInsights({ driftData, onViewDrift }: RecentInsightsProps) {
+export function RecentInsights({ driftData, insights, onViewDrift }: RecentInsightsProps) {
   const firstAlert = driftData?.alerts && driftData.alerts.length > 0 ? driftData.alerts[0] : null;
   const alertPsiScore = firstAlert ? `PSI ${firstAlert.psi_score.toFixed(2)}` : null;
 
-  const insights = [
+  const displayInsights = insights && insights.length > 0 ? insights : [
     {
-      title: 'Spike in negative reviews about login issues',
-      percent: '+48%',
-      period: 'in last 7 days',
+      title: firstAlert ? firstAlert.message : 'Spike in skin irritation complaints in Batch-24C',
+      percent: firstAlert ? `+${Math.round(firstAlert.psi_score * 100)}%` : '+48%',
+      period: firstAlert ? `in ${firstAlert.batch_or_version}` : 'in Batch-24C',
       isWarning: true,
       psiAlert: alertPsiScore
     },
     {
-      title: 'Increase in feature requests for dark mode',
-      percent: '+32%',
-      period: 'in last 14 days',
-      isWarning: false,
+      title: 'Packaging defect: dropper pipettes leaking on delivery',
+      percent: '62 reviews',
+      period: 'critical QA alert',
+      isWarning: true,
       psiAlert: null
     },
     {
-      title: 'Overall sentiment improved after v2.1.0 release',
-      percent: '+18%',
-      period: 'in last 30 days',
+      title: 'Overall customer satisfaction at 72% positive sentiment',
+      percent: '72%',
+      period: 'across all SKUs',
       isWarning: false,
       psiAlert: null
     },
@@ -68,7 +69,7 @@ export function RecentInsights({ driftData, onViewDrift }: RecentInsightsProps) 
 
       {/* Insight Items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-        {insights.map((item, idx) => (
+        {displayInsights.map((item, idx) => (
           <div
             key={idx}
             onClick={onViewDrift}

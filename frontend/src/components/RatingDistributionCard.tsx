@@ -1,10 +1,16 @@
-export function RatingDistributionCard() {
-  const ratings = [
-    { star: '1★', percent: 8, color: '#F87171' },
-    { star: '2★', percent: 6, color: '#FB923C' },
-    { star: '3★', percent: 12, color: '#FBBF24' },
-    { star: '4★', percent: 28, color: '#34D399' },
-    { star: '5★', percent: 46, color: '#059669' },
+import type { RatingDistributionItem } from '../types/telemetry';
+
+interface RatingDistributionCardProps {
+  ratings?: RatingDistributionItem[];
+}
+
+export function RatingDistributionCard({ ratings }: RatingDistributionCardProps) {
+  const displayRatings = ratings && ratings.length > 0 ? ratings : [
+    { star: '1★', percent: 8, color: '#F87171', count: 800 },
+    { star: '2★', percent: 6, color: '#FB923C', count: 600 },
+    { star: '3★', percent: 12, color: '#FBBF24', count: 1200 },
+    { star: '4★', percent: 28, color: '#34D399', count: 2800 },
+    { star: '5★', percent: 46, color: '#059669', count: 4600 },
   ];
 
   return (
@@ -27,7 +33,7 @@ export function RatingDistributionCard() {
         padding: '0 10px',
         position: 'relative'
       }}>
-        {ratings.map((r, i) => {
+        {displayRatings.map((r, i) => {
           // Normalize height relative to max 50%
           const barHeight = Math.max(14, (r.percent / 50) * 130);
 

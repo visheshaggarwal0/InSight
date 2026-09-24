@@ -6,6 +6,43 @@ export interface DatasetInfo {
   review_count: number;
 }
 
+export interface RatingDistributionItem {
+  star: string;
+  count: number;
+  percent: number;
+  color: string;
+}
+
+export interface SentimentSourceItem {
+  label: string;
+  pos: number;
+  neu: number;
+  neg: number;
+}
+
+export interface SentimentTrendPoint {
+  label: string;
+  pos: number;
+  neu: number;
+  neg: number;
+}
+
+export interface KeywordCloudItem {
+  text: string;
+  size?: string;
+  color?: string;
+  weight?: number;
+  count?: number;
+}
+
+export interface DynamicInsightItem {
+  title: string;
+  percent: string;
+  period: string;
+  isWarning: boolean;
+  psiAlert: string | null;
+}
+
 export interface OverviewMetrics {
   domain: string;
   total_reviews: number;
@@ -20,14 +57,25 @@ export interface OverviewMetrics {
   pii_redacted_rate: number;
   critical_themes_count: number;
   active_alerts: number;
+  rating_distribution?: RatingDistributionItem[];
+  sentiment_by_source?: SentimentSourceItem[];
+  sentiment_trend?: SentimentTrendPoint[];
+  keyword_cloud?: KeywordCloudItem[];
+  recent_insights?: DynamicInsightItem[];
 }
 
 export interface SampleVerbatim {
   id: string;
   rating: number;
   text: string;
+  raw_text?: string;
   batch_or_version: string;
   sku_or_module: string;
+  highlight_span?: {
+    text: string;
+    start: number;
+    end: number;
+  };
 }
 
 export interface ThemeCluster {
@@ -61,6 +109,11 @@ export interface VerbatimItem {
   sentiment_confidence: number;
   cluster_id: number;
   theme_title: string;
+  highlight_span?: {
+    text: string;
+    start: number;
+    end: number;
+  };
 }
 
 export interface DriftAlert {

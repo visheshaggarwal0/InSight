@@ -1,9 +1,15 @@
-export function SentimentBySource() {
-  const sources = [
-    { label: 'App Store', pos: 68, neu: 20, neg: 12 },
-    { label: 'Google Play', pos: 62, neu: 25, neg: 13 },
-    { label: 'Survey', pos: 78, neu: 15, neg: 7 },
-    { label: 'In-App', pos: 70, neu: 20, neg: 10 },
+import type { SentimentSourceItem } from '../types/telemetry';
+
+interface SentimentBySourceProps {
+  sources?: SentimentSourceItem[];
+}
+
+export function SentimentBySource({ sources }: SentimentBySourceProps) {
+  const displaySources = sources && sources.length > 0 ? sources : [
+    { label: 'Website', pos: 74, neu: 16, neg: 10 },
+    { label: 'Nykaa', pos: 68, neu: 20, neg: 12 },
+    { label: 'Amazon', pos: 62, neu: 22, neg: 16 },
+    { label: 'Blinkit', pos: 71, neu: 19, neg: 10 },
   ];
 
   return (
@@ -37,7 +43,7 @@ export function SentimentBySource() {
         height: '210px',
         padding: '0 8px'
       }}>
-        {sources.map((src, i) => (
+        {displaySources.map((src, i) => (
           <div
             key={i}
             style={{

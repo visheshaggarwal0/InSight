@@ -14,55 +14,69 @@ export function ExampleReviewsList({ themes, selectedClusterId, onViewAll }: Exa
   // If a cluster is selected, find its sample verbatims
   const selectedCluster = themes.find(t => t.cluster_id === selectedClusterId);
 
-  // Default reviews matching ChatGPT mockup
-  const defaultReviews = [
+  // Fallback telemetry reviews if themes are initializing
+  const fallbackTelemetryReviews = [
     {
-      id: 'rev-1',
+      id: 'REV-SAMPLE-01',
       rating: 5,
-      date: 'Sep 21, 2026',
-      maskedText: '“Love the new update! The app is so much faster now and the UI feels cleaner. Great work by [REDACTED_NAME]!”',
-      rawText: '“Love the new update! The app is so much faster now and the UI feels cleaner. Great work by Rohan Sharma!”',
+      date: 'Recent',
+      maskedText: '“Love the product formula! My skin has never looked better. Fast shipping by [REDACTED_NAME]!”',
+      rawText: '“Love the product formula! My skin has never looked better. Fast shipping by Rohan Sharma!”',
       tags: [
-        { label: 'App Performance', bg: '#EFF6FF', text: '#1D4ED8' },
-        { label: 'UI / UX', bg: '#ECFDF5', text: '#065F46' }
+        { label: 'Formulation', bg: '#EFF6FF', text: '#1D4ED8' },
+        { label: 'Direct Store', bg: '#ECFDF5', text: '#065F46' }
       ]
     },
     {
-      id: 'rev-2',
-      rating: 2,
-      date: 'Sep 20, 2026',
-      maskedText: '“The app keeps crashing when I try to upload a file from [REDACTED_PHONE]. Really frustrating as this used to work fine earlier.”',
-      rawText: '“The app keeps crashing when I try to upload a file from 9876543210. Really frustrating as this used to work fine earlier.”',
+      id: 'REV-SAMPLE-02',
+      rating: 1,
+      date: 'Recent',
+      maskedText: '“The pump arrived cracked and leaked inside the package. Contact me at [REDACTED_PHONE].”',
+      rawText: '“The pump arrived cracked and leaked inside the package. Contact me at +91-9876543210.”',
       tags: [
-        { label: 'Bugs & Crashes', bg: '#FEF2F2', text: '#991B1B' }
+        { label: 'Packaging Defect', bg: '#FEF2F2', text: '#991B1B' }
       ]
     },
     {
-      id: 'rev-3',
+      id: 'REV-SAMPLE-03',
       rating: 4,
-      date: 'Sep 19, 2026',
-      maskedText: '“Would be great to have a dark mode option. Otherwise, loving the product for order [REDACTED_ORDER]!”',
-      rawText: '“Would be great to have a dark mode option. Otherwise, loving the product for order #ORD-9912!”',
+      date: 'Recent',
+      maskedText: '“Great texture and fast absorption for order [REDACTED_ORDER_ID]! Would buy again.”',
+      rawText: '“Great texture and fast absorption for order #ORD-991204! Would buy again.”',
       tags: [
-        { label: 'Feature Request', bg: '#F0FDF4', text: '#065F46' }
+        { label: 'Product Quality', bg: '#F0FDF4', text: '#065F46' }
       ]
     }
   ];
 
-  // Dynamically map from selected cluster if present
+  // Collect dynamic reviews from active domain themes
+  const allClusterSamples = themes.flatMap((t) =>
+    (t.sample_verbatims || []).map((v) => ({
+      id: v.id,
+      rating: v.rating,
+      date: v.batch_or_version || 'Production',
+      maskedText: `“${v.text}”`,
+      rawText: `“${v.raw_text || v.text}”`,
+      tags: [
+        { label: t.title, bg: '#ECFDF5', text: '#065F46' },
+        { label: v.sku_or_module || 'Standard SKU', bg: '#F3F4F6', text: '#374151' }
+      ]
+    }))
+  );
+
   const displayReviews = selectedCluster && selectedCluster.sample_verbatims?.length > 0
     ? selectedCluster.sample_verbatims.slice(0, 3).map((v, i) => ({
         id: v.id || `sample-${i}`,
         rating: v.rating || 4,
-        date: 'Recent',
+        date: v.batch_or_version || 'Production',
         maskedText: `“${v.text}”`,
-        rawText: `“${v.text}”`,
+        rawText: `“${v.raw_text || v.text}”`,
         tags: [
           { label: selectedCluster.title, bg: '#ECFDF5', text: '#065F46' },
-          { label: v.batch_or_version || 'Production', bg: '#F3F4F6', text: '#374151' }
+          { label: v.sku_or_module || 'Standard SKU', bg: '#F3F4F6', text: '#374151' }
         ]
       }))
-    : defaultReviews;
+    : (allClusterSamples.length > 0 ? allClusterSamples.slice(0, 3) : fallbackTelemetryReviews);
 
   const renderStars = (count: number) => {
     return Array.from({ length: 5 }, (_, idx) => {

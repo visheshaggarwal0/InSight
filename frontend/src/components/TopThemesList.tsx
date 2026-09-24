@@ -9,7 +9,7 @@ interface TopThemesListProps {
 }
 
 export function TopThemesList({ themes, selectedClusterId, onSelectCluster, onViewAll }: TopThemesListProps) {
-  // Fallback themes matching the exact ChatGPT mockup if backend themes haven't loaded yet
+  // Baseline initial themes before dynamic clusters load
   const defaultThemes = [
     { id: 1, title: 'App Performance', count: 2341, percent: 23, color: '#0F382E', icon: Smartphone },
     { id: 2, title: 'Login & Authentication', count: 1842, percent: 18, color: '#10B981', icon: ShieldCheck },

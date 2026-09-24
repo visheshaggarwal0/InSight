@@ -1,23 +1,25 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import type { SentimentTrendPoint } from '../types/telemetry';
 
-export function SentimentTrendCard() {
-  const [granularity, setGranularity] = useState('Daily');
+interface SentimentTrendCardProps {
+  trendPoints?: SentimentTrendPoint[];
+}
+
+export function SentimentTrendCard({ trendPoints }: SentimentTrendCardProps) {
+  const [granularity, setGranularity] = useState('By Batch');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  // High fidelity curve points across 5 weeks
-  const dataPoints = [
-    { label: 'Aug 24', pos: 68, neu: 22, neg: 10 },
-    { label: 'Aug 28', pos: 65, neu: 24, neg: 11 },
-    { label: 'Aug 31', pos: 71, neu: 20, neg: 9 },
-    { label: 'Sep 4',  pos: 66, neu: 23, neg: 11 },
-    { label: 'Sep 7',  pos: 70, neu: 21, neg: 9 },
-    { label: 'Sep 11', pos: 68, neu: 23, neg: 9 },
-    { label: 'Sep 14', pos: 76, neu: 16, neg: 8 },
-    { label: 'Sep 18', pos: 70, neu: 21, neg: 9 },
-    { label: 'Sep 21', pos: 74, neu: 18, neg: 8 },
-  ];
+  // Dynamic curve points or fallback
+  const dataPoints: SentimentTrendPoint[] = trendPoints && trendPoints.length > 1
+    ? trendPoints
+    : [
+        { label: 'Batch-24A', pos: 72, neu: 18, neg: 10 },
+        { label: 'Batch-24B', pos: 70, neu: 20, neg: 10 },
+        { label: 'Batch-24C', pos: 35, neu: 15, neg: 50 },
+        { label: 'Batch-24D', pos: 68, neu: 21, neg: 11 },
+      ];
 
   // SVG dimensions
   const width = 540;
@@ -242,9 +244,9 @@ export function SentimentTrendCard() {
           padding: `0 ${paddingX}px`,
           marginTop: '6px'
         }}>
-          {['Aug 24', 'Aug 31', 'Sep 7', 'Sep 14', 'Sep 21'].map((lbl, idx) => (
+          {dataPoints.map((d, idx) => (
             <span key={idx} style={{ fontSize: '0.72rem', color: '#9CA3AF', fontWeight: 500 }}>
-              {lbl}
+              {d.label}
             </span>
           ))}
         </div>

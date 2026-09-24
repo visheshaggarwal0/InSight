@@ -231,8 +231,8 @@ export function App() {
 
               {/* Row 2: Charts (Sentiment Trend & Rating Distribution) */}
               <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                <SentimentTrendCard />
-                <RatingDistributionCard />
+                <SentimentTrendCard trendPoints={overview?.sentiment_trend} />
+                <RatingDistributionCard ratings={overview?.rating_distribution} />
               </div>
 
               {/* Row 3: Lists (Top Themes & Example Reviews with PII Toggle) */}
@@ -252,13 +252,15 @@ export function App() {
 
               {/* Row 4: Analytics Cards (Sentiment by Source, Keyword Cloud, Recent Insights) */}
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                <SentimentBySource />
+                <SentimentBySource sources={overview?.sentiment_by_source} />
                 <KeywordCloud
+                  keywords={overview?.keyword_cloud}
                   onSelectWord={handleSelectKeyword}
                   onViewAll={handleInspectAllVerbatims}
                 />
                 <RecentInsights
                   driftData={driftData}
+                  insights={overview?.recent_insights}
                   onViewDrift={() => setIsDriftModalOpen(true)}
                 />
               </div>
@@ -351,8 +353,8 @@ export function App() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
-                <SentimentTrendCard />
-                <RatingDistributionCard />
+                <SentimentTrendCard trendPoints={overview?.sentiment_trend} />
+                <RatingDistributionCard ratings={overview?.rating_distribution} />
               </div>
               <button
                 onClick={() => setIsGovernanceOpen(true)}
