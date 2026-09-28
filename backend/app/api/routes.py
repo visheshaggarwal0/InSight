@@ -91,9 +91,10 @@ def initialize_domain(domain: str):
     state.eval_results = cached["eval_results"]
     state.is_initialized = True
 
-# Pre-warm both primary domains on startup for instant zero-latency switching
-initialize_domain("d2c_cosmetics")
-DOMAIN_CACHE["tech_saas"] = compute_domain_artifacts("tech_saas")
+def ensure_initialized():
+    """Lazily ensures primary domain state is initialized on first request."""
+    if not state.is_initialized:
+        initialize_domain("d2c_cosmetics")
 
 class DomainSelectRequest(BaseModel):
     domain: str
@@ -103,6 +104,7 @@ class TicketRequest(BaseModel):
 
 @router.get("/datasets")
 def list_datasets():
+    ensure_initialized()
     return {
         "active_domain": state.active_domain,
         "available_domains": [
@@ -188,6 +190,7 @@ async def upload_custom_csv(file: UploadFile = File(...)):
 
 @router.get("/overview")
 def get_overview():
+    ensure_initialized()
     total = len(state.reviews)
     pos_count = sum(1 for r in state.reviews if r.get("sentiment_pred") == "POSITIVE")
     neu_count = sum(1 for r in state.reviews if r.get("sentiment_pred") == "NEUTRAL")
@@ -344,6 +347,7 @@ def get_overview():
 
 @router.get("/themes")
 def get_themes():
+    ensure_initialized()
     return {
         "themes": state.themes,
         "total_themes": len(state.themes)
@@ -359,6 +363,7 @@ def get_verbatims(
     search: Optional[str] = Query(None),
     show_raw_pii: bool = Query(False)
 ):
+    ensure_initialized()
     filtered = state.reviews
 
     if sentiment:
@@ -393,10 +398,12 @@ def get_verbatims(
 
 @router.get("/drift")
 def get_drift():
+    ensure_initialized()
     return state.drift_results
 
 @router.get("/governance")
 def get_model_governance():
+    ensure_initialized()
     return {
         "model_architecture": "Calibrated Logistic Regression (Platt Scaling) over Sublinear N-Gram TF-IDF",
         "evaluation": state.eval_results
@@ -404,6 +411,7 @@ def get_model_governance():
 
 @router.post("/ticket/generate")
 def generate_ticket(req: TicketRequest):
+    ensure_initialized()
     # Find matching theme
     theme = next((t for t in state.themes if t["cluster_id"] == req.cluster_id), None)
     if not theme:
