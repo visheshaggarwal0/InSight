@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, Calendar, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3 } from 'lucide-react';
+import { Search, Calendar, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
+import { useSession, signOut } from '../lib/auth-client';
 
 interface TopBarProps {
   searchQuery: string;
@@ -12,6 +13,7 @@ interface TopBarProps {
   timeRange: string;
   onChangeTimeRange: (range: string) => void;
   onOpenGovernance?: () => void;
+  onOpenAuth?: () => void;
 }
 
 export function TopBar({
@@ -23,10 +25,13 @@ export function TopBar({
   onUploadCsv,
   timeRange,
   onChangeTimeRange,
-  onOpenGovernance
+  onOpenGovernance,
+  onOpenAuth
 }: TopBarProps) {
   const [isDomainOpen, setIsDomainOpen] = useState(false);
   const [isDateOpen, setIsDateOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const session = useSession();
 
   const activeDatasetObj = datasets.find(d => d.id === activeDomain);
   const domainDisplayName = activeDatasetObj?.name
@@ -343,35 +348,110 @@ export function TopBar({
           }} />
         </div>
 
-        {/* User Pill */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          padding: '4px 12px 4px 4px',
-          borderRadius: '999px',
-          backgroundColor: '#F9FAFB',
-          border: '1px solid #E5E7EB'
-        }}>
-          <div style={{
-            width: '30px',
-            height: '30px',
-            borderRadius: '50%',
-            backgroundColor: '#0F382E',
-            color: '#FFFFFF',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '0.82rem',
-            fontWeight: 700
-          }}>
-            V
+        {/* Neon Auth User Pill / Login Trigger */}
+        {session?.data?.user ? (
+          <div style={{ position: 'relative' }}>
+            <div 
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '4px 12px 4px 4px',
+                borderRadius: '999px',
+                backgroundColor: '#F9FAFB',
+                border: '1px solid #E5E7EB',
+                cursor: 'pointer'
+              }}
+            >
+              <div style={{
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                backgroundColor: '#0F382E',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.82rem',
+                fontWeight: 700
+              }}>
+                {session.data.user.name ? session.data.user.name[0].toUpperCase() : 'U'}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
+                  {session.data.user.name || 'User'}
+                </span>
+                <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: 600 }}>Neon Auth</span>
+              </div>
+            </div>
+
+            {isUserMenuOpen && (
+              <div style={{
+                position: 'absolute',
+                right: 0,
+                top: '42px',
+                width: '190px',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '10px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #E5E7EB',
+                padding: '8px',
+                zIndex: 30
+              }}>
+                <div style={{ padding: '6px 8px', borderBottom: '1px solid #F3F4F6', marginBottom: '6px' }}>
+                  <div style={{ fontSize: '0.74rem', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {session.data.user.email}
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    await signOut();
+                    setIsUserMenuOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: '#FEF2F2',
+                    color: '#DC2626',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  <LogOut size={14} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>Vishesh</span>
-            <span style={{ fontSize: '0.68rem', color: '#6B7280' }}>Product Team</span>
-          </div>
-        </div>
+        ) : (
+          <button
+            onClick={onOpenAuth}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 16px',
+              borderRadius: '999px',
+              backgroundColor: '#0F382E',
+              color: '#FFFFFF',
+              border: 'none',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'background-color 0.15s ease'
+            }}
+          >
+            <LogIn size={14} />
+            <span>Sign In</span>
+          </button>
+        )}
       </div>
     </header>
   );
