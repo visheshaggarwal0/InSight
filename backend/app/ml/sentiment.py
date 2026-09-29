@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.calibration import CalibratedClassifierCV
