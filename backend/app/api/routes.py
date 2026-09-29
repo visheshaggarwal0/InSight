@@ -1,6 +1,7 @@
 import io
+import logging
 from typing import Optional, List
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Depends
 from pydantic import BaseModel
 import pandas as pd
 
@@ -8,8 +9,14 @@ from app.core.config import settings
 from app.data.datasets import dataset_manager
 from app.ml.sentiment import sentiment_model
 from app.ml.evaluation import evaluation_harness
-from app.ml.clustering import clusterer
+from app.ml.clustering import clusterer, transformer_encoder
 from app.ml.drift import drift_detector
+from app.core.database import SessionLocal, check_db_connection
+from app.core.auth import get_current_user_optional, AuthenticatedUser
+from app.services.db_service import db_service
+from app.models.schema import DomainModel, ThemeModel, ReviewModel, TicketModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -91,9 +98,10 @@ def initialize_domain(domain: str):
     state.eval_results = cached["eval_results"]
     state.is_initialized = True
 
-# Pre-warm both primary domains on startup for instant zero-latency switching
-initialize_domain("d2c_cosmetics")
-DOMAIN_CACHE["tech_saas"] = compute_domain_artifacts("tech_saas")
+def ensure_initialized():
+    """Lazily ensures primary domain state is initialized on first request."""
+    if not state.is_initialized:
+        initialize_domain("d2c_cosmetics")
 
 class DomainSelectRequest(BaseModel):
     domain: str
@@ -103,6 +111,7 @@ class TicketRequest(BaseModel):
 
 @router.get("/datasets")
 def list_datasets():
+    ensure_initialized()
     return {
         "active_domain": state.active_domain,
         "available_domains": [
@@ -188,6 +197,7 @@ async def upload_custom_csv(file: UploadFile = File(...)):
 
 @router.get("/overview")
 def get_overview():
+    ensure_initialized()
     total = len(state.reviews)
     pos_count = sum(1 for r in state.reviews if r.get("sentiment_pred") == "POSITIVE")
     neu_count = sum(1 for r in state.reviews if r.get("sentiment_pred") == "NEUTRAL")
@@ -344,6 +354,7 @@ def get_overview():
 
 @router.get("/themes")
 def get_themes():
+    ensure_initialized()
     return {
         "themes": state.themes,
         "total_themes": len(state.themes)
@@ -359,6 +370,7 @@ def get_verbatims(
     search: Optional[str] = Query(None),
     show_raw_pii: bool = Query(False)
 ):
+    ensure_initialized()
     filtered = state.reviews
 
     if sentiment:
@@ -393,10 +405,12 @@ def get_verbatims(
 
 @router.get("/drift")
 def get_drift():
+    ensure_initialized()
     return state.drift_results
 
 @router.get("/governance")
 def get_model_governance():
+    ensure_initialized()
     return {
         "model_architecture": "Calibrated Logistic Regression (Platt Scaling) over Sublinear N-Gram TF-IDF",
         "evaluation": state.eval_results
@@ -404,6 +418,7 @@ def get_model_governance():
 
 @router.post("/ticket/generate")
 def generate_ticket(req: TicketRequest):
+    ensure_initialized()
     # Find matching theme
     theme = next((t for t in state.themes if t["cluster_id"] == req.cluster_id), None)
     if not theme:
@@ -441,12 +456,105 @@ def generate_ticket(req: TicketRequest):
 2. Cross-reference quality control logs and packaging vendor batch specs.
 3. Validate automated unit tests and customer support response scripts.
 """
+    # Persist generated ticket to Neon PostgreSQL
+    ticket_id = None
+    try:
+        db = SessionLocal()
+        ticket_record = db_service.save_ticket(
+            db=db,
+            domain_id=state.active_domain,
+            cluster_id=req.cluster_id,
+            title=title,
+            severity=theme['severity'],
+            ticket_markdown=markdown,
+            ticket_type=ticket_type,
+            affected_field=affected_field,
+            affected_values=batches,
+            incident_volume=theme.get('review_count', 0)
+        )
+        ticket_id = ticket_record.id
+        db.close()
+    except Exception as e:
+        logger.warning(f"Could not persist ticket to database: {e}")
+
     return {
         "cluster_id": req.cluster_id,
+        "ticket_id": ticket_id,
         "title": title,
         "severity": theme['severity'],
         "ticket_markdown": markdown
     }
+
+@router.get("/tickets")
+def list_tickets(domain: Optional[str] = None):
+    """Retrieves all generated triage tickets stored in Neon PostgreSQL."""
+    ensure_initialized()
+    try:
+        db = SessionLocal()
+        tickets = db_service.get_tickets(db, domain or state.active_domain)
+        db.close()
+        return {"tickets": tickets, "total": len(tickets)}
+    except Exception as e:
+        logger.error(f"Failed to fetch tickets: {e}")
+        return {"tickets": [], "total": 0, "error": str(e)}
+
+@router.get("/auth/me")
+def get_auth_me(user: Optional[AuthenticatedUser] = Depends(get_current_user_optional)):
+    """Returns the currently authenticated Neon Auth user, or unauthenticated status."""
+    if not user:
+        return {"authenticated": False, "user": None}
+    return {"authenticated": True, "user": user.to_dict()}
+
+@router.get("/db/status")
+def get_db_status():
+    """Returns connectivity, version, and record counts from Neon PostgreSQL."""
+    status = check_db_connection()
+    if status.get("connected"):
+        try:
+            db = SessionLocal()
+            status["domains_count"] = db.query(DomainModel).count()
+            status["themes_count"] = db.query(ThemeModel).count()
+            status["reviews_count"] = db.query(ReviewModel).count()
+            status["tickets_count"] = db.query(TicketModel).count()
+            db.close()
+        except Exception as e:
+            status["metrics_error"] = str(e)
+    return status
+
+class SemanticSearchRequest(BaseModel):
+    query: str
+    domain: Optional[str] = None
+    limit: Optional[int] = 10
+
+@router.post("/search/semantic")
+def search_semantic(req: SemanticSearchRequest):
+    """
+    Real-time semantic vector search using all-MiniLM-L6-v2 embeddings
+    and native pgvector cosine distance on Neon PostgreSQL.
+    """
+    ensure_initialized()
+    domain = req.domain or state.active_domain
+
+    if transformer_encoder is None:
+        raise HTTPException(
+            status_code=503,
+            detail="SentenceTransformer encoder is not loaded for vector search."
+        )
+
+    try:
+        query_vec = transformer_encoder.encode(req.query, normalize_embeddings=True).tolist()
+        db = SessionLocal()
+        matches = db_service.semantic_vector_search(db, domain, query_vec, limit=req.limit or 10)
+        db.close()
+        return {
+            "query": req.query,
+            "domain": domain,
+            "total_matches": len(matches),
+            "results": matches
+        }
+    except Exception as e:
+        logger.error(f"Semantic search error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Semantic search failed: {str(e)}")
 
 @router.get("/export/csv")
 @router.get("/export/powerbi")

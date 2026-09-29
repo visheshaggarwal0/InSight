@@ -3,6 +3,7 @@
 > **Team**: The Lookouts  
 > **Challenge**: 17. 10,000 Reviews, No Time to Read Them (Feedback & Review Analyzer)  
 > **Target Persona**: Product Managers, Quality Assurance Leads, Formulation & Packaging Teams, Support Operations  
+> **Official Engineering Monograph**: [InSight_Technical_Publication.pdf](file:///c:/Users/aggar/Documents/InSight/InSight_Technical_Publication.pdf) *(17 Canonical Pages, ReportLab PDF)*
 
 ---
 

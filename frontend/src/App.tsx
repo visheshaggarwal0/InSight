@@ -16,6 +16,7 @@ import { ModelGovernanceModal } from './components/ModelGovernanceModal';
 import { TicketModal } from './components/TicketModal';
 import { DriftTimeline } from './components/DriftTimeline';
 import { ThemeCard } from './components/ThemeCard';
+import { AuthModal } from './components/AuthModal';
 import type {
   DatasetInfo,
   OverviewMetrics,
@@ -49,6 +50,7 @@ export function App() {
   const [activeTicket, setActiveTicket] = useState<GeneratedTicket | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState<boolean>(false);
   const [isDriftModalOpen, setIsDriftModalOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   const loadAllData = async () => {
     setIsLoading(true);
@@ -204,6 +206,7 @@ export function App() {
           timeRange={timeRange}
           onChangeTimeRange={setTimeRange}
           onOpenGovernance={() => setIsGovernanceOpen(true)}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
         />
 
         {/* Global Loading Bar */}
@@ -486,6 +489,13 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* Neon Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={() => loadAllData()}
+      />
     </div>
   );
 }
