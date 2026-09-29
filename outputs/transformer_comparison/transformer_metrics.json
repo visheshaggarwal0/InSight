@@ -1,0 +1,40 @@
+{
+  "model_name": "cardiffnlp/twitter-roberta-base-sentiment-latest",
+  "model_source": "Hugging Face Hub (cardiffnlp/twitter-roberta-base-sentiment-latest)",
+  "task": "Zero-shot 3-class sentiment inference on Sephora cosmetics reviews",
+  "device": "cpu",
+  "inference_batch_size": 32,
+  "inference_duration_sec": 292.19,
+  "num_test_samples": 2000,
+  "label_mapping": {
+    "0": "negative",
+    "1": "neutral",
+    "2": "positive"
+  },
+  "accuracy": 0.866,
+  "macro_precision": 0.5948,
+  "macro_recall": 0.6412,
+  "macro_f1": 0.6021,
+  "weighted_f1": 0.8576,
+  "per_class": {
+    "negative": {
+      "precision": 0.5847,
+      "recall": 0.8627,
+      "f1": 0.697,
+      "support": 204
+    },
+    "neutral": {
+      "precision": 0.2533,
+      "recall": 0.1275,
+      "f1": 0.1696,
+      "support": 149
+    },
+    "positive": {
+      "precision": 0.9464,
+      "recall": 0.9332,
+      "f1": 0.9398,
+      "support": 1647
+    }
+  },
+  "target_specification": "weak_sentiment derived heuristically from star ratings (1-2 neg, 3 neu, 4-5 pos); proxy label, not human ground truth"
+}

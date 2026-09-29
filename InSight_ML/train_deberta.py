@@ -38,8 +38,10 @@ LABEL_MAP = {
 INV_LABEL_MAP = {v: k for k, v in LABEL_MAP.items()}
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DATASET_PATH = PROJECT_ROOT / "InSight_ML" / "data" / "processed" / "complaint_sentences_2k.json"
-OUTPUT_DIR = PROJECT_ROOT / "InSight_ML" / "outputs" / "deberta_extractor"
+_ds_candidate = PROJECT_ROOT / "data" / "processed" / "complaint_sentences_2k.json"
+DATASET_PATH = _ds_candidate if _ds_candidate.exists() else PROJECT_ROOT / "InSight_ML" / "data" / "processed" / "complaint_sentences_2k.json"
+_out_candidate = PROJECT_ROOT / "outputs" / "deberta_extractor"
+OUTPUT_DIR = _out_candidate if (PROJECT_ROOT / "outputs").exists() else PROJECT_ROOT / "InSight_ML" / "outputs" / "deberta_extractor"
 
 
 class SentenceDataset(Dataset):

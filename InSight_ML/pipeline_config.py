@@ -21,21 +21,21 @@ from pathlib import Path
 
 def _find_project_root() -> Path:
     """Locate the InSight project root directory."""
-    # Walk up from this file's location until we find a directory that
-    # contains both InSight_ML/ and backend/
     here = Path(__file__).resolve().parent
-    for candidate in [here, here.parent, here.parent.parent]:
-        if (candidate / "InSight_ML").is_dir() and (candidate / "backend").is_dir():
+    for candidate in [here, here.parent, here.parent.parent, here.parent.parent.parent]:
+        if (candidate / "backend").is_dir() and ((candidate / "data").is_dir() or (candidate / "InSight_ML").is_dir()):
             return candidate
-    # Fallback: use the directory of this file's parent
-    return here.parent
+    return here.parent.parent.parent
 
 
 PROJECT_ROOT: Path = Path(os.environ.get("INSIGHT_ROOT", str(_find_project_root())))
 
-# Configurable directory roots (defaults relative to PROJECT_ROOT)
-ARTIFACTS_ROOT: Path = Path(os.environ.get("INSIGHT_ARTIFACTS_DIR", str(PROJECT_ROOT / "InSight_ML" / "outputs")))
-DATASETS_ROOT: Path = Path(os.environ.get("INSIGHT_DATASETS_DIR", str(PROJECT_ROOT / "InSight_ML" / "data")))
+# Configurable directory roots (prefers root outputs/ and data/, falls back to InSight_ML/)
+_default_artifacts = PROJECT_ROOT / "outputs" if (PROJECT_ROOT / "outputs").is_dir() else PROJECT_ROOT / "InSight_ML" / "outputs"
+_default_datasets = PROJECT_ROOT / "data" if (PROJECT_ROOT / "data" / "processed").is_dir() else PROJECT_ROOT / "InSight_ML" / "data"
+
+ARTIFACTS_ROOT: Path = Path(os.environ.get("INSIGHT_ARTIFACTS_DIR", str(_default_artifacts)))
+DATASETS_ROOT: Path = Path(os.environ.get("INSIGHT_DATASETS_DIR", str(_default_datasets)))
 
 # Offline ML artifacts (produced by notebooks, committed to repository)
 ARTIFACTS = {

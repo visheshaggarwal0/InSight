@@ -1,0 +1,409 @@
+{
+  "clusters": [
+    {
+      "cluster_id": 4,
+      "title": "Dry & Work",
+      "keywords": [
+        "dry",
+        "work",
+        "unfortunately",
+        "lips",
+        "disappointed",
+        "gentle",
+        "cracked",
+        "hydrating"
+      ],
+      "sentence_count": 370,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=370. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "medoid_verbatim": "I was disappointed in this product because it feels greasy and I didn’t notice a difference in my skin.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-02507::S002",
+          "review_id": "REV-SEP-02507",
+          "source_row_index": 2508,
+          "sentence_text": "I was disappointed in this product because it feels greasy and I didn’t notice a difference in my skin.",
+          "start": 153,
+          "end": 256,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00045::S002",
+          "review_id": "REV-SEP-00045",
+          "source_row_index": 45,
+          "sentence_text": "I really like the key ingredients in this product but unfortunately it didn’t work with my picky skin.",
+          "start": 236,
+          "end": 338,
+          "confidence": 0.741
+        },
+        {
+          "sentence_id": "REV-SEP-00080::S000",
+          "review_id": "REV-SEP-00080",
+          "source_row_index": 80,
+          "sentence_text": "I really wanted to love this cleansing balm but sadly it’s a no from me.",
+          "start": 0,
+          "end": 72,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00094::S002",
+          "review_id": "REV-SEP-00094",
+          "source_row_index": 94,
+          "sentence_text": "My skin might need SOME restoring, but it’s not horrible.",
+          "start": 56,
+          "end": 113,
+          "confidence": 0.667
+        },
+        {
+          "sentence_id": "REV-SEP-00107::S004",
+          "review_id": "REV-SEP-00107",
+          "source_row_index": 107,
+          "sentence_text": "the reason for 4 stars instead of 5 is that i had some slight eye stinging but it was nothing compared to other face sunscreens i’ve tried.",
+          "start": 253,
+          "end": 392,
+          "confidence": 0.5
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 1,
+      "title": "Sensitive & Irritated",
+      "keywords": [
+        "sensitive",
+        "irritated",
+        "dry",
+        "allergic",
+        "irritation",
+        "red",
+        "itchy",
+        "reaction"
+      ],
+      "sentence_count": 307,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=307. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "medoid_verbatim": "I have extremely sensitive skin and this caused me to break out and made my skin irritated.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-06019::S001",
+          "review_id": "REV-SEP-06019",
+          "source_row_index": 6024,
+          "sentence_text": "I have extremely sensitive skin and this caused me to break out and made my skin irritated.",
+          "start": 86,
+          "end": 177,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00030::S002",
+          "review_id": "REV-SEP-00030",
+          "source_row_index": 30,
+          "sentence_text": "Hated the way it felt on my skin, and worst it didn’t improve my skin.",
+          "start": 153,
+          "end": 223,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00112::S000",
+          "review_id": "REV-SEP-00112",
+          "source_row_index": 112,
+          "sentence_text": "I had an allergic reaction to a vit c serum, which swelled my face and made it all red.",
+          "start": 0,
+          "end": 87,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00112::S003",
+          "review_id": "REV-SEP-00112",
+          "source_row_index": 112,
+          "sentence_text": "I’ve had allergic reactions to vit c before and could not save my skin before it became red and scaly and broken out.",
+          "start": 183,
+          "end": 300,
+          "confidence": 0.58
+        },
+        {
+          "sentence_id": "REV-SEP-00151::S011",
+          "review_id": "REV-SEP-00151",
+          "source_row_index": 151,
+          "sentence_text": "I have mildly sensitive skin, and even after a very light application - not rubbing in for the recommended 60 seconds - my skin was irritated.",
+          "start": 860,
+          "end": 1002,
+          "confidence": 0.5
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 3,
+      "title": "Waste & Disappointed",
+      "keywords": [
+        "waste",
+        "disappointed",
+        "work",
+        "return",
+        "waste money",
+        "unfortunately",
+        "money",
+        "packaging"
+      ],
+      "sentence_count": 305,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=305. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "medoid_verbatim": "Although their other products are great, this is a solid disappointment and waste of a lot of money.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-07168::S003",
+          "review_id": "REV-SEP-07168",
+          "source_row_index": 7177,
+          "sentence_text": "Although their other products are great, this is a solid disappointment and waste of a lot of money.",
+          "start": 208,
+          "end": 308,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00048::S003",
+          "review_id": "REV-SEP-00048",
+          "source_row_index": 48,
+          "sentence_text": "I’ve tried products more than twice the price of this that did not work as well!",
+          "start": 272,
+          "end": 352,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00055::S001",
+          "review_id": "REV-SEP-00055",
+          "source_row_index": 55,
+          "sentence_text": "I really wanted it to work and used this product for over 6 months with no results",
+          "start": 34,
+          "end": 116,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00082::S001",
+          "review_id": "REV-SEP-00082",
+          "source_row_index": 82,
+          "sentence_text": "I’ve never bought any Peter Thomas Roth products because I was always nervous about spending that much money with no results.",
+          "start": 51,
+          "end": 176,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00097::S000",
+          "review_id": "REV-SEP-00097",
+          "source_row_index": 97,
+          "sentence_text": "Product might not be bad at all but it just didn’t work for me.",
+          "start": 0,
+          "end": 63,
+          "confidence": 0.5
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 2,
+      "title": "Acne & Breakout",
+      "keywords": [
+        "acne",
+        "breakout",
+        "pores",
+        "breakouts",
+        "cystic",
+        "cystic acne",
+        "clogged pores",
+        "clogged"
+      ],
+      "sentence_count": 280,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=280. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "medoid_verbatim": "An employee recommended this product and I put it on my breakout areas ONLY (not whole face) and it dramatically reduced my acne over night..",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-02243::S002",
+          "review_id": "REV-SEP-02243",
+          "source_row_index": 2244,
+          "sentence_text": "An employee recommended this product and I put it on my breakout areas ONLY (not whole face) and it dramatically reduced my acne over night..",
+          "start": 146,
+          "end": 287,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00061::S000",
+          "review_id": "REV-SEP-00061",
+          "source_row_index": 61,
+          "sentence_text": "Literally works like a dream and noticeably decreases size and redness of pimples.",
+          "start": 0,
+          "end": 82,
+          "confidence": 0.513
+        },
+        {
+          "sentence_id": "REV-SEP-00078::S003",
+          "review_id": "REV-SEP-00078",
+          "source_row_index": 78,
+          "sentence_text": "I have combination skin that is acne prone and prone to redness and has hyperpigmentation from acne scars.",
+          "start": 188,
+          "end": 294,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00085::S001",
+          "review_id": "REV-SEP-00085",
+          "source_row_index": 85,
+          "sentence_text": "I tried on a pimple that had already broken and on pimples that are still well under the skin.",
+          "start": 48,
+          "end": 142,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00097::S002",
+          "review_id": "REV-SEP-00097",
+          "source_row_index": 97,
+          "sentence_text": "I gave it time for the breakout to clear and then I tried it again with the exact same results so I had to return it.",
+          "start": 214,
+          "end": 331,
+          "confidence": 0.513
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 5,
+      "title": "Smell & Disappointed",
+      "keywords": [
+        "smell",
+        "disappointed",
+        "horrible",
+        "awful",
+        "smells",
+        "broken",
+        "terrible",
+        "worst"
+      ],
+      "sentence_count": 214,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=214. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "medoid_verbatim": "The worst thing about this product, however, is the smell!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-01770::S004",
+          "review_id": "REV-SEP-01770",
+          "source_row_index": 1771,
+          "sentence_text": "The worst thing about this product, however, is the smell!",
+          "start": 255,
+          "end": 313,
+          "confidence": 0.667
+        },
+        {
+          "sentence_id": "REV-SEP-00033::S003",
+          "review_id": "REV-SEP-00033",
+          "source_row_index": 33,
+          "sentence_text": "The smells is subtle enough to not bother me yet still smells fresh.",
+          "start": 277,
+          "end": 345,
+          "confidence": 0.513
+        },
+        {
+          "sentence_id": "REV-SEP-00200::S005",
+          "review_id": "REV-SEP-00200",
+          "source_row_index": 200,
+          "sentence_text": "I’m so disappointed.",
+          "start": 480,
+          "end": 500,
+          "confidence": 1.0
+        },
+        {
+          "sentence_id": "REV-SEP-00208::S003",
+          "review_id": "REV-SEP-00208",
+          "source_row_index": 208,
+          "sentence_text": "I could feel that their was more in it but it was like it was clogged.",
+          "start": 123,
+          "end": 193,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00208::S005",
+          "review_id": "REV-SEP-00208",
+          "source_row_index": 208,
+          "sentence_text": "I ended up squeezing it until it exploded out.",
+          "start": 257,
+          "end": 303,
+          "confidence": 0.741
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 0,
+      "title": "Redness & Noticed",
+      "keywords": [
+        "redness",
+        "noticed",
+        "cheeks",
+        "acne",
+        "reduced",
+        "helped",
+        "redness cheeks",
+        "helps"
+      ],
+      "sentence_count": 211,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=211. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "medoid_verbatim": "It has also made a considerable difference in the redness in my skin.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-06682::S007",
+          "review_id": "REV-SEP-06682",
+          "source_row_index": 6688,
+          "sentence_text": "It has also made a considerable difference in the redness in my skin.",
+          "start": 416,
+          "end": 485,
+          "confidence": 0.513
+        },
+        {
+          "sentence_id": "REV-SEP-00013::S002",
+          "review_id": "REV-SEP-00013",
+          "source_row_index": 13,
+          "sentence_text": "But EUK 134 works faster and more effectively than anything else I’ve tried in reducing redness and hyperpigmentation.",
+          "start": 90,
+          "end": 208,
+          "confidence": 0.5
+        },
+        {
+          "sentence_id": "REV-SEP-00045::S000",
+          "review_id": "REV-SEP-00045",
+          "source_row_index": 45,
+          "sentence_text": "Had really high hopes for this spray for reducing redness and adding hydration.",
+          "start": 0,
+          "end": 79,
+          "confidence": 0.513
+        },
+        {
+          "sentence_id": "REV-SEP-00078::S005",
+          "review_id": "REV-SEP-00078",
+          "source_row_index": 78,
+          "sentence_text": "It seems my skins tendency for redness is diminished too.",
+          "start": 408,
+          "end": 465,
+          "confidence": 0.667
+        },
+        {
+          "sentence_id": "REV-SEP-00151::S012",
+          "review_id": "REV-SEP-00151",
+          "source_row_index": 151,
+          "sentence_text": "I left it on for the 10 minutes and ended up rinsing in cool water to try to ease the redness and itchiness.",
+          "start": 1004,
+          "end": 1112,
+          "confidence": 0.5
+        }
+      ],
+      "is_provisional": true
+    }
+  ],
+  "n_complaint_sentences": 1687,
+  "n_clusters_actual": 6,
+  "is_provisional": true,
+  "provisional_notices": [
+    "Complaint clusters are unsupervised (MiniLM + MiniBatchKMeans). Cluster labels are NOT human-annotated.",
+    "c-TF-IDF keywords are statistically distinctive within the complaint corpus but have not been validated as true root causes.",
+    "Cluster count k is heuristically determined. Optimal k requires human evaluation.",
+    "Sentence classification is heuristic (regex). No precision/recall measured against labelled complaint sentences."
+  ]
+}

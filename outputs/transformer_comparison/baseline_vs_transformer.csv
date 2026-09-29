@@ -1,0 +1,15 @@
+Metric,Baseline (TF-IDF + LogReg),Pretrained RoBERTa,Delta (RoBERTa - Baseline)
+Overall Accuracy,0.837,0.866,0.029
+Macro Precision,0.6028,0.5948,-0.008
+Macro Recall,0.658,0.6412,-0.0168
+Macro F1,0.6254,0.6021,-0.0233
+Weighted F1,0.8484,0.8576,0.0092
+Negative Precision,0.5477,0.5847,0.037
+Negative Recall,0.6471,0.8627,0.2156
+Negative F1,0.5933,0.697,0.1037
+Neutral Precision,0.3077,0.2533,-0.0544
+Neutral Recall,0.4295,0.1275,-0.302
+Neutral F1,0.3585,0.1696,-0.1889
+Positive Precision,0.9529,0.9464,-0.0065
+Positive Recall,0.8974,0.9332,0.0358
+Positive F1,0.9243,0.9398,0.0155

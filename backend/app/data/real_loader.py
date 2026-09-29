@@ -36,16 +36,17 @@ class RealDataLoader:
             os.environ.get("INSIGHT_ROOT"),
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
             os.getcwd(),
-            "/content/drive/MyDrive/InSight_ML",
-            "/content"
         ]
-        self.base_dir = next((c for c in candidates if c and os.path.exists(os.path.join(c, "InSight_ML"))), candidates[1])
+        self.base_dir = next((c for c in candidates if c and (os.path.exists(os.path.join(c, "data")) or os.path.exists(os.path.join(c, "InSight_ML")))), candidates[1])
 
     def resolve_path(self, relative_path: str) -> str:
         """Resolves relative file paths against candidate project root locations."""
+        alt_rel = relative_path.replace("InSight_ML/", "") if relative_path.startswith("InSight_ML/") else f"InSight_ML/{relative_path}"
         candidates = [
             os.path.join(self.base_dir, relative_path),
+            os.path.join(self.base_dir, alt_rel),
             os.path.join(os.getcwd(), relative_path),
+            os.path.join(os.getcwd(), alt_rel),
             os.path.join("..", relative_path),
             relative_path
         ]

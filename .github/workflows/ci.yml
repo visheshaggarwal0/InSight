@@ -7,8 +7,8 @@ on:
     branches: [ main, master ]
 
 jobs:
-  backend-validation:
-    name: Backend Lint & Smoke Test
+  backend-and-ml-validation:
+    name: Backend & ML Test Suite
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -18,11 +18,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install backend dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
 
       - name: Run Backend Smoke Test
         working-directory: ./backend
@@ -32,6 +34,14 @@ jobs:
           USE_DB_STORAGE: "false"
         run: |
           python -c "from app.api.routes import initialize_domain, state; initialize_domain('d2c_cosmetics'); print('Backend ML pipeline operational!')"
+
+      - name: Run Unified Test Suite (API, Data, ML)
+        env:
+          PYTHONPATH: . backend
+          DATABASE_URL: sqlite:///./test_ci.db
+          USE_DB_STORAGE: "false"
+        run: |
+          pytest tests/
 
   frontend-validation:
     name: Frontend TypeScript & Build Test
@@ -44,6 +54,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: ./frontend

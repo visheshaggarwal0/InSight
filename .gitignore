@@ -34,6 +34,12 @@ backend/app/data/cache/
 *.sqlite
 *.sqlite3
 
+# Except required offline ML model artifacts
+!outputs/sentiment_baseline/*.joblib
+!outputs/theme_detection/*.npy
+!InSight_ML/outputs/sentiment_baseline/*.joblib
+!InSight_ML/outputs/theme_detection/*.npy
+
 # Frontend Builds
 frontend/dist/
 frontend/dist-ssr/
@@ -62,6 +68,9 @@ Thumbs.db
 InSight_ML/data/raw/
 
 # Pipeline Run Outputs & Model Caches
+outputs/pipeline_runs/*_20*.json
+outputs/complaint_cluster_cache/
+outputs/deberta_extractor/
 InSight_ML/outputs/pipeline_runs/*_20*.json
 InSight_ML/outputs/complaint_cluster_cache/
 InSight_ML/outputs/deberta_extractor/
