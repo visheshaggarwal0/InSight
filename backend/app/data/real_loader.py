@@ -33,12 +33,13 @@ class RealDataLoader:
     def _find_base_dir(self):
         """Resolves project root directory dynamically across local and container environments."""
         candidates = [
+            os.environ.get("INSIGHT_ROOT"),
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
             os.getcwd(),
             "/content/drive/MyDrive/InSight_ML",
             "/content"
         ]
-        self.base_dir = next((c for c in candidates if os.path.exists(os.path.join(c, "InSight_ML"))), candidates[0])
+        self.base_dir = next((c for c in candidates if c and os.path.exists(os.path.join(c, "InSight_ML"))), candidates[1])
 
     def resolve_path(self, relative_path: str) -> str:
         """Resolves relative file paths against candidate project root locations."""

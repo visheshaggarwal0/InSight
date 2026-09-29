@@ -69,7 +69,14 @@ def _get_encoder():
         from sentence_transformers import SentenceTransformer
         logger.info("Loading SentenceTransformer '%s' for complaint clustering …", _MODEL_NAME)
         t0 = time.time()
-        _ENCODER = SentenceTransformer(_MODEL_NAME)
+        try:
+            _ENCODER = SentenceTransformer(_MODEL_NAME)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to load SentenceTransformer '{_MODEL_NAME}' for complaint clustering. "
+                f"If you are working offline, ensure the model has been downloaded once with an internet connection, "
+                f"or run 'python scripts/download_models.py'. Original error: {exc}"
+            ) from exc
         logger.info("  Model loaded in %.2fs", time.time() - t0)
     return _ENCODER
 

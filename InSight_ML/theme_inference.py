@@ -71,18 +71,26 @@ class ThemeInferenceEngine:
 
         # 3. Load SentenceTransformer model once
         t0 = time.time()
-        self.model = SentenceTransformer(self.model_name, device=self.device)
+        try:
+            self.model = SentenceTransformer(self.model_name, device=self.device)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to load sentence embedding model '{self.model_name}'. "
+                f"If you are working offline, the model must be downloaded once with an internet connection, "
+                f"or run 'python scripts/download_models.py'. Original error: {exc}"
+            ) from exc
         self.model_load_time_sec = round(time.time() - t0, 3)
 
     def _find_base_dir(self):
         """Finds project root dynamically."""
         candidates = [
-            os.getcwd(),
+            os.environ.get("INSIGHT_ROOT"),
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+            os.getcwd(),
             "/content/drive/MyDrive/InSight_ML",
             "/content"
         ]
-        self.base_dir = next((c for c in candidates if os.path.exists(os.path.join(c, "InSight_ML"))), candidates[0])
+        self.base_dir = next((c for c in candidates if c and os.path.exists(os.path.join(c, "InSight_ML"))), candidates[1])
 
     def _resolve_path(self, relative_path: str) -> str:
         """Resolves file path against project root candidates."""

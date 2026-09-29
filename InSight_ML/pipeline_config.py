@@ -33,22 +33,36 @@ def _find_project_root() -> Path:
 
 PROJECT_ROOT: Path = Path(os.environ.get("INSIGHT_ROOT", str(_find_project_root())))
 
-# Offline ML artifacts (produced by notebooks)
+# Configurable directory roots (defaults relative to PROJECT_ROOT)
+ARTIFACTS_ROOT: Path = Path(os.environ.get("INSIGHT_ARTIFACTS_DIR", str(PROJECT_ROOT / "InSight_ML" / "outputs")))
+DATASETS_ROOT: Path = Path(os.environ.get("INSIGHT_DATASETS_DIR", str(PROJECT_ROOT / "InSight_ML" / "data")))
+
+# Offline ML artifacts (produced by notebooks, committed to repository)
 ARTIFACTS = {
-    "sentiment_pipeline": PROJECT_ROOT / "InSight_ML" / "outputs" / "sentiment_baseline" / "sentiment_pipeline.joblib",
-    "cluster_assignments": PROJECT_ROOT / "InSight_ML" / "outputs" / "theme_detection" / "cluster_assignments.csv",
-    "cluster_representatives": PROJECT_ROOT / "InSight_ML" / "outputs" / "theme_detection" / "cluster_representatives.csv",
-    "theme_centroids": PROJECT_ROOT / "InSight_ML" / "outputs" / "theme_detection" / "theme_centroids.npy",
-    "minilm_embeddings": PROJECT_ROOT / "InSight_ML" / "outputs" / "theme_detection" / "minilm_embeddings.npy",
+    "sentiment_pipeline": ARTIFACTS_ROOT / "sentiment_baseline" / "sentiment_pipeline.joblib",
+    "cluster_assignments": ARTIFACTS_ROOT / "theme_detection" / "cluster_assignments.csv",
+    "cluster_representatives": ARTIFACTS_ROOT / "theme_detection" / "cluster_representatives.csv",
+    "theme_centroids": ARTIFACTS_ROOT / "theme_detection" / "theme_centroids.npy",
+    "minilm_embeddings": ARTIFACTS_ROOT / "theme_detection" / "minilm_embeddings.npy",
 }
 
 # Primary processed datasets
 DATASETS = {
-    "cosmetics_10k": PROJECT_ROOT / "InSight_ML" / "data" / "processed" / "cosmetics" / "cosmetics_10k.csv",
+    "cosmetics_10k": DATASETS_ROOT / "processed" / "cosmetics" / "cosmetics_10k.csv",
 }
 
 # Pipeline output directory
-PIPELINE_OUTPUT_DIR: Path = PROJECT_ROOT / "InSight_ML" / "outputs" / "pipeline_runs"
+PIPELINE_OUTPUT_DIR: Path = ARTIFACTS_ROOT / "pipeline_runs"
+
+
+def verify_artifacts() -> tuple[bool, dict[str, bool]]:
+    """Check that all required offline ML artifacts exist on disk.
+
+    Returns:
+        (all_present, {artifact_key: is_present})
+    """
+    status = {name: path.is_file() for name, path in ARTIFACTS.items()}
+    return all(status.values()), status
 
 # ---------------------------------------------------------------------------
 # Severity thresholds (PROVISIONAL – not statistically validated)
