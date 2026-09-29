@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api"
     DEFAULT_DATASET: str = "d2c_cosmetics"
     
-    # Neon / Azure PostgreSQL connection string (sourced from .env)
-    DATABASE_URL: Optional[str] = None
+    # Neon / Azure PostgreSQL connection string (sourced from .env, defaults to local SQLite)
+    DATABASE_URL: Optional[str] = "sqlite:///./insight_dev.db"
     USE_DB_STORAGE: bool = True
     
     # Vector Embeddings

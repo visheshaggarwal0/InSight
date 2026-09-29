@@ -28,8 +28,10 @@ jobs:
         working-directory: ./backend
         env:
           PYTHONPATH: .
+          DATABASE_URL: sqlite:///./test_smoke.db
+          USE_DB_STORAGE: "false"
         run: |
-          python -c "from app.api.routes import initialize_domain, state; print('Backend ML pipeline operational!')"
+          python -c "from app.api.routes import initialize_domain, state; initialize_domain('d2c_cosmetics'); print('Backend ML pipeline operational!')"
 
   frontend-validation:
     name: Frontend TypeScript & Build Test
