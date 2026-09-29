@@ -1,0 +1,572 @@
+[
+  {
+    "cluster_id": 2,
+    "title": "Acne, Breakouts & Skin Clearing Treatments",
+    "keywords": [
+      "skin",
+      "product",
+      "use",
+      "face",
+      "using",
+      "acne",
+      "love",
+      "like"
+    ],
+    "severity": "LOW",
+    "severity_note": "PROVISIONAL: severity=LOW based on neg_fraction=0.171 (threshold: critical≥0.35, high≥0.35, medium≥0.2, critical_min_vol=500). Thresholds not statistically validated for this domain.",
+    "review_count": 2778,
+    "sentiment_distribution": {
+      "NEGATIVE": 476,
+      "NEUTRAL": 267,
+      "POSITIVE": 2035
+    },
+    "negative_rate": 17.1,
+    "sample_verbatims": [
+      {
+        "id": "REV-SEP-00001",
+        "rating": 5,
+        "text": "I love this product! it works so well for people with oily/acne prone skin. It smells really nice, has a nice feel and my skin feels so soft for hours. Additionally, it doesn’t cause breakouts and it has salicylic acid, but it isn’t drying! so great! I received this product complementary for testing purchases and I can’t wait to purchase another one when this one is out!",
+        "batch_or_version": "2019-Q3",
+        "sku_or_module": "Origins - Clear Improvement Pore Clearing Moisturizer with Salicylic Acid",
+        "highlight_span": {
+          "detected": true,
+          "text": "but it isn’t drying! so great! I received this product complementary for testing purchases and I can’t wait to purchase another one when this one is out!",
+          "start": 220,
+          "end": 373,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00008",
+        "rating": 5,
+        "text": "I have large pores on my nose and my chin and always despised having them. I received Bye Bye Pores as a #freeproduct from Influenster, in exchange for my review and results. After using the product for only a few days, a visible improvement was noted. I’m now at the 2 week mark and very pleased with the results so far. Although some large pores won’t magically shrink, the product is very effective at exfoliating and removing any trapped dirt inside the pores. hence making them almost disappear. My nose and chin don’t have any black heads any longer, and I noticed the skin more bright and visibly clean. This is [REDACTED_NAME] a product to use on an on-going basis. It is fragrance-free and leaves no residue; you may sometimes feel a very slight tingle, but it means the glycolic acid is doing its job. I used it nighty.",
+        "batch_or_version": "2021-Q3",
+        "sku_or_module": "IT Cosmetics - Bye Bye Pores 10% Glycolic Acid Serum",
+        "highlight_span": {
+          "detected": true,
+          "text": "Although some large pores won’t magically shrink, the product is very effective at exfoliating and removing any trapped dirt inside the pores. hence making them almost disappear. My nose and chin don’t have any black heads any longer, and I noticed the skin more bright and visibly clean. This is [REDACTED_NAME] a product to use on an on-going basis. It is fragrance-free and leaves no residue; you may sometimes feel a very slight tingle, but it means the glycolic acid is doing its job. I used it nighty.",
+          "start": 322,
+          "end": 829,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00009",
+        "rating": 5,
+        "text": "My face feels and looks better after just a week of adding it to my morning routine. I can’t wait to see the results after a month!",
+        "batch_or_version": "2017-Q4",
+        "sku_or_module": "Sunday Riley - C.E.O. Vitamin C Brightening Rich Hydration Moisturizer",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00010",
+        "rating": 4,
+        "text": "Still have dry skin, but improved a bit.",
+        "batch_or_version": "2010-Q1",
+        "sku_or_module": "First Aid Beauty - Ultra Repair Cream Intense Hydration",
+        "highlight_span": {
+          "detected": true,
+          "text": "but improved a bit.",
+          "start": 21,
+          "end": 40,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00013",
+        "rating": 5,
+        "text": "This must be the most underrated skincare product on the planet. No one talks about this! But EUK 134 works faster and more effectively than anything else I’ve tried in reducing redness and hyperpigmentation. Better yet, I’ve never had any kind of bad reaction to it. It’s warm when it goes on, but that subsides. On my skin, it has been superior to Vitamin C and AHAs when it comes to immediate effect—I still use the others because research shows how important they are long-term. I saw real results within *a week,* significant enough that friends commented. I am [REDACTED_NAME] a lot of people steer clear of this one also because it has so many conflicts, but it *does* work with retinoids. Depending on your own skin type, it would go well over or under your retinoid. It is such a powerful antioxidant that I also like wearing it alone in the daytime under my SPF. If I am [REDACTED_NAME], this is [REDACTED_NAME] ingredient in Estée Lauder’s iconic Advanced Night Repair. This, as you can see, is $10. And it is the only skincare (other than SPF) that I absolutely cannot do without.",
+        "batch_or_version": "2022-Q2",
+        "sku_or_module": "The Ordinary - EUK 134 0.1%",
+        "highlight_span": {
+          "detected": true,
+          "text": "But EUK 134 works faster and more effectively than anything else I’ve tried in reducing redness and hyperpigmentation. Better yet, I’ve never had any kind of bad reaction to it. It’s warm when it goes on, but that subsides. On my skin, it has been superior to Vitamin C and AHAs when it comes to immediate effect—I still use the others because research shows how important they are long-term. I saw real results within *a week,* significant enough that friends commented. I am [REDACTED_NAME] a lot of people steer clear of this one also because it has so many conflicts, but it *does* work with retinoids. Depending on your own skin type, it would go well over or under your retinoid. It is such a powerful antioxidant that I also like wearing it alone in the daytime under my SPF. If I am [REDACTED_NAME], this is [REDACTED_NAME] ingredient in Estée Lauder’s iconic Advanced Night Repair. This, as you can see, is $10. And it is the only skincare (other than SPF) that I absolutely cannot do without.",
+          "start": 90,
+          "end": 1092,
+          "trigger": "pattern"
+        }
+      }
+    ]
+  },
+  {
+    "cluster_id": 4,
+    "title": "Fragrance, Scent & Sensory Properties",
+    "keywords": [
+      "skin",
+      "product",
+      "smell",
+      "like",
+      "love",
+      "scent",
+      "smells",
+      "really"
+    ],
+    "severity": "LOW",
+    "severity_note": "PROVISIONAL: severity=LOW based on neg_fraction=0.144 (threshold: critical≥0.35, high≥0.35, medium≥0.2, critical_min_vol=500). Thresholds not statistically validated for this domain.",
+    "review_count": 1108,
+    "sentiment_distribution": {
+      "NEGATIVE": 160,
+      "NEUTRAL": 218,
+      "POSITIVE": 730
+    },
+    "negative_rate": 14.4,
+    "sample_verbatims": [
+      {
+        "id": "REV-SEP-00006",
+        "rating": 4,
+        "text": "I’m in love with this product! A little bit goes a long way and works with the first use. Plus it smells amazing!!!",
+        "batch_or_version": "2018-Q4",
+        "sku_or_module": "belif - Aqua Bomb Sleeping Mask",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00018",
+        "rating": 5,
+        "text": "I can’t rave enough about this product.   Think TTDO, but better.   I love the scent, it feels gentle but effective,  never irritating.  I’ve been using this for several months now,  and I will repurchase for sure, it’s replacing all of my other balms and jelly cleansers.",
+        "batch_or_version": "2018-Q2",
+        "sku_or_module": "Farmacy - Green Clean Makeup Removing Cleansing Balm",
+        "highlight_span": {
+          "detected": true,
+          "text": "but better.   I love the scent, it feels gentle but effective,  never irritating.  I’ve been using this for several months now,  and I will repurchase for sure, it’s replacing all of my other balms and jelly cleansers.",
+          "start": 54,
+          "end": 272,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00025",
+        "rating": 5,
+        "text": "I received this product for free from Influenster but I love it ! It’s great for my skin and it leaves it so smooth. I love that it turns matte and it smells amazing.",
+        "batch_or_version": "2017-Q3",
+        "sku_or_module": "Origins - Original Skin Matte Moisturizer with Willowherb",
+        "highlight_span": {
+          "detected": true,
+          "text": "but I love it ! It’s great for my skin and it leaves it so smooth. I love that it turns matte and it smells amazing.",
+          "start": 50,
+          "end": 166,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00028",
+        "rating": 2,
+        "text": "This product pills A LOT. I put several other products on under my moisturizer/sunscreen. It pilled before I even put makeup on. It’s greasy as well. No smell and isn’t irritating, but this wears more like a traditional beach sunscreen.",
+        "batch_or_version": "2021-Q2",
+        "sku_or_module": "Peter Thomas Roth - Mini Water Drench  Hyaluronic Hydrating Moisturizer SPF 45",
+        "highlight_span": {
+          "detected": true,
+          "text": "but this wears more like a traditional beach sunscreen.",
+          "start": 181,
+          "end": 236,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00032",
+        "rating": 5,
+        "text": "Really good moisturizer! I really liked that it’s clean and it has no scent or perfumes whatsoever! It dries really fast so it was easy to work with my makeup after. It also has a lot of product so I really appreciate that!",
+        "batch_or_version": "2022-Q1",
+        "sku_or_module": "SEPHORA COLLECTION - Nourishing Moisturizer with Prebiotics",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      }
+    ]
+  },
+  {
+    "cluster_id": 3,
+    "title": "Lip Care & Balms",
+    "keywords": [
+      "love",
+      "product",
+      "lips",
+      "skin",
+      "use",
+      "like",
+      "lip",
+      "really"
+    ],
+    "severity": "LOW",
+    "severity_note": "PROVISIONAL: severity=LOW based on neg_fraction=0.142 (threshold: critical≥0.35, high≥0.35, medium≥0.2, critical_min_vol=500). Thresholds not statistically validated for this domain.",
+    "review_count": 1618,
+    "sentiment_distribution": {
+      "NEGATIVE": 230,
+      "NEUTRAL": 188,
+      "POSITIVE": 1200
+    },
+    "negative_rate": 14.2,
+    "sample_verbatims": [
+      {
+        "id": "REV-SEP-00007",
+        "rating": 5,
+        "text": "THIS IS [REDACTED_NAME] GRAIL PRODUCT!!!!!!!!! There are so many flavors to choose from. It keeps my lips from cracking. I wake up with hydrated and plump lips every time I use it. You need this!!",
+        "batch_or_version": "2020-Q4",
+        "sku_or_module": "LANEIGE - Lip Sleeping Mask Intense Hydration with Vitamin C",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00029",
+        "rating": 4,
+        "text": "I like a more waxy balm and this one was okay. If you don’t like your balms waxy and thick, you’ll enjoy this. I initially tested this by rubbing it on the back of my hand and it felt good, but I did find myself applying quite a bit. I have a lot of lip surface to cover lol, so I go through it pretty fast. I just wish it contained as much product as a traditional drugstore chapstick. Not sure why so many people complain or rate it down solely because of the steep price point. It’s clearly a lot more spendy than what you’d pay at the drugstore, but you know what you’re getting yourself into if you’re choosing to purchase a lip balm at Sephora. I’d rate the scent as 5/5 though. Smells soooo good.",
+        "batch_or_version": "2018-Q1",
+        "sku_or_module": "Sol de Janeiro - Brazilian Kiss Cupuaçu Lip Butter",
+        "highlight_span": {
+          "detected": true,
+          "text": "but I did find myself applying quite a bit. I have a lot of lip surface to cover lol, so I go through it pretty fast. I just wish it contained as much product as a traditional drugstore chapstick. Not sure why so many people complain or rate it down solely because of the steep price point. It’s clearly a lot more spendy than what you’d pay at the drugstore, but you know what you’re getting yourself into if you’re choosing to purchase a lip balm at Sephora. I’d rate the scent as 5/5 though. Smells soooo good.",
+          "start": 190,
+          "end": 703,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00034",
+        "rating": 5,
+        "text": "This is [REDACTED_NAME] amazing lip mask.  I bought a second one for my purse because it’s so good!  It lasts forever and your lips look shiny and perfect.  I used to get dry skin above my lips in the winter and don’t anymore.  It’s amazing!",
+        "batch_or_version": "2019-Q3",
+        "sku_or_module": "LANEIGE - Lip Sleeping Mask Intense Hydration with Vitamin C",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00041",
+        "rating": 5,
+        "text": "Wow! This stuff is amazing! I love the color! It acts like a “makeup“ but it’s actually skincare! I cannot give enough positive feedback about Drunk Elephant, I tell all of my friends about what a phenomenal brand it is and this product does not disappoint! 10/10 will recommend and buy again",
+        "batch_or_version": "2018-Q2",
+        "sku_or_module": "Drunk Elephant - D-Bronzi Anti-Pollution Bronzing Drops with Peptides",
+        "highlight_span": {
+          "detected": true,
+          "text": "but it’s actually skincare! I cannot give enough positive feedback about Drunk Elephant, I tell all of my friends about what a phenomenal brand it is and this product does not disappoint! 10/10 will recommend and buy again",
+          "start": 70,
+          "end": 292,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00043",
+        "rating": 3,
+        "text": "Honestly I haven’t noticed there’s any different magical changes before and after... I guess I will keep using it and come back to give it another review",
+        "batch_or_version": "2017-Q4",
+        "sku_or_module": "Shiseido - Benefiance WrinkleResist24 Pure Retinol Express Smoothing Eye Mask",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      }
+    ]
+  },
+  {
+    "cluster_id": 0,
+    "title": "Eye Care & Dark Circles",
+    "keywords": [
+      "eye",
+      "cream",
+      "eyes",
+      "product",
+      "eye cream",
+      "skin",
+      "use",
+      "circles"
+    ],
+    "severity": "LOW",
+    "severity_note": "PROVISIONAL: severity=LOW based on neg_fraction=0.137 (threshold: critical≥0.35, high≥0.35, medium≥0.2, critical_min_vol=500). Thresholds not statistically validated for this domain.",
+    "review_count": 695,
+    "sentiment_distribution": {
+      "NEGATIVE": 95,
+      "NEUTRAL": 82,
+      "POSITIVE": 518
+    },
+    "negative_rate": 13.7,
+    "sample_verbatims": [
+      {
+        "id": "REV-SEP-00050",
+        "rating": 5,
+        "text": "I’m so glad that I got to try Kiehl’s Retinol Fast-Release Wrinkle Reducing Night Serum! I’ve been using it nightly for about 4 weeks, and there are definite improvements in the fine lines around my eyes and lips. The serum is surprisingly gentle and has not irritated my skin at all. This product is unique because the retinol is packaged separately from the serum, and you combine them yourself before the first use. The consistency is light and it absorbs quickly without stinging or burning. I’m really pleased with the results so far!",
+        "batch_or_version": "2022-Q3",
+        "sku_or_module": "Kiehl's Since 1851 - Retinol Fast-Release Wrinkle Reducing Night Serum",
+        "highlight_span": {
+          "detected": true,
+          "text": "stinging or burning. I’m really pleased with the results so far!",
+          "start": 475,
+          "end": 539,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00057",
+        "rating": 3,
+        "text": "I Don’t know what to say about this product it draws attention to the eye initially but then soon the essence of shimmer or glitter goes away the shimmer or glitter is isnt really shimmer or glitter but it’s like a sheer look but it soon goes away . after that it’s fine but I don’t see a difference in my under eye area since using it",
+        "batch_or_version": "2021-Q4",
+        "sku_or_module": "Origins - Ginzing Vitamin C Eye Cream to Brighten and Depuff",
+        "highlight_span": {
+          "detected": true,
+          "text": "but then soon the essence of shimmer or glitter goes away the shimmer or glitter is isnt really shimmer or glitter but it’s like a sheer look but it soon goes away . after that it’s fine but I don’t see a difference in my under eye area since using it",
+          "start": 84,
+          "end": 335,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00091",
+        "rating": 5,
+        "text": "I was surprised with the thickness of the cream & how the lines underneath my eyes had diminished somewhat.  I am [REDACTED_NAME] daily use, the lines will be less deep.",
+        "batch_or_version": "2022-Q1",
+        "sku_or_module": "Kiehl's Since 1851 - Creamy Eye Treatment with Avocado",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00108",
+        "rating": 4,
+        "text": "The product definitely stays in place unless the eye patch has to much product on it , I love how it almost instantly gets rid of fine lines .. not sure if it’s totally necessary but it’s a nice addition to my skincare routine",
+        "batch_or_version": "2018-Q2",
+        "sku_or_module": "Peter Thomas Roth - Cucumber De-Tox Hydra-Gel Eye Patches",
+        "highlight_span": {
+          "detected": true,
+          "text": "but it’s a nice addition to my skincare routine",
+          "start": 179,
+          "end": 226,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00144",
+        "rating": 2,
+        "text": "I am a huge Sunday Riley fan and I don’t mind shelling out for products that work -- and most by Sunday Riley do. I was super excited they were coming out with an eye cream, but this was a major disappointment. Yes it goes on smooth and wears well under makeup, but beyond acting as a basic moisturizer, I’m not quite sure it’s doing anything. After using for about a month, I haven’t been able to tell either improvements to my eye area or immediate effects like de-puffing. Overall disappointed.",
+        "batch_or_version": "2018-Q1",
+        "sku_or_module": "Sunday Riley - Auto Correct Brightening + Depuffing Eye Cream for Dark Circles",
+        "highlight_span": {
+          "detected": true,
+          "text": "but this was a major disappointment. Yes it goes on smooth and wears well under makeup, but beyond acting as a basic moisturizer, I’m not quite sure it’s doing anything. After using for about a month, I haven’t been able to tell either improvements to my eye area or immediate effects like de-puffing. Overall disappointed.",
+          "start": 174,
+          "end": 497,
+          "trigger": "pattern"
+        }
+      }
+    ]
+  },
+  {
+    "cluster_id": 5,
+    "title": "Cleansers, Face Wash & Makeup Removal",
+    "keywords": [
+      "skin",
+      "cleanser",
+      "face",
+      "use",
+      "makeup",
+      "product",
+      "love",
+      "like"
+    ],
+    "severity": "LOW",
+    "severity_note": "PROVISIONAL: severity=LOW based on neg_fraction=0.090 (threshold: critical≥0.35, high≥0.35, medium≥0.2, critical_min_vol=500). Thresholds not statistically validated for this domain.",
+    "review_count": 1145,
+    "sentiment_distribution": {
+      "NEGATIVE": 103,
+      "NEUTRAL": 118,
+      "POSITIVE": 924
+    },
+    "negative_rate": 9.0,
+    "sample_verbatims": [
+      {
+        "id": "REV-SEP-00003",
+        "rating": 4,
+        "text": "I love products that have multi-functions. This balm easily removes my makeup, brightens my skin and hydrates all in one simple step. It leaves my skin feeling soft and clean. Love it.",
+        "batch_or_version": "2022-Q2",
+        "sku_or_module": "IT Cosmetics - Bye Bye Makeup 3-in-1 Makeup Melting Cleansing Balm",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00004",
+        "rating": 4,
+        "text": "This is [REDACTED_NAME] in between type of scrub. I noticed an overall difference in the health of my skin after using this. I didn’t put 5 stars because I wish it was a little bit bigger for the price.",
+        "batch_or_version": "2017-Q2",
+        "sku_or_module": "OLEHENRIKSEN - Pore-Balance Facial Sauna Scrub",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00005",
+        "rating": 5,
+        "text": "Oh my! I am [REDACTED_NAME] with this cleansing oil. I’ve heard of and seen this brand before and it’s definitely worth the hype. I have never tried a cleansing oil until now and I have been missing out. If your skin is lacking moisture or you need that extra glow, then this will do it for you. My skin felt so smooth and luminated  after using this. I would highly recommend.",
+        "batch_or_version": "2021-Q2",
+        "sku_or_module": "Sulwhasoo - Mini Gentle Cleansing Oil Makeup Remover",
+        "highlight_span": {
+          "detected": true,
+          "text": "until now and I have been missing out. If your skin is lacking moisture or you need that extra glow, then this will do it for you. My skin felt so smooth and luminated  after using this. I would highly recommend.",
+          "start": 165,
+          "end": 377,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00012",
+        "rating": 4,
+        "text": "I have been looking for a high quality, clean, and affordable face cleanser for oily skin for about 3 months now. I think I finally found one I love. My main concern with face washes designed for oily skin is how tight they cause my face to become before applying a moisturizer. This product DOES NOT do that for me! I find that it does what a face wash should do, but nothing overly special, which is why I gave it 4 stars. The scent reminded my of a clean chlorinated pool, and the “natural” scent commonly found in “clean” products was not nasty and unbearable, and the smell did not stay behind on the skin, which is something I HATE. Over all, great for oily skin",
+        "batch_or_version": "2022-Q3",
+        "sku_or_module": "Community Sixty-Six - Detoxifying AHA/BHA Gel Cleanser",
+        "highlight_span": {
+          "detected": true,
+          "text": "but nothing overly special, which is why I gave it 4 stars. The scent reminded my of a clean chlorinated pool, and the “natural” scent commonly found in “clean” products was not nasty and unbearable, and the smell did not stay behind on the skin, which is something I HATE. Over all, great for oily skin",
+          "start": 365,
+          "end": 668,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00022",
+        "rating": 5,
+        "text": "I originally purchased the mini version to see if I would like it. Turns out I love it, it immediately replaced my other daily cleanser. And I just recently purchased the full size.",
+        "batch_or_version": "2019-Q4",
+        "sku_or_module": "belif - Aqua Bomb Jelly Cleanser",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      }
+    ]
+  },
+  {
+    "cluster_id": 1,
+    "title": "Facial Moisturizers & Dry Skin Hydration",
+    "keywords": [
+      "skin",
+      "product",
+      "love",
+      "moisturizer",
+      "dry",
+      "use",
+      "like",
+      "face"
+    ],
+    "severity": "LOW",
+    "severity_note": "PROVISIONAL: severity=LOW based on neg_fraction=0.073 (threshold: critical≥0.35, high≥0.35, medium≥0.2, critical_min_vol=500). Thresholds not statistically validated for this domain.",
+    "review_count": 2646,
+    "sentiment_distribution": {
+      "NEGATIVE": 192,
+      "NEUTRAL": 240,
+      "POSITIVE": 2214
+    },
+    "negative_rate": 7.3,
+    "sample_verbatims": [
+      {
+        "id": "REV-SEP-00000",
+        "rating": 5,
+        "text": "I love how this feels on my face! It’s incredibly hydrating. When I wake up in the morning I can still feel the moisture. You don’t need much, a little goes a long way. I struggle with dryness but this moisturizes throughout the night.",
+        "batch_or_version": "2021-Q1",
+        "sku_or_module": "Dr. Jart+ - Cicapair Tiger Grass Sleepair Intensive Mask",
+        "highlight_span": {
+          "detected": true,
+          "text": "but this moisturizes throughout the night.",
+          "start": 193,
+          "end": 235,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00002",
+        "rating": 5,
+        "text": "Great serum, visibly reduced my dark spots. Spreads evenly on skin for application, doesn’t feel too heavy. The environmental shield is an added bonus, perfect if you live in urban areas. Would recommend.",
+        "batch_or_version": "2020-Q4",
+        "sku_or_module": "Murad - Rapid Dark Spot Correcting Serum",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      },
+      {
+        "id": "REV-SEP-00011",
+        "rating": 4,
+        "text": "Beautiful packaging.  Nice and smooth formula. Moisturizes the skin all day. The airy texture absorbs into the skin but doesn’t leave you feeling greasy. A little goes a long way.  I’m not sure if there has been a dramatic change but I do like the product",
+        "batch_or_version": "2021-Q2",
+        "sku_or_module": "SK-II - Facial Treatment Cleanser",
+        "highlight_span": {
+          "detected": true,
+          "text": "but doesn’t leave you feeling greasy. A little goes a long way.  I’m not sure if there has been a dramatic change but I do like the product",
+          "start": 116,
+          "end": 255,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00015",
+        "rating": 5,
+        "text": "Absolutely love this product. I’ve tried different retinols products but nothing like this. It doesn’t leave my skin feeling oily but it leaves it feeling hydrated and plump!",
+        "batch_or_version": "2022-Q1",
+        "sku_or_module": "Drunk Elephant - A-Gloei Retinol Oil",
+        "highlight_span": {
+          "detected": true,
+          "text": "but nothing like this. It doesn’t leave my skin feeling oily but it leaves it feeling hydrated and plump!",
+          "start": 69,
+          "end": 174,
+          "trigger": "pattern"
+        }
+      },
+      {
+        "id": "REV-SEP-00019",
+        "rating": 5,
+        "text": "I am [REDACTED_NAME] review after 3 week of regular use. I am [REDACTED_NAME] love This product, it’s hydrating galore and non irritating. If you are into ingredients, this product has water, glycerin, and ninacinamide as first few. I was looking to getproduct with ninacinamide, which is great for pigmentation and much more.  Every time I have used this night before, I have woken up with very hydrated, soft and calm skin. I keep going back to this mask over every other I have! This has lived up to my expectations and even more.",
+        "batch_or_version": "2021-Q1",
+        "sku_or_module": "Dr. Jart+ - Cicapair Tiger Grass Sleepair Intensive Mask",
+        "highlight_span": {
+          "detected": false,
+          "text": "",
+          "start": null,
+          "end": null,
+          "trigger": null
+        }
+      }
+    ]
+  }
+]

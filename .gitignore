@@ -56,3 +56,7 @@ Thumbs.db
 *.swp
 *.swo
 .system_generated/
+
+# Raw datasets — keep locally, never commit to Git
+# (files here are too large for GitHub's 100 MB limit)
+InSight_ML/data/raw/
