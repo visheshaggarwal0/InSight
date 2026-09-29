@@ -1,0 +1,397 @@
+{
+  "clusters": [
+    {
+      "cluster_id": 0,
+      "keywords": [
+        "skin",
+        "face",
+        "acne",
+        "product",
+        "sensitive",
+        "using",
+        "use",
+        "redness"
+      ],
+      "sentence_count": 2219,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=2219. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00001::S003",
+          "review_id": "REV-SEP-00001",
+          "source_row_index": 1,
+          "sentence_text": "Additionally, it doesn’t cause breakouts and it has salicylic acid, but it isn’t drying!",
+          "start": 152,
+          "end": 240,
+          "confidence": 0.476
+        },
+        {
+          "sentence_id": "REV-SEP-00008::S004",
+          "review_id": "REV-SEP-00008",
+          "source_row_index": 8,
+          "sentence_text": "Although some large pores won’t magically shrink, the product is very effective at exfoliating and removing any trapped dirt inside the pores.",
+          "start": 322,
+          "end": 464,
+          "confidence": 0.303
+        },
+        {
+          "sentence_id": "REV-SEP-00012::S004",
+          "review_id": "REV-SEP-00012",
+          "source_row_index": 12,
+          "sentence_text": "I find that it does what a face wash should do, but nothing overly special, which is why I gave it 4 stars.",
+          "start": 317,
+          "end": 424,
+          "confidence": 0.29
+        },
+        {
+          "sentence_id": "REV-SEP-00014::S001",
+          "review_id": "REV-SEP-00014",
+          "source_row_index": 14,
+          "sentence_text": "I hadn’t tanned in over 3 weeks and thought my last tan was gone already, but following the instructions on the bottle, I was amazed to see a lot of color come off of me in the shower.",
+          "start": 100,
+          "end": 284,
+          "confidence": 0.175
+        },
+        {
+          "sentence_id": "REV-SEP-00021::S001",
+          "review_id": "REV-SEP-00021",
+          "source_row_index": 21,
+          "sentence_text": "As someone with acne prone skin this product doesn’t do it for me even though it may nourish my skin.",
+          "start": 68,
+          "end": 169,
+          "confidence": 0.333
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 5,
+      "keywords": [
+        "product",
+        "price",
+        "like",
+        "love",
+        "really",
+        "just",
+        "worth",
+        "use"
+      ],
+      "sentence_count": 1878,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=1878. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00011::S004",
+          "review_id": "REV-SEP-00011",
+          "source_row_index": 11,
+          "sentence_text": "I’m not sure if there has been a dramatic change but I do like the product",
+          "start": 181,
+          "end": 255,
+          "confidence": 0.417
+        },
+        {
+          "sentence_id": "REV-SEP-00013::S004",
+          "review_id": "REV-SEP-00013",
+          "source_row_index": 13,
+          "sentence_text": "It’s warm when it goes on, but that subsides.",
+          "start": 268,
+          "end": 313,
+          "confidence": 0.741
+        },
+        {
+          "sentence_id": "REV-SEP-00018::S001",
+          "review_id": "REV-SEP-00018",
+          "source_row_index": 18,
+          "sentence_text": "Think TTDO, but better.",
+          "start": 42,
+          "end": 65,
+          "confidence": 1.0
+        },
+        {
+          "sentence_id": "REV-SEP-00025::S000",
+          "review_id": "REV-SEP-00025",
+          "source_row_index": 25,
+          "sentence_text": "I received this product for free from Influenster but I love it !",
+          "start": 0,
+          "end": 65,
+          "confidence": 0.513
+        },
+        {
+          "sentence_id": "REV-SEP-00029::S006",
+          "review_id": "REV-SEP-00029",
+          "source_row_index": 29,
+          "sentence_text": "It’s clearly a lot more spendy than what you’d pay at the drugstore, but you know what you’re getting yourself into if you’re choosing to purchase a lip balm at Sephora.",
+          "start": 481,
+          "end": 650,
+          "confidence": 0.215
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 4,
+      "keywords": [
+        "skin",
+        "moisturizer",
+        "dry",
+        "like",
+        "product",
+        "use",
+        "oily",
+        "feel"
+      ],
+      "sentence_count": 1749,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=1749. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00000::S004",
+          "review_id": "REV-SEP-00000",
+          "source_row_index": 0,
+          "sentence_text": "I struggle with dryness but this moisturizes throughout the night.",
+          "start": 169,
+          "end": 235,
+          "confidence": 0.667
+        },
+        {
+          "sentence_id": "REV-SEP-00010::S000",
+          "review_id": "REV-SEP-00010",
+          "source_row_index": 10,
+          "sentence_text": "Still have dry skin, but improved a bit.",
+          "start": 0,
+          "end": 40,
+          "confidence": 0.833
+        },
+        {
+          "sentence_id": "REV-SEP-00011::S002",
+          "review_id": "REV-SEP-00011",
+          "source_row_index": 11,
+          "sentence_text": "The airy texture absorbs into the skin but doesn’t leave you feeling greasy.",
+          "start": 77,
+          "end": 153,
+          "confidence": 0.513
+        },
+        {
+          "sentence_id": "REV-SEP-00015::S002",
+          "review_id": "REV-SEP-00015",
+          "source_row_index": 15,
+          "sentence_text": "It doesn’t leave my skin feeling oily but it leaves it feeling hydrated and plump!",
+          "start": 92,
+          "end": 174,
+          "confidence": 0.444
+        },
+        {
+          "sentence_id": "REV-SEP-00023::S001",
+          "review_id": "REV-SEP-00023",
+          "source_row_index": 23,
+          "sentence_text": "I use the cleansing oil from this brand if I have a full beat, but if I have light makeup, then I can just use this alone.",
+          "start": 51,
+          "end": 173,
+          "confidence": 0.247
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 3,
+      "keywords": [
+        "makeup",
+        "skin",
+        "use",
+        "eye",
+        "redness",
+        "like",
+        "eyes",
+        "don"
+      ],
+      "sentence_count": 1250,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=1250. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00013::S002",
+          "review_id": "REV-SEP-00013",
+          "source_row_index": 13,
+          "sentence_text": "But EUK 134 works faster and more effectively than anything else I’ve tried in reducing redness and hyperpigmentation.",
+          "start": 90,
+          "end": 208,
+          "confidence": 0.741
+        },
+        {
+          "sentence_id": "REV-SEP-00015::S001",
+          "review_id": "REV-SEP-00015",
+          "source_row_index": 15,
+          "sentence_text": "I’ve tried different retinols products but nothing like this.",
+          "start": 30,
+          "end": 91,
+          "confidence": 0.741
+        },
+        {
+          "sentence_id": "REV-SEP-00029::S002",
+          "review_id": "REV-SEP-00029",
+          "source_row_index": 29,
+          "sentence_text": "I initially tested this by rubbing it on the back of my hand and it felt good, but I did find myself applying quite a bit.",
+          "start": 111,
+          "end": 233,
+          "confidence": 0.256
+        },
+        {
+          "sentence_id": "REV-SEP-00033::S002",
+          "review_id": "REV-SEP-00033",
+          "source_row_index": 33,
+          "sentence_text": "At first it seemed to take longer then I like for it to completely sink in but after it finally does my under eyes are left hydrated, silky and more awake looking.",
+          "start": 113,
+          "end": 276,
+          "confidence": 0.208
+        },
+        {
+          "sentence_id": "REV-SEP-00041::S002",
+          "review_id": "REV-SEP-00041",
+          "source_row_index": 41,
+          "sentence_text": "It acts like a “makeup“ but it’s actually skincare!",
+          "start": 46,
+          "end": 97,
+          "confidence": 0.741
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 1,
+      "keywords": [
+        "smell",
+        "scent",
+        "like",
+        "smells",
+        "skin",
+        "strong",
+        "does",
+        "product"
+      ],
+      "sentence_count": 774,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=774. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00008::S008",
+          "review_id": "REV-SEP-00008",
+          "source_row_index": 8,
+          "sentence_text": "It is fragrance-free and leaves no residue; you may sometimes feel a very slight tingle, but it means the glycolic acid is doing its job.",
+          "start": 674,
+          "end": 811,
+          "confidence": 0.267
+        },
+        {
+          "sentence_id": "REV-SEP-00018::S002",
+          "review_id": "REV-SEP-00018",
+          "source_row_index": 18,
+          "sentence_text": "I love the scent, it feels gentle but effective,  never irritating.",
+          "start": 68,
+          "end": 135,
+          "confidence": 0.606
+        },
+        {
+          "sentence_id": "REV-SEP-00028::S004",
+          "review_id": "REV-SEP-00028",
+          "source_row_index": 28,
+          "sentence_text": "No smell and isn’t irritating, but this wears more like a traditional beach sunscreen.",
+          "start": 150,
+          "end": 236,
+          "confidence": 0.476
+        },
+        {
+          "sentence_id": "REV-SEP-00029::S007",
+          "review_id": "REV-SEP-00029",
+          "source_row_index": 29,
+          "sentence_text": "I’d rate the scent as 5/5 though.",
+          "start": 651,
+          "end": 684,
+          "confidence": 0.952
+        },
+        {
+          "sentence_id": "REV-SEP-00033::S003",
+          "review_id": "REV-SEP-00033",
+          "source_row_index": 33,
+          "sentence_text": "The smells is subtle enough to not bother me yet still smells fresh.",
+          "start": 277,
+          "end": 345,
+          "confidence": 0.513
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 2,
+      "keywords": [
+        "redacted_name",
+        "skin",
+        "product",
+        "redacted_order_id",
+        "redacted_name redacted_name",
+        "like",
+        "products",
+        "use"
+      ],
+      "sentence_count": 408,
+      "severity": "CRITICAL",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=408. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00013::S007",
+          "review_id": "REV-SEP-00013",
+          "source_row_index": 13,
+          "sentence_text": "I am [REDACTED_NAME] a lot of people steer clear of this one also because it has so many conflicts, but it *does* work with retinoids.",
+          "start": 562,
+          "end": 696,
+          "confidence": 0.267
+        },
+        {
+          "sentence_id": "REV-SEP-00051::S000",
+          "review_id": "REV-SEP-00051",
+          "source_row_index": 51,
+          "sentence_text": "I’ve never tried this brand before the face cleanser and may I say I am [REDACTED_NAME] with what I see!I use my Mia2 from Clarisonic everyday with Purity from Philosophy, but I use FAB’s cleanser to take off all my makeup first (I would HATE to use my Mia2 with a face full of makeup...",
+          "start": 0,
+          "end": 287,
+          "confidence": 0.121
+        },
+        {
+          "sentence_id": "REV-SEP-00070::S000",
+          "review_id": "REV-SEP-00070",
+          "source_row_index": 70,
+          "sentence_text": "This is [REDACTED_NAME] staple to my skincare routine especially right now In the winter because my skin gets dry and dull but this moisturizer gives it life.",
+          "start": 0,
+          "end": 158,
+          "confidence": 0.247
+        },
+        {
+          "sentence_id": "REV-SEP-00079::S003",
+          "review_id": "REV-SEP-00079",
+          "source_row_index": 79,
+          "sentence_text": "Out of all of the Dennis Gross line, this is [REDACTED_NAME] product I would say should be a staple, despite the price.",
+          "start": 160,
+          "end": 279,
+          "confidence": 0.303
+        },
+        {
+          "sentence_id": "REV-SEP-00124::S002",
+          "review_id": "REV-SEP-00124",
+          "source_row_index": 124,
+          "sentence_text": "It’s true that I am [REDACTED_NAME] a little residue of foundation, but I think this is [REDACTED_NAME] I don’t use more than one cotton pad and it gets totally coated with makeup.",
+          "start": 104,
+          "end": 284,
+          "confidence": 0.208
+        }
+      ],
+      "is_provisional": true
+    }
+  ],
+  "n_complaint_sentences": 8278,
+  "n_clusters_actual": 6,
+  "is_provisional": true,
+  "provisional_notices": [
+    "Complaint clusters are unsupervised (MiniLM + MiniBatchKMeans). Cluster labels are NOT human-annotated.",
+    "c-TF-IDF keywords are statistically distinctive within the complaint corpus but have not been validated as true root causes.",
+    "Cluster count k is heuristically determined. Optimal k requires human evaluation.",
+    "Sentence classification is heuristic (regex). No precision/recall measured against labelled complaint sentences."
+  ]
+}

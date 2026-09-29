@@ -637,6 +637,7 @@ class TestEndToEndPipeline(unittest.TestCase):
             "sentiment_pred", "sentiment_confidence", "sentiment_is_provisional",
             "cluster_id", "theme_title", "theme_is_provisional",
             "highlight_span", "complaint_is_provisional",
+            "sentences",           # NEW: sentence-level classification results
             "source_row_index",
         ]
         sample = self.records[0]
@@ -732,9 +733,17 @@ class TestEndToEndPipeline(unittest.TestCase):
             self.assertGreaterEqual(entry["psi"], 0.0)
 
     def test_throughput_acceptable(self):
-        """Full pipeline throughput should exceed 200 reviews/sec."""
+        """Full pipeline throughput should exceed 50 reviews/sec.
+
+        NOTE: Pipeline v1.2.0 adds sentence-level MiniLM encoding (Stage 6a)
+        on ~43k extracted sentences and MiniBatchKMeans complaint clustering
+        (Stage 6b). These are CPU-bound neural inference steps that dominate
+        total wall-clock time. The threshold was recalibrated from 200 rev/sec
+        (old regex-only pipeline) to 50 rev/sec. Measured throughput on this
+        machine: ~113 rev/sec. A floor of 50 still catches runaway regressions.
+        """
         throughput = self.summary.get("throughput_reviews_per_sec", 0)
-        self.assertGreater(throughput, 200,
+        self.assertGreater(throughput, 50,
                            f"Pipeline throughput {throughput:.0f} rev/sec is too low")
 
     def test_provisional_notices_present(self):
@@ -742,6 +751,22 @@ class TestEndToEndPipeline(unittest.TestCase):
         notices = self.summary.get("provisional_notices", [])
         self.assertIsInstance(notices, list)
         self.assertGreater(len(notices), 0)
+
+    def test_sentence_pipeline_ran(self):
+        """Summary must report positive sentence counts from Stage 6a."""
+        n_total = self.summary.get("n_sentences_total", 0)
+        self.assertGreater(n_total, 0, "n_sentences_total must be > 0")
+
+    def test_sentence_complaint_pool_not_empty(self):
+        """Complaint sentence pool must be non-empty on cosmetics data."""
+        n_complaints = self.summary.get("n_sentence_complaints", 0)
+        self.assertGreater(n_complaints, 0, "n_sentence_complaints must be > 0")
+
+    def test_complaint_clusters_produced(self):
+        """Complaint clustering (Stage 6b) must produce at least 2 clusters."""
+        n_clusters = self.summary.get("n_complaint_clusters", 0)
+        self.assertGreaterEqual(n_clusters, 2,
+                                f"Expected ≥2 complaint clusters, got {n_clusters}")
 
 
 # =============================================================================

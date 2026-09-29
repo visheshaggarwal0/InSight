@@ -1,8 +1,8 @@
 {
-  "run_id": "20260929T114435Z",
+  "run_id": "20260929T120115Z",
   "status": "SUCCESS",
   "dataset": "D:\\Documents\\InSight\\InSight_ML\\data\\processed\\cosmetics\\cosmetics_10k.csv",
-  "timestamp_utc": "2026-09-29T11:44:41.354720+00:00",
+  "timestamp_utc": "2026-09-29T12:02:44.063156+00:00",
   "n_input_rows": 10000,
   "n_valid_rows": 9990,
   "n_rejected_rows": 10,
@@ -22,26 +22,35 @@
   "theme_severity_distribution": {
     "LOW": 6
   },
+  "n_sentences_total": 43095,
+  "n_sentence_complaints": 8278,
+  "n_sentence_recommendations": 663,
+  "n_sentence_praise_noise": 34154,
+  "n_complaint_clusters": 6,
   "n_drift_cohorts": 59,
   "n_drift_alerts": 38,
   "stage_timings_sec": {
-    "load_and_validate": 0.144,
-    "pii_redaction": 1.759,
-    "sentiment_inference": 2.707,
-    "theme_assignment": 0.183,
-    "complaint_extraction": 0.333,
-    "build_records": 0.794,
-    "build_themes": 0.006,
-    "drift_analysis": 0.034,
-    "span_verification": 0.009
+    "load_and_validate": 0.183,
+    "pii_redaction": 2.083,
+    "sentiment_inference": 1.924,
+    "theme_assignment": 0.483,
+    "complaint_extraction": 3.75,
+    "sentence_pipeline": 26.908,
+    "complaint_clustering": 51.65,
+    "build_records": 1.088,
+    "build_themes": 0.017,
+    "drift_analysis": 0.024,
+    "span_verification": 0.02
   },
-  "total_elapsed_sec": 5.97,
-  "throughput_reviews_per_sec": 1673.3,
+  "total_elapsed_sec": 88.19,
+  "throughput_reviews_per_sec": 113.3,
   "provisional_notices": [
     "Sentiment labels derived from a model trained on weak (rating-derived) labels. Not human-verified ground truth.",
     "Theme assignments are unsupervised (MiniLM+KMeans). Cluster validity is supported by silhouette/DBCV metrics but not by human annotation.",
     "Severity thresholds (pipeline_config.SEVERITY) are provisional engineering choices, not statistically validated operating points.",
     "PSI drift thresholds (pipeline_config.PSI) use industry standard defaults; not calibrated for this domain.",
-    "Complaint detection is heuristic regex only. No precision/recall measured (no ground truth spans available)."
+    "Complaint detection is heuristic regex only. No precision/recall measured (no ground truth spans available).",
+    "Sentence classification (COMPLAINT/RECOMMENDATION/PRAISE/NOISE) is heuristic rule-based. No supervised training data available yet.",
+    "Complaint sentence clusters are unsupervised (MiniLM+MiniBatchKMeans). Not human-annotated."
   ]
 }

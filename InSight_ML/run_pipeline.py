@@ -55,6 +55,7 @@ for p in [str(_ROOT), str(_HERE)]:
 from InSight_ML.pipeline_config import (
     ARTIFACTS, DATASETS, PIPELINE_OUTPUT_DIR,
     SEVERITY, PSI, PROVISIONAL_THEME_NAMES, THEME,
+    SENTENCE_PIPELINE, COMPLAINT_CLUSTERING,
 )
 from InSight_ML.complaint_extraction import extract_complaint_span
 from InSight_ML.validation import (
@@ -62,6 +63,15 @@ from InSight_ML.validation import (
     verify_complaint_spans,
     ValidationResult,
 )
+from InSight_ML.sentence_pipeline import (
+    classify_and_route_corpus,
+    RoutedPools,
+    SentenceRecord,
+    LABEL_COMPLAINT,
+    LABEL_RECOMMENDATION,
+    LABEL_PRAISE_NOISE,
+)
+from InSight_ML.complaint_clustering import cluster_complaint_sentences
 
 # Backend modules (PII redactor and drift detector)
 _BACKEND = _ROOT / "backend"
@@ -249,7 +259,7 @@ def stage_theme_assignment(
 
 
 def stage_complaint_extraction(redacted_texts: list) -> list:
-    """Stage 6: PROVISIONAL heuristic complaint span extraction."""
+    """Stage 6: PROVISIONAL heuristic complaint span extraction (review-level)."""
     logger.info("Stage 6: Complaint span extraction (heuristic, provisional)")
     spans = [extract_complaint_span(t) for t in redacted_texts]
     n_detected = sum(1 for s in spans if s.get("detected"))
@@ -258,6 +268,77 @@ def stage_complaint_extraction(redacted_texts: list) -> list:
         n_detected, len(spans), 100 * n_detected / max(len(spans), 1)
     )
     return spans
+
+
+def stage_sentence_pipeline(
+    review_ids: list,
+    source_row_indices: list,
+    redacted_texts: list,
+) -> tuple:
+    """Stage 6a: Sentence deconstruction, classification, and routing.
+
+    NEW STAGE — adds sentence-level COMPLAINT/RECOMMENDATION/PRAISE/NOISE
+    routing on top of the existing review-level analysis.
+
+    Returns:
+        (all_sentences, routed_pools) where:
+          all_sentences : List[SentenceRecord] — all sentences across the corpus
+          routed_pools  : RoutedPools — partitioned into complaint/recommendation/noise
+    """
+    logger.info(
+        "Stage 6a: Sentence pipeline — deconstruction + provisional classification "
+        "[COMPLAINT / RECOMMENDATION / PRAISE/NOISE]"
+    )
+    all_sentences, pools = classify_and_route_corpus(
+        review_ids=review_ids,
+        source_row_indices=source_row_indices,
+        redacted_texts=redacted_texts,
+    )
+    pool_summary = pools.summary()
+    logger.info(
+        "  Sentences: total=%d | COMPLAINT=%d | RECOMMENDATION=%d | PRAISE/NOISE=%d [PROVISIONAL]",
+        pool_summary["total"],
+        pool_summary["complaint"],
+        pool_summary["recommendation"],
+        pool_summary["praise_noise"],
+    )
+    return all_sentences, pools
+
+
+def stage_complaint_clustering(pools: RoutedPools) -> Dict[str, Any]:
+    """Stage 6b: Complaint-sentence MiniLM embedding + MiniBatchKMeans + c-TF-IDF.
+
+    NEW STAGE — operates exclusively on the COMPLAINT sentence pool.
+    The review-level MiniLM theme clusters (Stage 5) are preserved and
+    independent — this is a sentence-level, complaint-specific dimension.
+
+    Returns:
+        Complaint cluster result dict (see complaint_clustering.cluster_complaint_sentences).
+    """
+    n = len(pools.complaint)
+    logger.info(
+        "Stage 6b: Complaint clustering on %d complaint sentences [PROVISIONAL]", n
+    )
+    if n == 0:
+        logger.warning("  No complaint sentences — skipping complaint clustering.")
+        return {
+            "clusters": [],
+            "n_complaint_sentences": 0,
+            "n_clusters_actual": 0,
+            "is_provisional": True,
+            "provisional_notices": ["No complaint sentences found."],
+        }
+
+    result = cluster_complaint_sentences(
+        pools.complaint,
+        n_clusters=COMPLAINT_CLUSTERING["n_clusters"],
+    )
+    logger.info(
+        "  Complaint clusters: %d | Keywords extracted per cluster: %d [PROVISIONAL]",
+        result["n_clusters_actual"],
+        COMPLAINT_CLUSTERING["top_keywords"],
+    )
+    return result
 
 
 def stage_build_records(
@@ -270,6 +351,7 @@ def stage_build_records(
     theme_meta: dict,
     spans: list,
     original_indices: list,
+    sentence_records_by_review: Optional[Dict[str, list]] = None,
 ) -> list:
     """Stage 7: Assemble per-review output records."""
     logger.info("Stage 7: Assembling review records")
@@ -297,9 +379,18 @@ def stage_build_records(
         rating_raw = df["rating"].iloc[idx]
         rating = int(rating_raw) if pd.notna(rating_raw) and 1 <= float(rating_raw) <= 5 else None
 
+        rev_id = f"REV-SEP-{idx:05d}"
+
+        # Sentence-level data (if sentence pipeline ran)
+        sentences = []
+        if sentence_records_by_review is not None:
+            sentences = [
+                s.to_dict() for s in sentence_records_by_review.get(rev_id, [])
+            ]
+
         records.append({
-            "id": f"REV-SEP-{idx:05d}",
-            "pipeline_version": "1.1.0",
+            "id": rev_id,
+            "pipeline_version": "1.2.0",
             "domain": "d2c_cosmetics",
             "product_id": str(df["product_id"].iloc[idx]),
             "product_name": str(df["product_name"].iloc[idx]),
@@ -317,13 +408,15 @@ def stage_build_records(
             "sentiment_confidence": conf,
             "sentiment_is_provisional": True,
             "sentiment_label_note": "Trained on rating-derived weak labels; not human-verified ground truth.",
-            # Theme (PROVISIONAL: unsupervised clustering)
+            # Theme (PROVISIONAL: unsupervised clustering, review-level)
             "cluster_id": c_id,
             "theme_title": theme_title,
             "theme_is_provisional": True,
-            # Complaint (PROVISIONAL: heuristic regex)
+            # Complaint span (PROVISIONAL: heuristic regex, review-level)
             "highlight_span": span,
             "complaint_is_provisional": True,
+            # NEW: Sentence-level classification (PROVISIONAL)
+            "sentences": sentences,
             # Traceability – original_indices[idx] is the row number in the raw CSV
             "source_row_index": original_indices[idx],
         })
@@ -502,10 +595,37 @@ def run_pipeline(
     )
     stage_timings["theme_assignment"] = time.time() - t
 
-    # ── Stage 6: Complaint extraction ──
+    # ── Stage 6: Complaint extraction (review-level regex spans — preserved) ──
     t = time.time()
     spans = stage_complaint_extraction(redacted_texts)
     stage_timings["complaint_extraction"] = time.time() - t
+
+    # ── Stage 6a: Sentence pipeline (NEW) ──
+    all_sentences: List[SentenceRecord] = []
+    pools: Optional[RoutedPools] = None
+    sentence_records_by_review: Optional[Dict[str, list]] = None
+    complaint_clusters: Dict[str, Any] = {}
+
+    if SENTENCE_PIPELINE.get("include_sentences_in_records", True):
+        review_ids_for_sent = [f"REV-SEP-{i:05d}" for i in range(n_valid)]
+        t = time.time()
+        all_sentences, pools = stage_sentence_pipeline(
+            review_ids=review_ids_for_sent,
+            source_row_indices=original_indices,
+            redacted_texts=redacted_texts,
+        )
+        stage_timings["sentence_pipeline"] = time.time() - t
+
+        # Build lookup: review_id → list[SentenceRecord]
+        sentence_records_by_review = {}
+        for s in all_sentences:
+            sentence_records_by_review.setdefault(s.review_id, []).append(s)
+
+        # ── Stage 6b: Complaint clustering (NEW) ──
+        if SENTENCE_PIPELINE.get("run_complaint_clustering", True) and pools is not None:
+            t = time.time()
+            complaint_clusters = stage_complaint_clustering(pools)
+            stage_timings["complaint_clustering"] = time.time() - t
 
     # ── Stage 7: Build records ──
     t = time.time()
@@ -514,6 +634,7 @@ def run_pipeline(
         sentiment_preds, sentiment_confs,
         cluster_ids, theme_meta, spans,
         original_indices=original_indices,
+        sentence_records_by_review=sentence_records_by_review,
     )
     stage_timings["build_records"] = time.time() - t
 
@@ -557,6 +678,12 @@ def run_pipeline(
         "complaint_detected_rate_pct": round(100 * n_complaints / max(n_valid, 1), 1),
         "n_themes": len(themes),
         "theme_severity_distribution": dict(sev_dist),
+        # NEW: Sentence-level stats
+        "n_sentences_total": len(all_sentences),
+        "n_sentence_complaints": len(pools.complaint) if pools else 0,
+        "n_sentence_recommendations": len(pools.recommendation) if pools else 0,
+        "n_sentence_praise_noise": len(pools.praise_noise) if pools else 0,
+        "n_complaint_clusters": complaint_clusters.get("n_clusters_actual", 0),
         "n_drift_cohorts": drift.get("batches_analyzed", 0),
         "n_drift_alerts": len(drift.get("alerts", [])),
         "stage_timings_sec": {k: round(v, 3) for k, v in stage_timings.items()},
@@ -568,6 +695,8 @@ def run_pipeline(
             "Severity thresholds (pipeline_config.SEVERITY) are provisional engineering choices, not statistically validated operating points.",
             "PSI drift thresholds (pipeline_config.PSI) use industry standard defaults; not calibrated for this domain.",
             "Complaint detection is heuristic regex only. No precision/recall measured (no ground truth spans available).",
+            "Sentence classification (COMPLAINT/RECOMMENDATION/PRAISE/NOISE) is heuristic rule-based. No supervised training data available yet.",
+            "Complaint sentence clusters are unsupervised (MiniLM+MiniBatchKMeans). Not human-annotated.",
         ],
     }
 
@@ -576,10 +705,12 @@ def run_pipeline(
     themes_path = output_dir / f"themes_{run_id}.json"
     drift_path = output_dir / f"drift_{run_id}.json"
     summary_path = output_dir / f"summary_{run_id}.json"
+    complaint_clusters_path = output_dir / f"complaint_clusters_{run_id}.json"
     latest_reviews_path = output_dir / "reviews_latest.json"
     latest_themes_path = output_dir / "themes_latest.json"
     latest_drift_path = output_dir / "drift_latest.json"
     latest_summary_path = output_dir / "summary_latest.json"
+    latest_complaint_clusters_path = output_dir / "complaint_clusters_latest.json"
 
     logger.info("Writing outputs to %s", output_dir)
 
@@ -599,15 +730,18 @@ def run_pipeline(
         json.dump(drift, f, ensure_ascii=False, indent=2)
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
+    with open(complaint_clusters_path, "w", encoding="utf-8") as f:
+        json.dump(complaint_clusters, f, ensure_ascii=False, indent=2)
 
     # Symlink-style copies for latest
+    import shutil
     for src, dst in [
         (reviews_path, latest_reviews_path),
         (themes_path, latest_themes_path),
         (drift_path, latest_drift_path),
         (summary_path, latest_summary_path),
+        (complaint_clusters_path, latest_complaint_clusters_path),
     ]:
-        import shutil
         shutil.copy2(src, dst)
 
     logger.info("=" * 60)
@@ -615,8 +749,16 @@ def run_pipeline(
     logger.info("  Valid records: %d/%d", n_valid, validation_result.n_input)
     logger.info("  Throughput: %.0f reviews/sec", summary["throughput_reviews_per_sec"])
     logger.info("  Sentiment: %s", dict(sent_dist))
-    logger.info("  Complaints detected: %d (%.1f%%)", n_complaints, summary["complaint_detected_rate_pct"])
-    logger.info("  Themes: %d | Drift alerts: %d", len(themes), summary["n_drift_alerts"])
+    logger.info("  Complaints detected (review-level): %d (%.1f%%)", n_complaints, summary["complaint_detected_rate_pct"])
+    logger.info(
+        "  Sentences: total=%d | COMPLAINT=%d | RECOMMENDATION=%d | PRAISE/NOISE=%d [PROVISIONAL]",
+        summary["n_sentences_total"],
+        summary["n_sentence_complaints"],
+        summary["n_sentence_recommendations"],
+        summary["n_sentence_praise_noise"],
+    )
+    logger.info("  Complaint clusters: %d", summary["n_complaint_clusters"])
+    logger.info("  Review themes: %d | Drift alerts: %d", len(themes), summary["n_drift_alerts"])
     logger.info("  Outputs: %s", output_dir)
     logger.info("=" * 60)
 
