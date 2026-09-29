@@ -26,7 +26,7 @@ import type {
   GeneratedTicket
 } from './types/telemetry';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export function App() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
@@ -41,6 +41,7 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [timeRange, setTimeRange] = useState<string>('Last 30 days');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Modals & Drawers
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
@@ -185,16 +186,25 @@ export function App() {
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F8FAF8' }}>
+    <div className="app-container">
+      {/* Mobile Backdrop for Off-Canvas Sidebar */}
+      <div 
+        className={`sidebar-backdrop ${isMobileMenuOpen ? 'active' : ''}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+
       {/* Left Navigation Sidebar */}
       <Sidebar
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
         onOpenGovernance={() => setIsGovernanceOpen(true)}
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div className="main-wrapper">
         {/* Sticky Top Bar */}
         <TopBar
           searchQuery={searchQuery}
@@ -207,6 +217,7 @@ export function App() {
           onChangeTimeRange={setTimeRange}
           onOpenGovernance={() => setIsGovernanceOpen(true)}
           onOpenAuth={() => setIsAuthModalOpen(true)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
         {/* Global Loading Bar */}
@@ -223,7 +234,7 @@ export function App() {
         )}
 
         {/* Dynamic View Body */}
-        <main style={{ padding: '0 40px 48px 40px', maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
+        <main className="main-body">
           {currentTab === 'dashboard' && (
             <>
               {/* Hero Banner with SVG Flow Diagram */}
@@ -233,13 +244,13 @@ export function App() {
               <OverviewCards metrics={overview} onOpenGovernance={() => setIsGovernanceOpen(true)} />
 
               {/* Row 2: Charts (Sentiment Trend & Rating Distribution) */}
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+              <div className="responsive-row-2">
                 <SentimentTrendCard trendPoints={overview?.sentiment_trend} />
                 <RatingDistributionCard ratings={overview?.rating_distribution} />
               </div>
 
               {/* Row 3: Lists (Top Themes & Example Reviews with PII Toggle) */}
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+              <div className="responsive-row-2">
                 <TopThemesList
                   themes={filteredThemes}
                   selectedClusterId={selectedClusterId}
@@ -254,7 +265,7 @@ export function App() {
               </div>
 
               {/* Row 4: Analytics Cards (Sentiment by Source, Keyword Cloud, Recent Insights) */}
-              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+              <div className="responsive-row-3">
                 <SentimentBySource sources={overview?.sentiment_by_source} />
                 <KeywordCloud
                   keywords={overview?.keyword_cloud}
@@ -279,7 +290,9 @@ export function App() {
                 paddingTop: '24px',
                 borderTop: '1px solid #E8ECE9',
                 color: '#9CA3AF',
-                fontSize: '0.78rem'
+                fontSize: '0.78rem',
+                flexWrap: 'wrap',
+                gap: '12px'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <strong style={{ color: '#0F382E', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '0.95rem' }}>
@@ -298,7 +311,7 @@ export function App() {
 
           {currentTab === 'reviews' && (
             <div style={{ paddingTop: '32px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
                 <div>
                   <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'Playfair Display', serif" }}>
                     Customer Verbatims &amp; Raw Feedback
@@ -332,7 +345,7 @@ export function App() {
                   Unsupervised HDBSCAN clustering &amp; TF-IDF keyphrase extraction across customer reviews.
                 </p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                 {themes.map((theme) => (
                   <ThemeCard
                     key={theme.cluster_id}
@@ -355,7 +368,7 @@ export function App() {
                   Platt-scaled 3-class classifier metrics benchmarked on 1,000 gold-standard ground-truth reviews.
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+              <div className="responsive-row-2">
                 <SentimentTrendCard trendPoints={overview?.sentiment_trend} />
                 <RatingDistributionCard ratings={overview?.rating_distribution} />
               </div>
@@ -390,7 +403,7 @@ export function App() {
               <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px', marginBottom: '24px' }}>
                 Compare customer sentiment and defect frequencies across multiple product verticals.
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
                 {datasets.map((d) => (
                   <div key={d.id} className="dashboard-card" style={{ padding: '24px' }}>
                     <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827' }}>{d.name}</h3>

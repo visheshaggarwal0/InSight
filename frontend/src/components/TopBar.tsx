@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Search, Calendar, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut } from 'lucide-react';
+import { Search, Calendar, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut, Menu } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 import { useSession, signOut } from '../lib/auth-client';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 interface TopBarProps {
   searchQuery: string;
@@ -14,6 +16,7 @@ interface TopBarProps {
   onChangeTimeRange: (range: string) => void;
   onOpenGovernance?: () => void;
   onOpenAuth?: () => void;
+  onToggleMobileMenu?: () => void;
 }
 
 export function TopBar({
@@ -26,7 +29,8 @@ export function TopBar({
   timeRange,
   onChangeTimeRange,
   onOpenGovernance,
-  onOpenAuth
+  onOpenAuth,
+  onToggleMobileMenu
 }: TopBarProps) {
   const [isDomainOpen, setIsDomainOpen] = useState(false);
   const [isDateOpen, setIsDateOpen] = useState(false);
@@ -39,81 +43,82 @@ export function TopBar({
     : 'Switch Dataset';
 
   return (
-    <header style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '16px',
-      padding: '14px 36px',
-      backgroundColor: '#FFFFFF',
-      borderBottom: '1px solid #E8ECE9',
-      position: 'sticky',
-      top: 0,
-      zIndex: 15
-    }}>
-      {/* Search Input with Ctrl K */}
-      <div style={{
-        position: 'relative',
-        flex: '1 1 220px',
-        minWidth: '200px',
-        maxWidth: '440px'
-      }}>
-        <Search 
-          size={16} 
-          style={{
-            position: 'absolute',
-            left: '14px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: '#9CA3AF'
-          }} 
-        />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search feedback, themes, quotes..."
-          style={{
-            width: '100%',
-            padding: '9px 72px 9px 38px',
-            borderRadius: '999px',
-            border: '1px solid #E5E7EB',
-            backgroundColor: '#F9FAFB',
-            fontSize: '0.84rem',
-            color: '#111827',
-            outline: 'none',
-            transition: 'all 0.15s ease'
-          }}
-          onFocus={(e) => {
-            e.target.style.backgroundColor = '#FFFFFF';
-            e.target.style.borderColor = '#10B981';
-            e.target.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)';
-          }}
-          onBlur={(e) => {
-            e.target.style.backgroundColor = '#F9FAFB';
-            e.target.style.borderColor = '#E5E7EB';
-            e.target.style.boxShadow = 'none';
-          }}
-        />
-        <span style={{
-          position: 'absolute',
-          right: '12px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          fontSize: '0.68rem',
-          color: '#6B7280',
-          backgroundColor: '#E5E7EB',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          fontWeight: 600,
-          pointerEvents: 'none'
-        }}>
-          Ctrl K
-        </span>
+    <header className="topbar-header">
+      {/* Left Search + Mobile Hamburger Group */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: 0 }}>
+        {onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            className="mobile-menu-btn"
+            aria-label="Toggle navigation menu"
+          >
+            <Menu size={18} />
+          </button>
+        )}
+
+        {/* Search Input with Ctrl K */}
+        <div className="topbar-search-box">
+          <Search 
+            size={16} 
+            style={{
+              position: 'absolute',
+              left: '14px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: '#9CA3AF'
+            }} 
+          />
+          <input
+            type="text"
+            className="topbar-search-input"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search feedback, themes, quotes..."
+            style={{
+              width: '100%',
+              padding: '9px 72px 9px 38px',
+              borderRadius: '999px',
+              border: '1px solid #E5E7EB',
+              backgroundColor: '#F9FAFB',
+              fontSize: '0.84rem',
+              color: '#111827',
+              outline: 'none',
+              transition: 'all 0.15s ease'
+            }}
+            onFocus={(e) => {
+              e.target.style.backgroundColor = '#FFFFFF';
+              e.target.style.borderColor = '#10B981';
+              e.target.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.backgroundColor = '#F9FAFB';
+              e.target.style.borderColor = '#E5E7EB';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+          <span 
+            className="topbar-search-shortcut"
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: '0.68rem',
+              color: '#6B7280',
+              backgroundColor: '#E5E7EB',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontWeight: 600,
+              pointerEvents: 'none'
+            }}
+          >
+            Ctrl K
+          </span>
+        </div>
       </div>
 
       {/* Right Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+      <div className="topbar-controls">
         {/* Model Trust Score Pill */}
         {onOpenGovernance && (
           <button
@@ -141,8 +146,9 @@ export function TopBar({
 
         {/* Power BI Live Connector Bridge */}
         <a
-          href="http://localhost:8000/api/export/powerbi"
+          href={`${API_BASE}/export/powerbi`}
           download
+          className="hide-on-mobile"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -261,7 +267,7 @@ export function TopBar({
         </div>
 
         {/* Date Range Selector */}
-        <div style={{ position: 'relative' }}>
+        <div className="hide-on-tablet" style={{ position: 'relative' }}>
           <button
             onClick={() => setIsDateOpen(!isDateOpen)}
             style={{

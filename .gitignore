@@ -4,8 +4,11 @@ node_modules/
 venv/
 */venv/
 env/
+# Environment files
 .env
-.env.local
+.env.*
+!.env.example
+*.local
 
 # Python Cache & Artifacts
 __pycache__/
@@ -19,6 +22,17 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Machine Learning & Data Caches
+*.npy
+*.npz
+*.pkl
+*.joblib
+*.parquet
+backend/app/data/cache/
+*.db
+*.sqlite
+*.sqlite3
 
 # Frontend Builds
 frontend/dist/

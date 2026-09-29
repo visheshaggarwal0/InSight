@@ -6,21 +6,9 @@ interface ActionBannerProps {
 
 export function ActionBanner({ onExportReport }: ActionBannerProps) {
   return (
-    <div style={{
-      backgroundColor: '#F0FDF4',
-      border: '1px solid #D1FAE5',
-      borderRadius: '16px',
-      padding: '24px 32px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: '24px',
-      marginTop: '28px',
-      marginBottom: '36px',
-      flexWrap: 'wrap'
-    }}>
+    <div className="action-banner-container">
       {/* Left Icon & Text */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: '1 1 auto', minWidth: 0 }}>
         <div style={{
           width: '46px',
           height: '46px',
@@ -58,6 +46,7 @@ export function ActionBanner({ onExportReport }: ActionBannerProps) {
       {/* Right Export Button */}
       <button
         onClick={onExportReport}
+        className="action-banner-button"
         style={{
           display: 'inline-flex',
           alignItems: 'center',

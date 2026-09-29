@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Search, Shield, ShieldAlert, Star, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { VerbatimItem } from '../types/telemetry';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -41,7 +43,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
         params.append('search', search);
       }
 
-      const res = await fetch(`http://localhost:8000/api/verbatims?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/verbatims?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setReviews(data.verbatims);
@@ -71,6 +73,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
   return (
     <div className="overlay-backdrop" style={{ justifyContent: 'flex-end' }}>
       <div
+        className="verbatim-drawer-panel"
         style={{
           width: '100%',
           maxWidth: '740px',

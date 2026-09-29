@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api"
     DEFAULT_DATASET: str = "d2c_cosmetics"
     
-    # Neon / Azure PostgreSQL connection string
-    DATABASE_URL: Optional[str] = "postgresql://neondb_owner:npg_6adiITkSX0ML@ep-bold-glitter-b324brx0-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+    # Neon / Azure PostgreSQL connection string (sourced from .env)
+    DATABASE_URL: Optional[str] = None
     USE_DB_STORAGE: bool = True
     
     # Vector Embeddings
@@ -21,8 +21,16 @@ class Settings(BaseSettings):
     EMBEDDING_DIM: int = 384
 
     # Neon Auth (Better Auth) URLs
-    NEON_AUTH_URL: str = "https://ep-bold-glitter-b324brx0.neonauth.c-4.ap-southeast-1.aws.neon.tech/neondb/auth"
-    NEON_JWKS_URL: str = "https://ep-bold-glitter-b324brx0.neonauth.c-4.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
+    NEON_AUTH_URL: Optional[str] = None
+    NEON_JWKS_URL: Optional[str] = None
+
+    # CORS Allowed Origins
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://localhost:8000",
+    ]
 
     model_config = SettingsConfigDict(
         env_file=(BASE_DIR / ".env", ".env"),

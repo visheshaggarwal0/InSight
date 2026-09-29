@@ -8,25 +8,10 @@ export function HeroBanner({ totalReviews = 10000 }: HeroBannerProps) {
   const formattedCount = totalReviews.toLocaleString() + '+ reviews';
 
   return (
-    <section style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '36px 0 28px 0',
-      gap: '32px',
-      position: 'relative'
-    }}>
+    <section className="hero-section">
       {/* Editorial Headline */}
-      <div style={{ maxWidth: '580px' }}>
-        <h1 style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: '3.1rem',
-          lineHeight: 1.15,
-          fontWeight: 700,
-          color: '#111827',
-          letterSpacing: '-0.02em',
-          marginBottom: '14px'
-        }}>
+      <div style={{ maxWidth: '580px', width: '100%' }}>
+        <h1 className="hero-title">
           Your users are talking.<br />
           <span style={{ color: '#059669' }}>We help you listen.</span>
         </h1>
@@ -41,14 +26,18 @@ export function HeroBanner({ totalReviews = 10000 }: HeroBannerProps) {
       </div>
 
       {/* SVG Narrative Flow Widget */}
-      <div style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '16px 24px',
-        borderRadius: '24px',
-        background: 'radial-gradient(ellipse at 80% 50%, rgba(209, 250, 229, 0.45), transparent 70%)',
-      }}>
+      <div 
+        className="hero-svg-widget"
+        style={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '16px 20px',
+          borderRadius: '24px',
+          background: 'radial-gradient(ellipse at 80% 50%, rgba(209, 250, 229, 0.45), transparent 70%)',
+          maxWidth: '100%'
+        }}
+      >
         {/* Left Source Card */}
         <div style={{
           backgroundColor: '#FFFFFF',

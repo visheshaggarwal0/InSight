@@ -111,3 +111,28 @@ def test_semantic_search_vector(client):
     assert "similarity_score" in top_result
     assert "redacted_text" in top_result
     assert top_result["similarity_score"] > 0.0
+
+def test_domain_switch_and_sentiment_stability(client):
+    """Verifies seamless switching between domains with different feature spaces without shape mismatch."""
+    # Switch to tech_saas
+    r1 = client.post("/api/datasets/select", json={"domain": "tech_saas"})
+    assert r1.status_code == 200
+    assert r1.json()["active_domain"] == "tech_saas"
+
+    # Query overview & verbatims for tech_saas
+    saas_ov = client.get("/api/overview")
+    assert saas_ov.status_code == 200
+    saas_verb = client.get("/api/verbatims?page=1&page_size=5")
+    assert saas_verb.status_code == 200
+
+    # Switch back to d2c_cosmetics
+    r2 = client.post("/api/datasets/select", json={"domain": "d2c_cosmetics"})
+    assert r2.status_code == 200
+    assert r2.json()["active_domain"] == "d2c_cosmetics"
+
+    # Query overview & verbatims for d2c_cosmetics
+    d2c_ov = client.get("/api/overview")
+    assert d2c_ov.status_code == 200
+    d2c_verb = client.get("/api/verbatims?page=1&page_size=5")
+    assert d2c_verb.status_code == 200
+

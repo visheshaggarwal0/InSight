@@ -68,12 +68,7 @@ export const OverviewCards: React.FC<Props> = ({ metrics }) => {
   ];
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-      gap: '16px',
-      marginBottom: '28px'
-    }}>
+    <div className="responsive-grid-4">
       {cards.map((c, i) => {
         const Icon = c.icon;
         const Arrow = c.arrow;
@@ -82,10 +77,11 @@ export const OverviewCards: React.FC<Props> = ({ metrics }) => {
             key={i}
             className="dashboard-card"
             style={{
-              padding: '20px 22px',
+              padding: '16px 18px',
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between'
+              justifyContent: 'space-between',
+              minWidth: 0
             }}
           >
             {/* Top Icon */}
