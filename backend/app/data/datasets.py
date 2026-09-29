@@ -7,11 +7,27 @@ import re
 
 def extract_complaint_span(text: str) -> Dict[str, Any]:
     """
-    Extracts contrastive complaint clauses or trigger defect phrases.
-    Matches discourse markers: 'but', 'however', 'except that', 'although', 'unfortunately', 'until'
-    or defect terms like 'cracked', 'leaked', 'jammed', 'burning', 'crash', etc.
-    Returns span text, start offset, and end offset.
+    PROVISIONAL heuristic: extracts contrastive complaint clauses or defect phrases.
+    Matches discourse markers ('but', 'however', 'except that', 'although',
+    'unfortunately', 'until') or defect terms ('cracked', 'leaked', 'jammed',
+    'burning', 'crash', etc.).
+
+    Returns:
+        detected : bool – True if a complaint pattern was found
+        text     : str  – matched span text (empty string when not detected)
+        start    : int  – start character offset (None when not detected)
+        end      : int  – end character offset (None when not detected)
+
+    When detected is True: source_text[start:end] == text (guaranteed).
+    When detected is False: text is "" and offsets are None.
+
+    IMPORTANT: The previous implementation returned {text: full_text, start: 0,
+    end: len(text)} on no-match, which made it impossible to distinguish
+    "no complaint detected" from "complaint found at position 0". Fixed.
     """
+    if not isinstance(text, str) or not text.strip():
+        return {"detected": False, "text": "", "start": None, "end": None}
+
     pattern = re.compile(
         r'\b(?:but|however|except\s+that|except|although|unfortunately|until|cracked|jammed|leaked|burning|stinging|rash|dermatitis|crash|crashes|freeze|freezes|failed|fails|limbo|terrible|horrible)\b.*',
         re.IGNORECASE
@@ -19,14 +35,16 @@ def extract_complaint_span(text: str) -> Dict[str, Any]:
     match = pattern.search(text)
     if match:
         return {
+            "detected": True,
             "text": match.group(0),
             "start": match.start(),
-            "end": match.end()
+            "end": match.end(),
         }
     return {
-        "text": text,
-        "start": 0,
-        "end": len(text)
+        "detected": False,
+        "text": "",
+        "start": None,
+        "end": None,
     }
 
 class TelemetryDatasetManager:
