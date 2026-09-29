@@ -131,3 +131,64 @@ PROVISIONAL_THEME_NAMES = {
     4: "Fragrance, Scent & Sensory Properties",
     5: "Cleansers, Face Wash & Makeup Removal",
 }
+
+# ---------------------------------------------------------------------------
+# Sentence-level pipeline (NEW — sentence deconstruction + classification)
+# ---------------------------------------------------------------------------
+# Controls how the redacted review text is split into sentences and how
+# each sentence is classified into COMPLAINT | RECOMMENDATION | PRAISE/NOISE.
+
+SENTENCE_PIPELINE = {
+    # Minimum word count for a sentence fragment to be kept.
+    # Fragments shorter than this (e.g. "Great." alone) are dropped.
+    "min_word_count": 3,
+
+    # Sentence classifier mode.
+    # "heuristic"    : current provisional regex-based classifier (default)
+    # "deberta_v3"   : future supervised DeBERTa-v3 model (not yet implemented)
+    # "minilm_ft"    : future fine-tuned MiniLM model (not yet implemented)
+    "classifier_mode": "heuristic",   # PROVISIONAL: change when labelled data exists
+
+    # Whether to include sentence-level outputs in per-review records.
+    "include_sentences_in_records": True,
+
+    # Whether to run complaint clustering after routing.
+    "run_complaint_clustering": True,
+}
+
+# ---------------------------------------------------------------------------
+# Complaint cluster dashboard (NEW — sentence-level MiniLM + KMeans)
+# ---------------------------------------------------------------------------
+# These settings control clustering of the COMPLAINT sentence pool only.
+# Independent from the review-level THEME clustering (which uses k=6 on
+# full reviews). These are two separate, complementary cluster dimensions.
+
+COMPLAINT_CLUSTERING = {
+    # Target cluster count (auto-scales down for small corpora)
+    "n_clusters": 6,
+
+    # MiniLM model (same as theme engine — shared singleton)
+    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+
+    # KMeans batch size and init count
+    "batch_size": 256,
+    "n_init": 3,
+
+    # c-TF-IDF: number of root-cause keywords per cluster
+    "top_keywords": 8,
+
+    # Number of verbatim sentences to surface per cluster in the dashboard
+    "n_verbatims": 5,
+
+    # Severity thresholds (by complaint sentence count — NOT negative fraction)
+    # These are provisional; recalibrate when the complaint corpus is profiled.
+    "severity_thresholds": {
+        "critical": 200,    # ≥ 200 complaint sentences → CRITICAL
+        "high": 80,         # ≥ 80  → HIGH
+        "medium": 20,       # ≥ 20  → MEDIUM; else → LOW
+    },
+
+    # Output path for the complaint cluster dashboard JSON
+    "output_path": PROJECT_ROOT / "InSight_ML" / "outputs" / "pipeline_runs" / "complaint_clusters_latest.json",
+}
+
