@@ -5,9 +5,10 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Dep
 from pydantic import BaseModel
 import pandas as pd
 
+import threading
 from app.core.config import settings
 from app.data.datasets import dataset_manager
-from app.ml.sentiment import sentiment_model
+from app.ml.sentiment import sentiment_model, CalibratedSentimentClassifier
 from app.ml.evaluation import evaluation_harness
 from app.ml.clustering import clusterer, transformer_encoder
 from app.ml.drift import drift_detector
@@ -29,13 +30,15 @@ class AppState:
         self.themes: list = []
         self.drift_results: dict = {}
         self.eval_results: dict = {}
+        self.sentiment_model: CalibratedSentimentClassifier = sentiment_model
         self.is_initialized: bool = False
 
 state = AppState()
 DOMAIN_CACHE: dict = {}
+INIT_LOCK = threading.RLock()
 
 def compute_domain_artifacts(domain: str) -> dict:
-    """Computes and calibrates artifacts for a domain."""
+    """Computes and calibrates artifacts for a domain with an isolated classifier instance."""
     if domain == "d2c_cosmetics":
         reviews, ground_truth = dataset_manager.generate_d2c_cosmetics(10000)
     elif domain == "tech_saas":
@@ -43,29 +46,29 @@ def compute_domain_artifacts(domain: str) -> dict:
     else:
         raise ValueError(f"Unknown domain: {domain}")
 
-    # 1. Train & calibrate supervised classifier on a training subset (first 2,000)
-    # Strictly disjoint from ground_truth
+    # 1. Train & calibrate domain-specific supervised classifier on training subset
+    domain_model = CalibratedSentimentClassifier()
     train_texts = [r["redacted_text"] for r in reviews[:2000]]
     train_labels = [r["ground_truth_label"] for r in reviews[:2000]]
-    sentiment_model.fit(train_texts, train_labels)
+    domain_model.fit(train_texts, train_labels)
 
     # 2. Run inference across the full corpus
     all_texts = [r["redacted_text"] for r in reviews]
-    preds = sentiment_model.predict(all_texts)
-    probs = sentiment_model.predict_proba(all_texts)
+    preds = domain_model.predict(all_texts)
+    probs = domain_model.predict_proba(all_texts)
 
     for i, r in enumerate(reviews):
         r["sentiment_pred"] = preds[i]
-        cls_idx = list(sentiment_model.pipeline.classes_).index(preds[i])
+        cls_idx = list(domain_model.pipeline.classes_).index(preds[i])
         r["sentiment_confidence"] = round(float(probs[i][cls_idx]), 4)
 
     # 3. Benchmark model against strictly held-out 1,000 ground truth set
     gt_texts = [r["redacted_text"] for r in ground_truth]
     gt_true = [r["ground_truth_label"] for r in ground_truth]
-    gt_preds = sentiment_model.predict(gt_texts)
-    gt_probs = sentiment_model.predict_proba(gt_texts)
+    gt_preds = domain_model.predict(gt_texts)
+    gt_probs = domain_model.predict_proba(gt_texts)
     eval_results = evaluation_harness.evaluate(
-        gt_true, gt_preds, gt_probs, sentiment_model.CLASSES
+        gt_true, gt_preds, gt_probs, domain_model.CLASSES
     )
 
     # 4. Unsupervised thematic clustering
@@ -81,27 +84,36 @@ def compute_domain_artifacts(domain: str) -> dict:
         "ground_truth": ground_truth,
         "themes": themes,
         "drift_results": drift_results,
-        "eval_results": eval_results
+        "eval_results": eval_results,
+        "sentiment_model": domain_model
     }
 
 def initialize_domain(domain: str):
     """Initializes and activates domain state using pre-computed cache for instant switching."""
-    if domain not in DOMAIN_CACHE:
-        DOMAIN_CACHE[domain] = compute_domain_artifacts(domain)
+    with INIT_LOCK:
+        if domain not in DOMAIN_CACHE:
+            DOMAIN_CACHE[domain] = compute_domain_artifacts(domain)
 
-    cached = DOMAIN_CACHE[domain]
-    state.active_domain = domain
-    state.reviews = cached["reviews"]
-    state.ground_truth = cached["ground_truth"]
-    state.themes = cached["themes"]
-    state.drift_results = cached["drift_results"]
-    state.eval_results = cached["eval_results"]
-    state.is_initialized = True
+        cached = DOMAIN_CACHE[domain]
+        state.active_domain = domain
+        state.reviews = cached["reviews"]
+        state.ground_truth = cached["ground_truth"]
+        state.themes = cached["themes"]
+        state.drift_results = cached["drift_results"]
+        state.eval_results = cached["eval_results"]
+        state.sentiment_model = cached["sentiment_model"]
+
+        # Keep legacy singleton sentiment_model synchronized with active domain pipeline
+        sentiment_model.pipeline = cached["sentiment_model"].pipeline
+        sentiment_model.is_fitted = True
+        state.is_initialized = True
 
 def ensure_initialized():
-    """Lazily ensures primary domain state is initialized on first request."""
+    """Lazily ensures primary domain state is initialized on first request with double-checked locking."""
     if not state.is_initialized:
-        initialize_domain("d2c_cosmetics")
+        with INIT_LOCK:
+            if not state.is_initialized:
+                initialize_domain("d2c_cosmetics")
 
 class DomainSelectRequest(BaseModel):
     domain: str
@@ -163,28 +175,33 @@ async def upload_custom_csv(file: UploadFile = File(...)):
         state.ground_truth = gt
         state.active_domain = "custom"
 
-        # Fast fit
+        # Fast fit on isolated model
+        custom_model = CalibratedSentimentClassifier()
         train_texts = [r["redacted_text"] for r in state.reviews[:min(2000, len(state.reviews))]]
         train_labels = [r["ground_truth_label"] for r in state.reviews[:min(2000, len(state.reviews))]]
-        sentiment_model.fit(train_texts, train_labels)
+        custom_model.fit(train_texts, train_labels)
 
         all_texts = [r["redacted_text"] for r in state.reviews]
-        preds = sentiment_model.predict(all_texts)
-        probs = sentiment_model.predict_proba(all_texts)
+        preds = custom_model.predict(all_texts)
+        probs = custom_model.predict_proba(all_texts)
 
         for i, r in enumerate(state.reviews):
             r["sentiment_pred"] = preds[i]
-            cls_idx = list(sentiment_model.pipeline.classes_).index(preds[i])
+            cls_idx = list(custom_model.pipeline.classes_).index(preds[i])
             r["sentiment_confidence"] = round(float(probs[i][cls_idx]), 4)
 
         if len(state.ground_truth) > 0:
             gt_texts = [r["redacted_text"] for r in state.ground_truth]
             gt_true = [r["ground_truth_label"] for r in state.ground_truth]
-            gt_preds = sentiment_model.predict(gt_texts)
-            gt_probs = sentiment_model.predict_proba(gt_texts)
+            gt_preds = custom_model.predict(gt_texts)
+            gt_probs = custom_model.predict_proba(gt_texts)
             state.eval_results = evaluation_harness.evaluate(
-                gt_true, gt_preds, gt_probs, sentiment_model.CLASSES
+                gt_true, gt_preds, gt_probs, custom_model.CLASSES
             )
+
+        state.sentiment_model = custom_model
+        sentiment_model.pipeline = custom_model.pipeline
+        sentiment_model.is_fitted = True
 
         cluster_res = clusterer.fit_and_cluster(state.reviews)
         state.themes = cluster_res["themes"]

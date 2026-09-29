@@ -21,24 +21,12 @@ export const ModelGovernanceModal: React.FC<Props> = ({
 
   return (
     <div className="overlay-backdrop">
-      <div
-        style={{
-          width: '90%',
-          maxWidth: '820px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          padding: '28px',
-          backgroundColor: '#FFFFFF',
-          borderRadius: '16px',
-          border: '1px solid #E5E7EB',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.15)'
-        }}
-      >
+      <div className="responsive-modal-body">
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: '16px', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#ECFDF5', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#ECFDF5', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Award size={18} />
               </div>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.01em', color: '#111827' }}>
@@ -68,7 +56,7 @@ export const ModelGovernanceModal: React.FC<Props> = ({
         {/* Model Spec Tag */}
         <div style={{ margin: '18px 0', padding: '12px 16px', backgroundColor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Activity size={15} style={{ color: '#10B981' }} />
+            <Activity size={15} style={{ color: '#10B981', flexShrink: 0 }} />
             <span style={{ fontSize: '0.78rem', color: '#4B5563' }}>
               Architecture: <strong style={{ color: '#111827', fontFamily: "'JetBrains Mono', monospace" }}>{model_architecture}</strong>
             </span>
@@ -79,7 +67,7 @@ export const ModelGovernanceModal: React.FC<Props> = ({
         </div>
 
         {/* Metric Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '24px' }}>
           <div style={{ padding: '16px', textAlign: 'center', backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '10px' }}>
             <span style={{ fontSize: '0.68rem', color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>TEST ACCURACY</span>
             <div style={{ fontSize: '1.7rem', fontWeight: 700, color: '#059669', marginTop: '4px', letterSpacing: '-0.02em' }}>

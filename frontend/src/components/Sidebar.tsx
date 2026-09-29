@@ -6,16 +6,19 @@ import {
   TrendingUp, 
   GitCompare, 
   Settings, 
-  Sparkles 
+  Sparkles,
+  X
 } from 'lucide-react';
 
 interface SidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
   onOpenGovernance?: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
+export function Sidebar({ currentTab, onSelectTab, isOpen = false, onClose }: SidebarProps) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'reviews', label: 'Reviews', icon: MessageSquare },
@@ -27,28 +30,25 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
   ];
 
   return (
-    <aside style={{
-      width: '200px',
-      minWidth: '200px',
-      backgroundColor: '#FFFFFF',
-      borderRight: '1px solid #E8ECE9',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      padding: '20px 12px',
-      height: '100vh',
-      position: 'sticky',
-      top: 0,
-      zIndex: 20
-    }}>
+    <aside className={`sidebar-desktop ${isOpen ? 'sidebar-open' : ''}`}>
       <div>
-        {/* Brand Logo */}
-        <div style={{ padding: '4px 6px 22px 6px' }}>
+        {/* Brand Logo & Mobile Close Button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 22px 6px' }}>
           <img 
             src="/insight-logo.png" 
             alt="InSight - Real Feedback. Real Insights." 
             style={{ height: '28px', width: 'auto', display: 'block', objectFit: 'contain' }}
           />
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="mobile-menu-btn"
+              style={{ padding: '4px', border: 'none', background: 'transparent' }}
+              aria-label="Close navigation"
+            >
+              <X size={20} style={{ color: '#6B7280' }} />
+            </button>
+          )}
         </div>
 
         {/* Navigation List */}
@@ -59,7 +59,10 @@ export function Sidebar({ currentTab, onSelectTab }: SidebarProps) {
             return (
               <button
                 key={item.id}
-                onClick={() => onSelectTab(item.id)}
+                onClick={() => {
+                  onSelectTab(item.id);
+                  onClose?.();
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

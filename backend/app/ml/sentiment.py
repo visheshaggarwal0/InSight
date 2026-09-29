@@ -12,20 +12,28 @@ class CalibratedSentimentClassifier:
     """
     CLASSES = ["NEGATIVE", "NEUTRAL", "POSITIVE"]
 
-    def __init__(self):
-        # High-efficiency n-gram TF-IDF pipeline with calibrated Logistic Regression (Platt scaling)
+    @staticmethod
+    def _create_pipeline() -> Pipeline:
         base_clf = LogisticRegression(max_iter=1000, C=1.5, class_weight='balanced', random_state=42)
-        self.pipeline = Pipeline([
+        return Pipeline([
             ('tfidf', TfidfVectorizer(ngram_range=(1, 2), max_features=8000, sublinear_tf=True)),
             ('calibrated', CalibratedClassifierCV(estimator=base_clf, method='sigmoid', cv=3))
         ])
+
+    def __init__(self):
+        # High-efficiency n-gram TF-IDF pipeline with calibrated Logistic Regression (Platt scaling)
+        self.pipeline = self._create_pipeline()
         self.is_fitted = False
 
     def fit(self, texts: List[str], labels: List[str]):
         """
         Train the calibrated classifier on labeled review samples.
+        Instantiates a fresh pipeline prior to fitting to guarantee clean feature space isolation
+        and atomically swaps the pipeline upon completion to prevent concurrent dimension mismatch.
         """
-        self.pipeline.fit(texts, labels)
+        new_pipeline = self._create_pipeline()
+        new_pipeline.fit(texts, labels)
+        self.pipeline = new_pipeline
         self.is_fitted = True
 
     def predict(self, texts: List[str]) -> List[str]:
