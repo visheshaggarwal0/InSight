@@ -1,47 +1,86 @@
-import pandas as pd, re
+"""validate_complaint_extraction.py
+Offline validation report for complaint span extraction on the real cosmetics dataset.
+
+Produces a markdown report at InSight_ML/reports/complaint_extraction_validation.md.
+
+Usage (from project root):
+    python InSight_ML/validate_complaint_extraction.py
+
+IMPORTANT: Detection rates reported here have no precision/recall interpretation
+without manually labelled complaint spans. They are operational coverage metrics only.
+"""
+
+from __future__ import annotations
+import sys
 from pathlib import Path
 
-csv_path = Path('d:/Documents/InSight/InSight_ML/data/processed/cosmetics/cosmetics_10k.csv')
-df = pd.read_csv(csv_path)
-reviews = df['review_text'].astype(str).tolist()
+# ── Path setup ────────────────────────────────────────────────────────────────
+_HERE = Path(__file__).resolve().parent
+_ROOT = _HERE.parent
+for p in [str(_ROOT), str(_HERE)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
-_PATTERN = re.compile(r"\b(?:but|however|except\s+that|except|although|unfortunately|until|cracked|jammed|leaked|burning|stinging|rash|dermatitis|crash|crashes|freeze|freezes|failed|fails|limbo|terrible|horrible)\b.*", re.IGNORECASE)
+import pandas as pd
+from InSight_ML.complaint_extraction import extract_complaint_span
+from InSight_ML.pipeline_config import DATASETS
 
-def extract(text):
-    m = _PATTERN.search(text)
-    if m:
-        return True, m.group(0), m.start(), m.end()
-    return False, "", None, None
+REPORT_PATH = _HERE / "reports" / "complaint_extraction_validation.md"
+N_REVIEWS = 1000  # sample size for this validation report
 
-counts = {'detected': 0, 'none': 0}
-examples = []
-for rev in reviews[:1000]:
-    det, txt, s, e = extract(rev)
-    if det:
-        counts['detected'] += 1
-        if len(examples) < 5:
-            examples.append((rev, txt, s, e))
-    else:
-        counts['none'] += 1
 
-report_lines = []
-report_lines.append('# Complaint Extraction Validation')
-report_lines.append('')
-report_lines.append('**Dataset**: cosmetics_10k.csv (first 1000 reviews)')
-report_lines.append('')
-report_lines.append(f'- Reviews processed: 1000')
-report_lines.append(f'- Detections: {counts["detected"]}')
-report_lines.append(f'- No extraction: {counts["none"]}')
-report_lines.append('')
-report_lines.append('## Representative extracted complaints')
-report_lines.append('')
-for rev, txt, s, e in examples:
-    snippet = rev[:80].replace('\n', ' ')
-    report_lines.append(f'* Review snippet: `{snippet}...`')
-    report_lines.append(f'* Extracted span: `{txt}` (offset {s}-{e})')
-    report_lines.append('')
+def main():
+    csv_path = DATASETS["cosmetics_10k"]
+    if not csv_path.exists():
+        print(f"ERROR: Dataset not found at {csv_path}", file=sys.stderr)
+        sys.exit(1)
 
-report_path = Path('d:/Documents/InSight/InSight_ML/reports/complaint_extraction_validation.md')
-report_path.parent.mkdir(parents=True, exist_ok=True)
-report_path.write_text('\n'.join(report_lines))
-print('Report written to', report_path)
+    df = pd.read_csv(csv_path)
+    reviews = df["review_text"].dropna().astype(str).head(N_REVIEWS).tolist()
+
+    n_detected = 0
+    examples = []
+
+    for rev in reviews:
+        detected, txt, s, e = False, "", None, None
+        result = extract_complaint_span(rev)
+        detected = result["detected"]
+        if detected:
+            n_detected += 1
+            txt, s, e = result["text"], result["start"], result["end"]
+            if len(examples) < 5:
+                examples.append((rev, txt, s, e))
+
+    detection_rate = n_detected / len(reviews) * 100
+
+    lines = [
+        "# Complaint Extraction Validation",
+        "",
+        f"**Dataset**: `{csv_path.name}` (first {N_REVIEWS} reviews — real Sephora cosmetics data)",
+        "",
+        f"- Reviews processed: {len(reviews)}",
+        f"- Detections: {n_detected} ({detection_rate:.1f}%)",
+        f"- No complaint extracted: {len(reviews) - n_detected} ({100 - detection_rate:.1f}%)",
+        "",
+        "> **IMPORTANT**: Detection rate is a coverage metric only. Without manually",
+        "> labelled complaint spans there is no ground truth for precision or recall.",
+        "> A high detection rate may indicate false positives (e.g., 'but' in non-complaint",
+        "> contexts). Treat this as provisional engineering output.",
+        "",
+        "## Representative Extracted Complaints",
+        "",
+    ]
+
+    for rev, txt, s, e in examples:
+        snippet = rev[:120].replace("\n", " ")
+        lines.append(f"- **Review snippet**: `{snippet}...`")
+        lines.append(f"  **Extracted span**: `{txt}` (offset {s}–{e})")
+        lines.append("")
+
+    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Report written to {REPORT_PATH}")
+
+
+if __name__ == "__main__":
+    main()

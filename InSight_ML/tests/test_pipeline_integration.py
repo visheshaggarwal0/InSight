@@ -352,12 +352,16 @@ class TestSentimentPipeline(unittest.TestCase):
             )
 
     def test_throughput(self):
-        """Throughput should be at least 500 reviews/sec on the loaded model."""
-        texts = ["Great product I love it" for _ in range(200)]
+        """Throughput should be at least 500 reviews/sec on the loaded model.
+
+        Guard against ZeroDivisionError on very fast hardware where
+        elapsed rounds to 0.0 by using a minimum floor of 1 microsecond.
+        """
+        texts = ["Great product I love it" for _ in range(500)]  # larger batch for stable timing
         t0 = time.time()
         _ = self.pipeline.predict(texts)
-        elapsed = time.time() - t0
-        throughput = 200 / elapsed
+        elapsed = max(time.time() - t0, 1e-6)  # floor prevents ZeroDivisionError
+        throughput = len(texts) / elapsed
         self.assertGreater(throughput, 500, f"Throughput too low: {throughput:.0f} rev/sec")
 
 
