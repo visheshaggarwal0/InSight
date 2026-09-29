@@ -29,7 +29,8 @@ from __future__ import annotations
 import re
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +68,9 @@ _COMPLAINT_PATTERN = re.compile(
     r"fake|counterfeit|expired|smells off|changed formula|"
     r"no effect|no results|zero effect|"
     # App / tech
-    r"crash|crashes|crashed|freeze|freezes|frozen|frozen|"
+    r"crash|crashes|crashed|freeze|freezes|frozen|"
     r"failed|fails|failure|error|bug|glitch|"
-    r"limbo|pending|stuck|not loading|"
+    r"limbo|pending|stuck|not loading|times out|timed out|timeout|redirect loop|login loop|unresponsive|memory leak|deadlock|"
     # Delivery / service
     r"never arrived|damaged|defective|recalled|refund|return"
     r")\b",
@@ -89,6 +90,27 @@ _RECOMMENDATION_PATTERN = re.compile(
     r"feature request|improvement|suggestion|could (?:add|include|improve|offer)|"
     r"next version|future (?:update|version|release)|needs? (?:to be|a|an|more)\s+"
     r")\b",
+    re.IGNORECASE,
+)
+
+# PRAISE signals: prevent positive enthusiasm with contrastive words from being labeled as complaints
+_PRAISE_PATTERN = re.compile(
+    r"\b(?:"
+    r"love|favorite|holy grail|best product|amazing|amazed|incredibly hydrating|so smooth|"
+    r"glowing|cleared my skin|gentle|works wonders|fantastic|blazingly fast|super intuitive|"
+    r"10/10|five stars|outstanding|flawless|super soft|worth every penny|highly recommend"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# NEGATION & SYMPTOM MITIGATION guards: e.g. "isn't drying", "never irritated", "no breakouts", "removes redness", "without feeling stripped"
+_NEGATION_FILTER = re.compile(
+    r"\b(?:"
+    r"never|didn't|did not|not|no|wasn't|was not|isn't|is not|doesn't|does not|without|zero|barely|"
+    r"stopped|decrease in|decreased|prevented|prevents|removes?|reduces?|soothes?|clears?|cures?|calms?|won't|wont"
+    r")\b(?:\s+\w+){0,9}\s+"
+    r"(?:irritat\w*|burn\w*|breakout\w*|acne|rash\w*|peel\w*|sting\w*|pill\w*|problem\w*|issue\w*|defect\w*|"
+    r"clog\w*|leak\w*|dry\w*|crash\w*|shrink\w*|strip\w*|redness|tightness|puffiness|wrinkle\w*)",
     re.IGNORECASE,
 )
 
@@ -240,32 +262,152 @@ def deconstruct_sentences(
 def _classify_sentence(sentence_text: str) -> Tuple[str, float]:
     """Assign a sentence to COMPLAINT | RECOMMENDATION | PRAISE/NOISE.
 
-    PROVISIONAL: Heuristic rule-based. Replace with a fine-tuned model.
+    PROVISIONAL: Heuristic rule-based with negation and praise guards.
+    Can be seamlessly upgraded by DeBERTa-v3 model weights.
 
     Returns:
         (label, confidence) where confidence is a proxy score [0.0, 1.0].
-        Confidence is the number of pattern matches normalized by text length —
-        it is an ENGINEERING proxy, not a calibrated probability.
     """
-    text = sentence_text.strip()
+    text = sentence_text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').strip()
     if not text:
         return LABEL_PRAISE_NOISE, 0.0
 
-    complaint_matches = _COMPLAINT_PATTERN.findall(text)
+    # 1. Recommendation: suggestions, requests, wishes take precedence
     recommendation_matches = _RECOMMENDATION_PATTERN.findall(text)
-
-    n_words = max(len(text.split()), 1)
-
-    if complaint_matches and (not recommendation_matches or len(complaint_matches) >= len(recommendation_matches)):
-        # Confidence proxy: capped ratio of matching tokens to sentence length
-        conf = min(1.0, len(complaint_matches) / max(n_words * 0.15, 1))
-        return LABEL_COMPLAINT, round(conf, 3)
-
     if recommendation_matches:
+        n_words = max(len(text.split()), 1)
         conf = min(1.0, len(recommendation_matches) / max(n_words * 0.15, 1))
         return LABEL_RECOMMENDATION, round(conf, 3)
 
-    return LABEL_PRAISE_NOISE, 0.8   # high confidence for the "catch-all" bucket
+    # 2. Negation / Symptom mitigation guard: e.g. "isn't drying", "never irritated my skin", "no breakouts"
+    if _NEGATION_FILTER.search(text):
+        return LABEL_PRAISE_NOISE, 0.85
+
+    complaint_matches = _COMPLAINT_PATTERN.findall(text)
+    praise_matches = _PRAISE_PATTERN.findall(text)
+
+    # Filter out pure contrastive discourse markers if no actual defect is stated
+    pure_markers = {"but", "however", "although", "though", "except", "until", "despite", "nevertheless", "yet"}
+    real_complaint_tokens = [m.lower() for m in complaint_matches if m.lower() not in pure_markers]
+
+    # 3. Praise guard: If praise words exist and no real physical defect occurred, route to PRAISE/NOISE
+    if praise_matches and not real_complaint_tokens:
+        return LABEL_PRAISE_NOISE, 0.90
+
+    # 4. Genuine complaint: requires at least one real failure verb or defect descriptor
+    if real_complaint_tokens:
+        n_words = max(len(text.split()), 1)
+        conf = min(1.0, len(real_complaint_tokens) / max(n_words * 0.15, 1))
+        return LABEL_COMPLAINT, max(0.5, round(conf, 3))
+
+    return LABEL_PRAISE_NOISE, 0.8   # Catch-all: pure discourse markers (but/however) without defects are not complaints
+
+
+# ---------------------------------------------------------------------------
+# Stage 2b: DeBERTa Sentence Intent Classifier (Supervised / INT8 quantized)
+# ---------------------------------------------------------------------------
+
+class DebertaSentenceClassifier:
+    """Fast INT8 CPU / FP32 inference engine for DeBERTa-v3 complaint extraction.
+    
+    Provides batched inference over customer sentences. Falls back gracefully
+    to rule-based classification if model weights are not present.
+    """
+    _INSTANCE: Optional["DebertaSentenceClassifier"] = None
+
+    @classmethod
+    def get_instance(cls, model_dir: Optional[Union[str, Path]] = None) -> Optional["DebertaSentenceClassifier"]:
+        if cls._INSTANCE is None:
+            inst = cls(model_dir=model_dir)
+            if inst.is_available:
+                cls._INSTANCE = inst
+            else:
+                return None
+        return cls._INSTANCE
+
+    def __init__(self, model_dir: Optional[Union[str, Path]] = None):
+        self.is_available = False
+        self.model = None
+        self.tokenizer = None
+        self.id2label = {
+            0: LABEL_COMPLAINT,
+            1: LABEL_RECOMMENDATION,
+            2: LABEL_PRAISE_NOISE,
+            3: LABEL_PRAISE_NOISE,
+        }
+
+        # Resolve candidate weight directories
+        root = Path(__file__).resolve().parent
+        candidates = [
+            Path(model_dir) if model_dir else None,
+            root / "outputs" / "deberta_extractor" / "deberta_int8",
+            root / "outputs" / "deberta_extractor" / "deberta_fp32",
+            root / "outputs" / "deberta_extractor",
+        ]
+        chosen_dir = None
+        for cand in candidates:
+            if cand and cand.exists() and (cand / "tokenizer_config.json").exists():
+                chosen_dir = cand
+                break
+
+        if not chosen_dir:
+            return
+
+        try:
+            import torch
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+            logger.info("Initializing DeBERTa complaint extractor from %s...", chosen_dir)
+            self.tokenizer = AutoTokenizer.from_pretrained(str(chosen_dir))
+
+            int8_weights = chosen_dir / "pytorch_model_int8.bin"
+            if int8_weights.exists():
+                base_model = AutoModelForSequenceClassification.from_pretrained(str(chosen_dir))
+                quantized = torch.ao.quantization.quantize_dynamic(
+                    base_model.cpu(), {torch.nn.Linear}, dtype=torch.qint8
+                )
+                quantized.load_state_dict(torch.load(int8_weights, map_location="cpu"))
+                quantized.eval()
+                self.model = quantized
+                logger.info("Loaded INT8 quantized DeBERTa-v3 extractor successfully.")
+            else:
+                fp32_model = AutoModelForSequenceClassification.from_pretrained(str(chosen_dir))
+                fp32_model.eval()
+                self.model = fp32_model
+                logger.info("Loaded FP32 DeBERTa-v3 extractor successfully.")
+
+            self.is_available = True
+        except Exception as e:
+            logger.warning("Could not initialize DeBERTa model from %s: %s (falling back to rule-based)", chosen_dir, e)
+            self.is_available = False
+
+    def predict_batch(self, texts: List[str], batch_size: int = 128) -> List[Tuple[str, float]]:
+        if not self.is_available or not texts:
+            return [_classify_sentence(t) for t in texts]
+
+        import torch
+        import torch.nn.functional as F
+
+        results: List[Tuple[str, float]] = []
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i : i + batch_size]
+            enc = self.tokenizer(
+                batch_texts,
+                padding=True,
+                truncation=True,
+                max_length=128,
+                return_tensors="pt"
+            )
+            with torch.no_grad():
+                logits = self.model(**enc).logits
+                probs = F.softmax(logits, dim=-1)
+                confs, preds = torch.max(probs, dim=-1)
+
+            for pred_id, conf in zip(preds.cpu().tolist(), confs.cpu().tolist()):
+                label = self.id2label.get(pred_id, LABEL_PRAISE_NOISE)
+                results.append((label, round(float(conf), 3)))
+
+        return results
 
 
 # ---------------------------------------------------------------------------
@@ -287,8 +429,18 @@ def classify_and_route_review(
     all_records: List[SentenceRecord] = []
     pools = RoutedPools()
 
-    for sent_idx, (sent_text, start, end) in enumerate(raw_sentences):
-        label, confidence = _classify_sentence(sent_text)
+    classifier = DebertaSentenceClassifier.get_instance()
+    if classifier and classifier.is_available and raw_sentences:
+        texts = [s[0] for s in raw_sentences]
+        preds = classifier.predict_batch(texts)
+        is_provisional = False
+        note = "Fine-tuned DeBERTa-v3 sentence intent model."
+    else:
+        preds = [_classify_sentence(s[0]) for s in raw_sentences]
+        is_provisional = True
+        note = SentenceRecord.classifier_note
+
+    for sent_idx, ((sent_text, start, end), (label, confidence)) in enumerate(zip(raw_sentences, preds)):
         rec = SentenceRecord(
             sentence_id=f"{review_id}::S{sent_idx:03d}",
             review_id=review_id,
@@ -298,6 +450,8 @@ def classify_and_route_review(
             end=end,
             label=label,
             confidence=confidence,
+            is_provisional=is_provisional,
+            classifier_note=note,
         )
         all_records.append(rec)
         if label == LABEL_COMPLAINT:
@@ -316,36 +470,66 @@ def classify_and_route_corpus(
     redacted_texts: List[str],
 ) -> Tuple[List[SentenceRecord], RoutedPools]:
     """Process all reviews in the corpus through the sentence pipeline.
-
-    Args:
-        review_ids: Stable review IDs.
-        source_row_indices: Original CSV row indices.
-        redacted_texts: PII-redacted review texts.
-
-    Returns:
-        (all_sentence_records, corpus_pools)
+    
+    Uses batched DeBERTa inference when weights are available, otherwise
+    falls back to rule-based classification per review.
     """
     if not (len(review_ids) == len(source_row_indices) == len(redacted_texts)):
         raise ValueError("review_ids, source_row_indices, and redacted_texts must have equal length.")
 
+    classifier = DebertaSentenceClassifier.get_instance()
     all_sentences: List[SentenceRecord] = []
     corpus_pools = RoutedPools()
 
-    for rev_id, src_idx, text in zip(review_ids, source_row_indices, redacted_texts):
-        recs, pools = classify_and_route_review(rev_id, src_idx, text)
-        all_sentences.extend(recs)
-        corpus_pools.complaint.extend(pools.complaint)
-        corpus_pools.recommendation.extend(pools.recommendation)
-        corpus_pools.praise_noise.extend(pools.praise_noise)
+    if classifier and classifier.is_available:
+        flattened: List[Tuple[str, int, int, str, int, int]] = []
+        for rev_id, src_idx, text in zip(review_ids, source_row_indices, redacted_texts):
+            raw_sents = deconstruct_sentences(rev_id, src_idx, text)
+            for sent_idx, (sent_text, start, end) in enumerate(raw_sents):
+                flattened.append((rev_id, src_idx, sent_idx, sent_text, start, end))
+
+        if flattened:
+            all_texts = [f[3] for f in flattened]
+            preds = classifier.predict_batch(all_texts, batch_size=128)
+            note = "Fine-tuned DeBERTa-v3 sentence intent model."
+
+            for (rev_id, src_idx, sent_idx, sent_text, start, end), (label, confidence) in zip(flattened, preds):
+                rec = SentenceRecord(
+                    sentence_id=f"{rev_id}::S{sent_idx:03d}",
+                    review_id=rev_id,
+                    source_row_index=src_idx,
+                    sentence_text=sent_text,
+                    start=start,
+                    end=end,
+                    label=label,
+                    confidence=confidence,
+                    is_provisional=False,
+                    classifier_note=note,
+                )
+                all_sentences.append(rec)
+                if label == LABEL_COMPLAINT:
+                    corpus_pools.complaint.append(rec)
+                elif label == LABEL_RECOMMENDATION:
+                    corpus_pools.recommendation.append(rec)
+                else:
+                    corpus_pools.praise_noise.append(rec)
+    else:
+        for rev_id, src_idx, text in zip(review_ids, source_row_indices, redacted_texts):
+            recs, pools = classify_and_route_review(rev_id, src_idx, text)
+            all_sentences.extend(recs)
+            corpus_pools.complaint.extend(pools.complaint)
+            corpus_pools.recommendation.extend(pools.recommendation)
+            corpus_pools.praise_noise.extend(pools.praise_noise)
 
     logger.info(
         "Sentence pipeline: %d reviews → %d sentences | "
-        "COMPLAINT=%d, RECOMMENDATION=%d, PRAISE/NOISE=%d [PROVISIONAL]",
+        "COMPLAINT=%d, RECOMMENDATION=%d, PRAISE/NOISE=%d [%s]",
         len(review_ids),
         len(all_sentences),
         len(corpus_pools.complaint),
         len(corpus_pools.recommendation),
         len(corpus_pools.praise_noise),
+        "DeBERTa" if (classifier and classifier.is_available) else "PROVISIONAL rule-based",
     )
     return all_sentences, corpus_pools
 
@@ -356,6 +540,7 @@ __all__ = [
     "LABEL_PRAISE_NOISE",
     "SentenceRecord",
     "RoutedPools",
+    "DebertaSentenceClassifier",
     "deconstruct_sentences",
     "classify_and_route_review",
     "classify_and_route_corpus",

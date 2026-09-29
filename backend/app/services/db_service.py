@@ -1,6 +1,6 @@
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import func, select, desc
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
@@ -285,7 +285,7 @@ class DatabaseService:
             incident_volume=incident_volume,
             ticket_markdown=ticket_markdown,
             status="OPEN",
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         db.add(ticket)
         db.commit()

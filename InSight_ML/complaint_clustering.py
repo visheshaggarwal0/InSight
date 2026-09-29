@@ -121,6 +121,24 @@ def embed_sentences(texts: List[str], cache_key_suffix: str = "") -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Generic review and cosmetics filler tokens that overshadow specific defect terminology
+# ---------------------------------------------------------------------------
+
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+
+_VOC_STOPWORDS = {
+    "product", "products", "use", "used", "using", "really", "feel", "feels", "feeling",
+    "tried", "bought", "got", "just", "like", "time", "day", "days", "face",
+    "skin", "make", "makes", "think", "love", "way", "bit", "lot", "good",
+    "great", "cream", "eyes", "eye", "moisturizer", "cleanser", "serum",
+    "oil", "lotion", "apply", "applying", "applied", "didn", "don", "wasn",
+    "wouldn", "couldn", "ve", "ll", "went", "come", "came", "going", "know",
+    "item", "brand", "order", "ordered", "purchase", "purchased", "bottle"
+}
+_COMBINED_STOPWORDS = list(ENGLISH_STOP_WORDS.union(_VOC_STOPWORDS))
+
+
+# ---------------------------------------------------------------------------
 # c-TF-IDF keyword extraction
 # ---------------------------------------------------------------------------
 
@@ -146,15 +164,29 @@ def extract_ctfidf_keywords(
     if not any(d.strip() for d in docs):
         return {c: [] for c in cluster_ids}
 
-    vectorizer = TfidfVectorizer(
-        max_features=3000,
-        ngram_range=(1, 2),
-        stop_words="english",
-        min_df=1,
-    )
     try:
+        vectorizer = TfidfVectorizer(
+            max_features=3000,
+            ngram_range=(1, 2),
+            stop_words=_COMBINED_STOPWORDS,
+            min_df=1,
+        )
         ctfidf_matrix = vectorizer.fit_transform(docs)
         feature_names = np.array(vectorizer.get_feature_names_out())
+    except ValueError:
+        # Fall back to standard english stop words if domain filtering eliminated all words
+        try:
+            vectorizer = TfidfVectorizer(
+                max_features=3000,
+                ngram_range=(1, 2),
+                stop_words="english",
+                min_df=1,
+            )
+            ctfidf_matrix = vectorizer.fit_transform(docs)
+            feature_names = np.array(vectorizer.get_feature_names_out())
+        except Exception as exc:
+            logger.warning("c-TF-IDF vectorization fallback failed: %s", exc)
+            return {c: [] for c in cluster_ids}
     except Exception as exc:
         logger.warning("c-TF-IDF vectorization failed: %s", exc)
         return {c: [] for c in cluster_ids}
@@ -189,9 +221,11 @@ def cluster_complaint_sentences(
         A dict with:
           clusters        : List[Dict] — one entry per cluster, containing:
               cluster_id  : int
+              title       : str — descriptive root-cause title
               keywords    : List[str] — c-TF-IDF root-cause keywords
               sentence_count : int
               severity    : str  (CRITICAL / HIGH / MEDIUM / LOW)
+              medoid_verbatim: str — most central representative complaint sentence
               verbatims   : List[Dict] — up to 5 sentences with full traceability
           n_complaint_sentences : int
           n_clusters_actual     : int
@@ -245,11 +279,47 @@ def cluster_complaint_sentences(
     cluster_texts_map = {c: [s.sentence_text for s in sents] for c, sents in cluster_sentence_map.items()}
     keywords_map = extract_ctfidf_keywords(cluster_texts_map, top_n=8)
 
-    # Step 5: Build cluster summaries
+    # Step 5: Build cluster summaries with Medoid calculation & Defect Title
     clusters = []
     for cid in range(k):
         sents = cluster_sentence_map[cid]
         count = len(sents)
+        if count == 0:
+            continue
+
+        # Medoid calculation: find sentence closest to the cluster centroid
+        cluster_indices = [i for i, lbl in enumerate(labels) if lbl == cid]
+        if cluster_indices:
+            c_embs = embeddings[cluster_indices]
+            centroid = kmeans.cluster_centers_[cid]
+            dists = np.linalg.norm(c_embs - centroid, axis=1)
+            medoid_local_idx = int(np.argmin(dists))
+            medoid_sent = complaint_sentences[cluster_indices[medoid_local_idx]]
+        else:
+            medoid_sent = sents[0]
+
+        # Prioritize medoid at index 0 for verbatim traceability
+        ordered_sents = [medoid_sent] + [s for s in sents if s.sentence_id != medoid_sent.sentence_id]
+        verbatims = [
+            {
+                "sentence_id": s.sentence_id,
+                "review_id": s.review_id,
+                "source_row_index": s.source_row_index,
+                "sentence_text": s.sentence_text,
+                "start": s.start,
+                "end": s.end,
+                "confidence": s.confidence,
+            }
+            for s in ordered_sents[:5]
+        ]
+
+        kws = keywords_map.get(cid, [])
+        if len(kws) >= 2:
+            title = f"{kws[0].title()} & {kws[1].title()}"
+        elif len(kws) == 1:
+            title = kws[0].title()
+        else:
+            title = f"Defect Mode #{cid + 1}"
 
         # Severity: purely based on cluster size and complaint nature
         # (all sentences here are already classified as COMPLAINT)
@@ -262,22 +332,10 @@ def cluster_complaint_sentences(
         else:
             severity = "LOW"
 
-        verbatims = [
-            {
-                "sentence_id": s.sentence_id,
-                "review_id": s.review_id,
-                "source_row_index": s.source_row_index,
-                "sentence_text": s.sentence_text,
-                "start": s.start,
-                "end": s.end,
-                "confidence": s.confidence,
-            }
-            for s in sents[:5]
-        ]
-
         clusters.append({
             "cluster_id": cid,
-            "keywords": keywords_map.get(cid, []),
+            "title": title,
+            "keywords": kws,
             "sentence_count": count,
             "severity": severity,
             "severity_note": (
@@ -285,6 +343,7 @@ def cluster_complaint_sentences(
                 "Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. "
                 "Not statistically validated for this domain."
             ),
+            "medoid_verbatim": medoid_sent.sentence_text,
             "verbatims": verbatims,
             "is_provisional": True,
         })

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     Integer,
@@ -23,7 +23,7 @@ class DomainModel(Base):
     category = Column(String(128), nullable=False)
     focus = Column(Text, nullable=True)
     review_count = Column(Integer, default=0)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     themes = relationship("ThemeModel", back_populates="domain", cascade="all, delete-orphan")
@@ -44,7 +44,7 @@ class ThemeModel(Base):
     neutral_rate = Column(Float, default=0.0)
     keywords = Column(JSON, nullable=True)  # list of top keywords (c-TF-IDF)
     sample_verbatims = Column(JSON, nullable=True)  # list of representative review dicts
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     domain = relationship("DomainModel", back_populates="themes")
 
@@ -70,7 +70,7 @@ class ReviewModel(Base):
     
     # 384-dimensional dense vector from all-MiniLM-L6-v2
     embedding = Column(Vector(settings.EMBEDDING_DIM), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     domain = relationship("DomainModel", back_populates="reviews")
 
@@ -95,7 +95,7 @@ class TicketModel(Base):
     ticket_markdown = Column(Text, nullable=False)
     status = Column(String(32), default="OPEN")  # OPEN, IN_PROGRESS, RESOLVED
     jira_id = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     domain = relationship("DomainModel", back_populates="tickets")
 
@@ -107,4 +107,4 @@ class GovernanceModel(Base):
     model_architecture = Column(String(255), nullable=False)
     evaluation = Column(JSON, nullable=True)
     drift_results = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

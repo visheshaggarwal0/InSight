@@ -8,6 +8,7 @@ import pandas as pd
 import threading
 from app.core.config import settings
 from app.data.datasets import dataset_manager
+from app.data.real_loader import real_data_loader
 from app.ml.sentiment import sentiment_model, CalibratedSentimentClassifier
 from app.ml.evaluation import evaluation_harness
 from app.ml.clustering import clusterer, transformer_encoder
@@ -39,28 +40,42 @@ INIT_LOCK = threading.RLock()
 
 def compute_domain_artifacts(domain: str) -> dict:
     """Computes and calibrates artifacts for a domain with an isolated classifier instance."""
+    use_real_pipeline = False
     if domain == "d2c_cosmetics":
-        reviews, ground_truth = dataset_manager.generate_d2c_cosmetics(10000)
+        try:
+            real_res = real_data_loader.load_data()
+            reviews = real_res["reviews"]
+            _, ground_truth = dataset_manager.generate_d2c_cosmetics(1000)
+            themes = real_res["themes"]
+            drift_results = real_res["drift_results"]
+            use_real_pipeline = True
+            logger.info("Loaded real Sephora cosmetics telemetry with verified offline artifacts.")
+        except Exception as e:
+            logger.warning("Could not load real cosmetics data, falling back to synthetic generator: %s", e)
+            reviews, ground_truth = dataset_manager.generate_d2c_cosmetics(10000)
+            use_real_pipeline = False
     elif domain == "tech_saas":
         reviews, ground_truth = dataset_manager.generate_tech_saas(10000)
+        use_real_pipeline = False
     else:
         raise ValueError(f"Unknown domain: {domain}")
 
     # 1. Train & calibrate domain-specific supervised classifier on training subset
     domain_model = CalibratedSentimentClassifier()
     train_texts = [r["redacted_text"] for r in reviews[:2000]]
-    train_labels = [r["ground_truth_label"] for r in reviews[:2000]]
+    train_labels = [r.get("ground_truth_label", r.get("sentiment_pred", "NEUTRAL")) for r in reviews[:2000]]
     domain_model.fit(train_texts, train_labels)
 
-    # 2. Run inference across the full corpus
-    all_texts = [r["redacted_text"] for r in reviews]
-    preds = domain_model.predict(all_texts)
-    probs = domain_model.predict_proba(all_texts)
+    # 2. Run inference across the full corpus if not already populated
+    if not use_real_pipeline:
+        all_texts = [r["redacted_text"] for r in reviews]
+        preds = domain_model.predict(all_texts)
+        probs = domain_model.predict_proba(all_texts)
 
-    for i, r in enumerate(reviews):
-        r["sentiment_pred"] = preds[i]
-        cls_idx = list(domain_model.pipeline.classes_).index(preds[i])
-        r["sentiment_confidence"] = round(float(probs[i][cls_idx]), 4)
+        for i, r in enumerate(reviews):
+            r["sentiment_pred"] = preds[i]
+            cls_idx = list(domain_model.pipeline.classes_).index(preds[i])
+            r["sentiment_confidence"] = round(float(probs[i][cls_idx]), 4)
 
     # 3. Benchmark model against strictly held-out 1,000 ground truth set
     gt_texts = [r["redacted_text"] for r in ground_truth]
@@ -71,13 +86,12 @@ def compute_domain_artifacts(domain: str) -> dict:
         gt_true, gt_preds, gt_probs, domain_model.CLASSES
     )
 
-    # 4. Unsupervised thematic clustering
-    cluster_res = clusterer.fit_and_cluster(reviews)
-    themes = cluster_res["themes"]
-    reviews = cluster_res["reviews"]
-
-    # 5. Temporal & batch drift analysis
-    drift_results = drift_detector.analyze_drift(reviews)
+    # 4. Unsupervised thematic clustering and drift analysis if not precomputed
+    if not use_real_pipeline:
+        cluster_res = clusterer.fit_and_cluster(reviews)
+        themes = cluster_res["themes"]
+        reviews = cluster_res["reviews"]
+        drift_results = drift_detector.analyze_drift(reviews)
 
     return {
         "reviews": reviews,

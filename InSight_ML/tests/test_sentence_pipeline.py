@@ -449,6 +449,20 @@ class TestComplaintClustering(unittest.TestCase):
             self.assertIsInstance(kws, list)
             self.assertLessEqual(len(kws), 5)
 
+    def test_cluster_medoid_and_title(self):
+        """Every cluster must have a descriptive defect title and medoid_verbatim."""
+        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        result = cluster_complaint_sentences(self.complaint_pool, n_clusters=3)
+        for cluster in result["clusters"]:
+            self.assertIn("title", cluster)
+            self.assertIsInstance(cluster["title"], str)
+            self.assertGreater(len(cluster["title"].strip()), 0)
+            self.assertIn("medoid_verbatim", cluster)
+            self.assertIsInstance(cluster["medoid_verbatim"], str)
+            self.assertGreater(len(cluster["medoid_verbatim"].strip()), 0)
+            # The medoid must be the very first verbatim
+            self.assertEqual(cluster["verbatims"][0]["sentence_text"], cluster["medoid_verbatim"])
+
 
 # =============================================================================
 # Group 5: Real-data smoke tests on cosmetics_10k.csv
