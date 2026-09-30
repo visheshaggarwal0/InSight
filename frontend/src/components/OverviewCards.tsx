@@ -1,5 +1,6 @@
-import React from 'react';
-import { MessageCircle, Smile, Meh, Frown, ArrowUp, ArrowDown } from 'lucide-react';
+import { memo, type FC } from 'react';
+import { MessageCircle, Smile, Meh, Frown, ShieldCheck } from 'lucide-react';
+import { fmtNum, fmtPct } from './EmptyState';
 import type { OverviewMetrics } from '../types/telemetry';
 
 interface Props {
@@ -7,81 +8,71 @@ interface Props {
   onOpenGovernance?: () => void;
 }
 
-export const OverviewCards: React.FC<Props> = ({ metrics }) => {
-  if (!metrics) return null;
+export const OverviewCards: FC<Props> = memo(({ metrics, onOpenGovernance }) => {
+  const formatRate = (rate: number) => fmtPct(rate, 1);
 
-  const formatRate = (rate: number) => {
-    const rounded = Math.round(rate * 10) / 10;
-    return `${rounded}%`;
-  };
+  const neutralRate = metrics
+    ? Math.max(0, Math.round((100 - metrics.positive_rate - metrics.negative_rate) * 10) / 10)
+    : 0;
 
-  const neutralRate = Math.max(
-    0,
-    Math.round((100 - metrics.positive_rate - metrics.negative_rate) * 10) / 10
-  );
-
-  const cards = [
-    {
-      title: 'Total Reviews',
-      value: metrics.total_reviews.toLocaleString(),
-      change: '12%',
-      isPositive: true,
-      arrow: ArrowUp,
-      icon: MessageCircle,
-      iconBg: '#ECFDF5',
-      iconColor: '#10B981',
-      changeText: 'vs. previous period'
-    },
-    {
-      title: 'Positive Sentiment',
-      value: formatRate(metrics.positive_rate),
-      change: '8%',
-      isPositive: true,
-      arrow: ArrowUp,
-      icon: Smile,
-      iconBg: '#ECFDF5',
-      iconColor: '#059669',
-      changeText: 'vs. previous period'
-    },
-    {
-      title: 'Neutral',
-      value: formatRate(neutralRate),
-      change: '4%',
-      isPositive: false,
-      arrow: ArrowDown,
-      icon: Meh,
-      iconBg: '#F3F4F6',
-      iconColor: '#6B7280',
-      changeText: 'vs. previous period'
-    },
-    {
-      title: 'Negative',
-      value: formatRate(metrics.negative_rate),
-      change: '4%',
-      isPositive: false,
-      arrow: ArrowDown,
-      icon: Frown,
-      iconBg: '#FEF2F2',
-      iconColor: '#EF4444',
-      changeText: 'vs. previous period'
-    }
-  ];
+  // The API exposes no period-over-period deltas, so no trend arrows are rendered.
+  const cards = metrics
+    ? [
+        {
+          key: 'total',
+          title: 'Total Reviews',
+          value: fmtNum(metrics.total_reviews),
+          icon: MessageCircle,
+          iconBg: '#ECFDF5',
+          iconColor: '#10B981'
+        },
+        {
+          key: 'positive',
+          title: 'Positive Sentiment',
+          value: formatRate(metrics.positive_rate),
+          icon: Smile,
+          iconBg: '#ECFDF5',
+          iconColor: '#059669'
+        },
+        {
+          key: 'neutral',
+          title: 'Neutral',
+          value: formatRate(neutralRate),
+          icon: Meh,
+          iconBg: '#F3F4F6',
+          iconColor: '#6B7280'
+        },
+        {
+          key: 'negative',
+          title: 'Negative',
+          value: formatRate(metrics.negative_rate),
+          icon: Frown,
+          iconBg: '#FEF2F2',
+          iconColor: '#EF4444'
+        }
+      ]
+    : [
+        { key: 'total', title: 'Total Reviews', value: '—', icon: MessageCircle, iconBg: '#ECFDF5', iconColor: '#10B981' },
+        { key: 'positive', title: 'Positive Sentiment', value: '—', icon: Smile, iconBg: '#ECFDF5', iconColor: '#059669' },
+        { key: 'neutral', title: 'Neutral', value: '—', icon: Meh, iconBg: '#F3F4F6', iconColor: '#6B7280' },
+        { key: 'negative', title: 'Negative', value: '—', icon: Frown, iconBg: '#FEF2F2', iconColor: '#EF4444' }
+      ];
 
   return (
     <div className="responsive-grid-4">
-      {cards.map((c, i) => {
+      {cards.map((c) => {
         const Icon = c.icon;
-        const Arrow = c.arrow;
         return (
           <div
-            key={i}
+            key={c.key}
             className="dashboard-card"
             style={{
               padding: '16px 18px',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              minWidth: 0
+              minWidth: 0,
+              minHeight: metrics ? undefined : '140px'
             }}
           >
             {/* Top Icon */}
@@ -114,31 +105,31 @@ export const OverviewCards: React.FC<Props> = ({ metrics }) => {
                 fontSize: '0.82rem',
                 fontWeight: 500,
                 color: '#4B5563',
-                marginTop: '4px',
-                marginBottom: '14px'
+                marginTop: '4px'
               }}>
                 {c.title}
               </div>
             </div>
-
-            {/* Trend Indicator */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              color: c.isPositive ? '#059669' : '#EF4444'
-            }}>
-              <Arrow size={14} strokeWidth={2.5} />
-              <span>{c.change}</span>
-              <span style={{ color: '#9CA3AF', fontWeight: 400, marginLeft: '2px' }}>
-                {c.changeText}
-              </span>
-            </div>
           </div>
         );
       })}
+
+      {onOpenGovernance && (
+        <button
+          type="button"
+          onClick={onOpenGovernance}
+          className="btn-outline"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            marginTop: '10px'
+          }}
+        >
+          <ShieldCheck size={14} />
+          <span>Inspect Model Governance</span>
+        </button>
+      )}
     </div>
   );
-};
+});

@@ -5,6 +5,14 @@ from app.core.pii import pii_redactor
 
 import re
 
+# Compiled ONCE at module scope. Previously this regex was recompiled inside
+# extract_complaint_span, i.e. once per review (21,000 times per corpus).
+_COMPLAINT_SPAN_PATTERN = re.compile(
+    r'\b(?:but|however|except\s+that|except|although|unfortunately|until|cracked|jammed|leaked|burning|stinging|rash|dermatitis|crash|crashes|freeze|freezes|failed|fails|limbo|terrible|horrible)\b.*',
+    re.IGNORECASE
+)
+
+
 def extract_complaint_span(text: str) -> Dict[str, Any]:
     """
     PROVISIONAL heuristic: extracts contrastive complaint clauses or defect phrases.
@@ -28,10 +36,7 @@ def extract_complaint_span(text: str) -> Dict[str, Any]:
     if not isinstance(text, str) or not text.strip():
         return {"detected": False, "text": "", "start": None, "end": None}
 
-    pattern = re.compile(
-        r'\b(?:but|however|except\s+that|except|although|unfortunately|until|cracked|jammed|leaked|burning|stinging|rash|dermatitis|crash|crashes|freeze|freezes|failed|fails|limbo|terrible|horrible)\b.*',
-        re.IGNORECASE
-    )
+    pattern = _COMPLAINT_SPAN_PATTERN
     match = pattern.search(text)
     if match:
         return {
@@ -46,6 +51,23 @@ def extract_complaint_span(text: str) -> Dict[str, Any]:
         "start": None,
         "end": None,
     }
+
+def _holdout_templates(templates: List[str], name: str) -> List[str]:
+    """Deterministic GOLD half of a template list (never used for corpus generation)."""
+    if len(templates) < 2:
+        raise ValueError(
+            f"Template group {name!r} has {len(templates)} entry(ies); at least 2 are required "
+            "to form a disjoint train/gold partition."
+        )
+    half = max(1, len(templates) // 2)
+    return templates[-half:]
+
+
+def _train_templates(templates: List[str], name: str) -> List[str]:
+    """Deterministic TRAIN half of a template list (disjoint from the gold half)."""
+    half = max(1, len(templates) // 2)
+    return templates[:-half]
+
 
 class TelemetryDatasetManager:
     """
@@ -107,13 +129,39 @@ class TelemetryDatasetManager:
             "Delayed by over 10 days on {channel}. Customer support completely ghosted me regarding order #ORD-{order_id}."
         ]
 
+        # ------------------------------------------------------------------
+        # Train / gold template partition.
+        #
+        # A generated review's label is a deterministic function of the
+        # template it came from. Drawing the "held-out" evaluation sample from
+        # the SAME template lists meant an independent random seed only
+        # re-rolled the slot values (order id, phone, product) inside an
+        # otherwise identical sentence, so any TF-IDF model could score near
+        # perfect accuracy by recognising ~10 tokens.
+        #
+        # Each list is therefore split, and the corpus below uses only the
+        # TRAIN half. The evaluation sample below uses only the GOLD half.
+        # ------------------------------------------------------------------
+        gold_templates = {
+            "positive": _holdout_templates(positive_templates, "positive"),
+            "neutral": _holdout_templates(neutral_templates, "neutral"),
+            "irritation": _holdout_templates(negative_irritation_templates, "irritation"),
+            "leakage": _holdout_templates(negative_leakage_templates, "leakage"),
+            "delivery": _holdout_templates(negative_delivery_templates, "delivery"),
+        }
+        positive_templates = _train_templates(positive_templates, "positive")
+        neutral_templates = _train_templates(neutral_templates, "neutral")
+        negative_irritation_templates = _train_templates(negative_irritation_templates, "irritation")
+        negative_leakage_templates = _train_templates(negative_leakage_templates, "leakage")
+        negative_delivery_templates = _train_templates(negative_delivery_templates, "delivery")
+
         names = ["Aarav Sharma", "Pooja Mehta", "Rohan Verma", "Sneha Patel", "Ananya Iyer", "Vikram Singh"]
         cities = ["Mumbai 400001", "Bengaluru 560034", "Delhi 110001", "Pune 411007"]
 
         reviews = []
 
         for i in range(1, n + 1):
-            batch_choice = batches[min(i // (n // 4), 3)]
+            batch_choice = batches[min(i // max(n // 4, 1), len(batches) - 1)]
             sku_code, product_name = random.choice(skus)
             channel = random.choice(channels)
             order_id = random.randint(100000, 999999)
@@ -189,8 +237,8 @@ class TelemetryDatasetManager:
 
             reviews.append(review_obj)
 
-        # STRICTLY DISJOINT Gold-Standard Test Set (N = 1,000) with independent seed
-        # Zero leakage: none of these reviews appear in the corpus or training data
+        # Held-out evaluation sample (N = 1,000), drawn only from the GOLD
+        # template half reserved above. The corpus above never sees these.
         gt_rng = random.Random(7777)
         ground_truth_sample = []
         for j in range(1, 1001):
@@ -205,15 +253,19 @@ class TelemetryDatasetManager:
             if r_val < 0.35:
                 label = "POSITIVE"
                 rating = gt_rng.choice([4, 5])
-                raw_text = gt_rng.choice(positive_templates).format(product=product_name, channel=channel)
+                raw_text = gt_rng.choice(gold_templates["positive"]).format(product=product_name, channel=channel)
             elif r_val < 0.65:
                 label = "NEUTRAL"
                 rating = 3
-                raw_text = gt_rng.choice(neutral_templates).format(product=product_name, channel=channel)
+                raw_text = gt_rng.choice(gold_templates["neutral"]).format(product=product_name, channel=channel)
             else:
                 label = "NEGATIVE"
                 rating = gt_rng.choice([1, 2])
-                neg_choice = gt_rng.choice([negative_irritation_templates, negative_leakage_templates, negative_delivery_templates])
+                neg_choice = gt_rng.choice([
+                    gold_templates["irritation"],
+                    gold_templates["leakage"],
+                    gold_templates["delivery"],
+                ])
                 raw_text = gt_rng.choice(neg_choice).format(
                     email=email, phone=phone, order_id=order_id, channel=channel, address=address
                 )
@@ -275,11 +327,23 @@ class TelemetryDatasetManager:
             "Stuck on 'Payment Pending' spinner. My money is in limbo. Ticket ID: OD{order_id}."
         ]
 
+        # Train / gold template partition (see generate_d2c_cosmetics).
+        # Without this the "held-out" gold sample is template-identical to the
+        # corpus, so reported accuracy measures template recognition.
+        gold_pos = _holdout_templates(pos_templates, "pos")
+        gold_neu = _holdout_templates(neu_templates, "neu")
+        gold_biometric = _holdout_templates(neg_biometric_spike, "neg_biometric_spike")
+        gold_p2p = _holdout_templates(neg_p2p_failed, "neg_p2p_failed")
+        pos_templates = _train_templates(pos_templates, "pos")
+        neu_templates = _train_templates(neu_templates, "neu")
+        neg_biometric_spike = _train_templates(neg_biometric_spike, "neg_biometric_spike")
+        neg_p2p_failed = _train_templates(neg_p2p_failed, "neg_p2p_failed")
+
         reviews = []
         ground_truth_sample = []
 
         for i in range(1, n + 1):
-            ver = versions[min(i // (n // 4), 3)]
+            ver = versions[min(i // max(n // 4, 1), len(versions) - 1)]
             mod_code, mod_name = random.choice(modules)
             channel = random.choice(channels)
             order_id = random.randint(100000, 999999)
@@ -340,7 +404,8 @@ class TelemetryDatasetManager:
 
             reviews.append(review_obj)
 
-        # STRICTLY DISJOINT Gold-Standard Test Set (N = 1,000) for Tech SaaS
+        # STRICTLY DISJOINT evaluation sample (N = 1,000) for Tech SaaS.
+        # Drawn only from the GOLD template half reserved above.
         gt_rng = random.Random(8888)
         ground_truth_sample = []
         for j in range(1, 1001):
@@ -354,15 +419,15 @@ class TelemetryDatasetManager:
             if r_val < 0.35:
                 label = "POSITIVE"
                 rating = gt_rng.choice([4, 5])
-                raw_text = gt_rng.choice(pos_templates).format(channel=channel)
+                raw_text = gt_rng.choice(gold_pos).format(channel=channel)
             elif r_val < 0.65:
                 label = "NEUTRAL"
                 rating = 3
-                raw_text = gt_rng.choice(neu_templates)
+                raw_text = gt_rng.choice(gold_neu)
             else:
                 label = "NEGATIVE"
                 rating = gt_rng.choice([1, 2])
-                neg_choice = gt_rng.choice([neg_biometric_spike, neg_p2p_failed])
+                neg_choice = gt_rng.choice([gold_biometric, gold_p2p])
                 raw_text = gt_rng.choice(neg_choice).format(email=email, phone=phone, order_id=order_id)
 
             sanitized_text, pii_tags = pii_redactor.redact(raw_text)
@@ -382,30 +447,96 @@ class TelemetryDatasetManager:
             })
 
         return reviews, ground_truth_sample
+    # Ordered by specificity. The previous first-match substring scan bound
+    # this project's own Sephora schema to `total_feedback_count` because it
+    # contains "feedback" and appears before `review_text` in column order.
+    TEXT_COLUMN_CANDIDATES = [
+        "review_text", "reviewtext", "review", "comment_text", "comment",
+        "feedback_text", "feedback", "body", "content", "message", "text",
+    ]
+    RATING_COLUMN_CANDIDATES = ["rating", "stars", "star_rating", "score", "overall"]
+    VERSION_COLUMN_CANDIDATES = ["batch_or_version", "version", "release", "build", "batch", "date"]
+    PRODUCT_COLUMN_CANDIDATES = ["product_name", "product", "sku", "item_name", "item", "name"]
 
-    @staticmethod
-    def parse_custom_csv(df: pd.DataFrame) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    @classmethod
+    def _resolve_column(
+        cls,
+        df: pd.DataFrame,
+        candidates: List[str],
+        require_text: bool = False,
+    ) -> Optional[str]:
         """
-        Parses custom user-uploaded CSV dataframe into unified InSight telemetry schema.
-        Partitions cleanly into training/corpus reviews and a strictly held-out evaluation test set.
+        Resolves a column by exact name first, then by scored substring match.
+
+        Only object/string columns are eligible when ``require_text`` is set, so
+        an integer count column can never be mistaken for review text.
         """
-        text_col = next((c for c in df.columns if any(k in c.lower() for k in ["text", "review", "comment", "feedback"])), None)
+        lowered = {str(c).strip().lower(): c for c in df.columns}
+
+        for candidate in candidates:
+            if candidate in lowered:
+                return lowered[candidate]
+
+        best: Optional[str] = None
+        best_score = 0
+        for lower, original in lowered.items():
+            if require_text and not (
+                pd.api.types.is_object_dtype(df[original])
+                or pd.api.types.is_string_dtype(df[original])
+            ):
+                continue
+            for rank, candidate in enumerate(candidates):
+                if candidate in lower:
+                    # Longer, more specific candidate wins.
+                    score = len(candidate) * 100 - rank
+                    if score > best_score:
+                        best_score = score
+                        best = original
+                    break
+        return best
+
+    @classmethod
+    def parse_custom_csv(cls, df: pd.DataFrame) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """
+        Parses a custom user-uploaded CSV into the unified InSight telemetry schema.
+
+        Returns:
+            (all_records, evaluation_records) where the two lists are disjoint.
+
+        Raises:
+            ValueError: if no usable review-text column is present.
+        """
+        text_col = cls._resolve_column(df, cls.TEXT_COLUMN_CANDIDATES, require_text=True)
         if not text_col:
-            raise ValueError("CSV must contain a column for review text (e.g. 'review', 'text', 'comment').")
+            raise ValueError(
+                "CSV must contain a text column (e.g. 'review_text', 'review', 'comment', 'text')."
+            )
 
-        rating_col = next((c for c in df.columns if any(k in c.lower() for k in ["rating", "score", "star"])), None)
-        version_col = next((c for c in df.columns if any(k in c.lower() for k in ["batch", "version", "release", "date"])), None)
-        prod_col = next((c for c in df.columns if any(k in c.lower() for k in ["product", "sku", "item", "name"])), None)
+        rating_col = cls._resolve_column(df, cls.RATING_COLUMN_CANDIDATES)
+        version_col = cls._resolve_column(df, cls.VERSION_COLUMN_CANDIDATES)
+        prod_col = cls._resolve_column(df, cls.PRODUCT_COLUMN_CANDIDATES)
 
-        all_records = []
+        all_records: List[Dict[str, Any]] = []
 
-        for idx, row in df.iterrows():
+        for position, (_, row) in enumerate(df.iterrows()):
             raw_text = str(row[text_col])
-            rating = int(row[rating_col]) if rating_col and pd.notnull(row[rating_col]) else 3
+            if not raw_text.strip() or raw_text.lower() == "nan":
+                continue
+
+            rating = 3
+            if rating_col and pd.notnull(row[rating_col]):
+                try:
+                    rating = int(float(row[rating_col]))
+                except (TypeError, ValueError):
+                    rating = 3
+                # Ratings on a non-1..5 scale would otherwise be silently
+                # mapped to POSITIVE by the `else` branch below.
+                if not 1 <= rating <= 5:
+                    rating = 3
+
             ver = str(row[version_col]) if version_col and pd.notnull(row[version_col]) else "Batch-Custom"
             prod = str(row[prod_col]) if prod_col and pd.notnull(row[prod_col]) else "Custom Item"
 
-            # Derive proxy ground truth from star rating if present
             if rating <= 2:
                 gt_label = "NEGATIVE"
             elif rating == 3:
@@ -415,8 +546,11 @@ class TelemetryDatasetManager:
 
             sanitized, pii_tags = pii_redactor.redact(raw_text)
 
-            obj = {
-                "id": f"REV-USER-{idx+1:05d}",
+            all_records.append({
+                # Positional index, not the DataFrame index label: index labels
+                # are non-sequential and duplicate when a CSV is re-read or
+                # filtered, which collided on the primary key.
+                "id": f"REV-USER-{position+1:05d}",
                 "domain": "custom",
                 "product_name": prod,
                 "sku_or_module": "General",
@@ -427,19 +561,12 @@ class TelemetryDatasetManager:
                 "redacted_text": sanitized,
                 "pii_detected": pii_tags,
                 "ground_truth_label": gt_label,
-                "highlight_span": extract_complaint_span(sanitized)
-            }
-            all_records.append(obj)
+                "highlight_span": extract_complaint_span(sanitized),
+            })
 
-        if len(all_records) >= 20:
-            # 80/20 train/test split with zero leakage
-            split_idx = int(len(all_records) * 0.8)
-            reviews = all_records[:split_idx]
-            ground_truth = all_records[split_idx:split_idx + min(1000, len(all_records) - split_idx)]
-        else:
-            reviews = all_records
-            ground_truth = []
-
-        return reviews, ground_truth
+        # Splitting here is redundant: the caller performs a seeded, shuffled
+        # split and evaluates only on rows the model never saw. Kept for
+        # backwards compatibility with callers that request two lists.
+        return all_records, []
 
 dataset_manager = TelemetryDatasetManager()

@@ -14,12 +14,12 @@ This script:
   7. Computes temporal drift across quarterly cohorts (PSI)
   8. Verifies all span offsets against source texts
   9. Writes structured JSON output (one record per review)
-  10. Generates a markdown pipeline run report
 
 DESIGN NOTES:
   - Model artifacts are loaded once at startup, not per-record.
-  - Records that fail validation are written to a separate rejected.json
-    file rather than silently dropped.
+  - Records that fail validation are counted and reported as
+    `n_rejected_rows` in the run summary (and logged at WARNING level);
+    they are NOT written to a separate rejected.json file.
   - No model training occurs here; all models are pre-trained offline.
   - Sentiment labels from this pipeline are derived from a model trained
     on weak (rating-derived) labels. They are NOT human ground truth.
@@ -40,7 +40,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import joblib
-import numpy as np
 import pandas as pd
 
 # ── Resolve project root ──────────────────────────────────────────────────
@@ -161,21 +160,21 @@ def stage_sentiment(redacted_texts: list, pipeline_path: Path) -> tuple[list, li
 
     logger.info("  Running inference on %d texts", len(redacted_texts))
     t0 = time.time()
-    preds_raw = pipeline.predict(redacted_texts)
+    # NOTE: predict() and predict_proba() each run the full TF-IDF transform,
+    # so calling both would double the dominant cost. Derive labels from
+    # argmax(proba) against pipeline.classes_ and call predict_proba ONCE.
     probs_raw = pipeline.predict_proba(redacted_texts)
     elapsed = time.time() - t0
 
     # Normalize to uppercase
-    preds = [str(p).upper() for p in preds_raw]
     pipeline_classes = [str(c).lower() for c in pipeline.classes_]
+    preds = [pipeline_classes[int(i)].upper() for i in probs_raw.argmax(axis=1)]
 
-    confidences = []
-    for i, pred in enumerate(preds):
-        pred_lower = pred.lower()
-        idx = pipeline_classes.index(pred_lower) if pred_lower in pipeline_classes else 0
-        confidences.append(round(float(probs_raw[i][idx]), 4))
+    confidences = [
+        round(float(max(row)), 4) for row in probs_raw
+    ]
 
-    throughput = len(redacted_texts) / elapsed
+    throughput = len(redacted_texts) / max(elapsed, 1e-9)
     logger.info(
         "  Inference complete: %.2fs (%.0f reviews/sec)", elapsed, throughput
     )
@@ -365,6 +364,7 @@ def stage_build_records(
     DEFAULT_COHORT = "unknown"
 
     records = []
+    n_missing_sentence_join = 0
     for idx in range(n):
         raw_text = str(df["review_text"].iloc[idx])
         redacted = redacted_texts[idx]
@@ -376,17 +376,28 @@ def stage_build_records(
         span = spans[idx]
         cohort = _quarterly_cohort(submission_dates.iloc[idx], DEFAULT_COHORT)
 
-        rating_raw = df["rating"].iloc[idx]
-        rating = int(rating_raw) if pd.notna(rating_raw) and 1 <= float(rating_raw) <= 5 else None
+        # Defensive: a rating may be any string ("N/A", "5.0*"). Coerce, and
+        # treat NaN / out-of-range as missing. Must never raise ValueError.
+        rating_raw = pd.to_numeric(df["rating"].iloc[idx], errors="coerce")
+        rating = (
+            int(rating_raw)
+            if pd.notna(rating_raw) and 1 <= float(rating_raw) <= 5
+            else None
+        )
 
-        rev_id = f"REV-SEP-{idx:05d}"
+        # Stable ID derived from the ORIGINAL source row index, not the
+        # post-validation position, so any change to validation filtering
+        # cannot renumber downstream IDs.
+        source_row_index = int(original_indices[idx])
+        rev_id = f"REV-SEP-{source_row_index:05d}"
 
         # Sentence-level data (if sentence pipeline ran)
         sentences = []
         if sentence_records_by_review is not None:
-            sentences = [
-                s.to_dict() for s in sentence_records_by_review.get(rev_id, [])
-            ]
+            matched = sentence_records_by_review.get(rev_id, [])
+            if not matched:
+                n_missing_sentence_join += 1
+            sentences = [s.to_dict() for s in matched]
 
         records.append({
             "id": rev_id,
@@ -421,6 +432,12 @@ def stage_build_records(
             "source_row_index": original_indices[idx],
         })
 
+    if n_missing_sentence_join:
+        logger.warning(
+            "  %d/%d records had NO sentence rows joined (review_id key mismatch). "
+            "This usually means the review_id scheme changed in one place only.",
+            n_missing_sentence_join, len(records),
+        )
     logger.info("  Assembled %d records", len(records))
     return records
 
@@ -437,6 +454,12 @@ def stage_build_themes(records: list, theme_meta: dict) -> list:
         cid = r["cluster_id"]
         if 0 <= cid < n_clusters:
             cluster_groups[cid].append(r)
+        else:
+            logger.warning(
+                "  Record %s has out-of-range cluster_id=%s (expected 0..%d); "
+                "dropped from theme summary.",
+                r.get("id"), cid, n_clusters - 1,
+            )
 
     themes = []
     for c_id in range(n_clusters):
@@ -607,7 +630,8 @@ def run_pipeline(
     complaint_clusters: Dict[str, Any] = {}
 
     if SENTENCE_PIPELINE.get("include_sentences_in_records", True):
-        review_ids_for_sent = [f"REV-SEP-{i:05d}" for i in range(n_valid)]
+        # MUST use the same ID scheme as stage_build_records (source-row based).
+        review_ids_for_sent = [f"REV-SEP-{int(oi):05d}" for oi in original_indices]
         t = time.time()
         all_sentences, pools = stage_sentence_pipeline(
             review_ids=review_ids_for_sent,
@@ -688,7 +712,15 @@ def run_pipeline(
         "n_drift_alerts": len(drift.get("alerts", [])),
         "stage_timings_sec": {k: round(v, 3) for k, v in stage_timings.items()},
         "total_elapsed_sec": round(total_elapsed, 2),
-        "throughput_reviews_per_sec": round(n_valid / total_elapsed, 1),
+        # HONEST NAME: this is END-TO-END wall clock, i.e. it INCLUDES model
+        # loading, PII redaction, embedding-free joins and JSON serialisation.
+        # It is NOT a model-inference throughput figure and is not reproducible
+        # across machines (warm caches dominate on a second run).
+        "end_to_end_wall_clock_reviews_per_sec": round(n_valid / max(total_elapsed, 1e-9), 1),
+        # DEPRECATED alias of the key above, kept so existing consumers
+        # (tests/ml) do not silently read 0. Same value, misleading name.
+        "throughput_reviews_per_sec": round(n_valid / max(total_elapsed, 1e-9), 1),
+        "sentiment_inference_sec": round(stage_timings.get("sentiment_inference", 0.0), 3),
         "provisional_notices": [
             "Sentiment labels derived from a model trained on weak (rating-derived) labels. Not human-verified ground truth.",
             "Theme assignments are unsupervised (MiniLM+KMeans). Cluster validity is supported by silhouette/DBCV metrics but not by human annotation.",
@@ -722,19 +754,22 @@ def run_pipeline(
         r_out.pop("raw_text", None)  # do not persist raw PII-containing text to pipeline outputs
         records_safe.append(r_out)
 
+    # NOTE: allow_nan=False everywhere — a NaN raises loudly instead of writing
+    # the invalid JSON token `NaN` (which json.loads accepts by default but no
+    # other JSON consumer does).
     with open(reviews_path, "w", encoding="utf-8") as f:
-        json.dump(records_safe, f, ensure_ascii=False, indent=2)
+        json.dump(records_safe, f, ensure_ascii=False, indent=2, allow_nan=False)
     with open(themes_path, "w", encoding="utf-8") as f:
-        json.dump(themes, f, ensure_ascii=False, indent=2)
+        json.dump(themes, f, ensure_ascii=False, indent=2, allow_nan=False)
     with open(drift_path, "w", encoding="utf-8") as f:
-        json.dump(drift, f, ensure_ascii=False, indent=2)
+        json.dump(drift, f, ensure_ascii=False, indent=2, allow_nan=False)
     with open(summary_path, "w", encoding="utf-8") as f:
-        json.dump(summary, f, ensure_ascii=False, indent=2)
+        json.dump(summary, f, ensure_ascii=False, indent=2, allow_nan=False)
     with open(complaint_clusters_path, "w", encoding="utf-8") as f:
-        json.dump(complaint_clusters, f, ensure_ascii=False, indent=2)
+        json.dump(complaint_clusters, f, ensure_ascii=False, indent=2, allow_nan=False)
 
-    # Symlink-style copies for latest
-    import shutil
+    # "latest" mirrors. Use a hardlink when possible so the ~40MB reviews array
+    # is not duplicated on every run; fall back to copy2 across filesystems.
     for src, dst in [
         (reviews_path, latest_reviews_path),
         (themes_path, latest_themes_path),
@@ -742,12 +777,21 @@ def run_pipeline(
         (summary_path, latest_summary_path),
         (complaint_clusters_path, latest_complaint_clusters_path),
     ]:
-        shutil.copy2(src, dst)
+        if dst.exists():
+            dst.unlink()
+        try:
+            os.link(src, dst)
+        except (OSError, AttributeError):
+            import shutil
+            shutil.copy2(src, dst)
 
     logger.info("=" * 60)
     logger.info("Pipeline completed in %.2fs", total_elapsed)
     logger.info("  Valid records: %d/%d", n_valid, validation_result.n_input)
-    logger.info("  Throughput: %.0f reviews/sec", summary["throughput_reviews_per_sec"])
+    logger.info(
+        "  End-to-end wall clock: %.0f reviews/sec (includes model load + serialisation)",
+        summary["end_to_end_wall_clock_reviews_per_sec"],
+    )
     logger.info("  Sentiment: %s", dict(sent_dist))
     logger.info("  Complaints detected (review-level): %d (%.1f%%)", n_complaints, summary["complaint_detected_rate_pct"])
     logger.info(

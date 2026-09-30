@@ -56,10 +56,31 @@ def get_current_user_optional(
             role=row[3]
         )
     except Exception as e:
-        logger.error(f"Error verifying Neon Auth session: {e}")
-        return None
+        # Infrastructure failure must NOT be reported as "anonymous": doing so
+        # silently downgrades every authenticated request during a DB outage.
+        # Distinguish a genuine infrastructure error from an invalid session.
+        logger.error("Error verifying Neon Auth session (treating as infra failure): %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication backend is unavailable. Please retry.",
+        ) from e
     finally:
         db.close()
+
+
+def require_role(*roles: str):
+    """Dependency factory enforcing that the caller holds one of ``roles``."""
+    allowed = {r.strip().lower() for r in roles}
+
+    def _dependency(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+        if allowed and user.role.lower() not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"This action requires one of the following roles: {', '.join(sorted(allowed))}.",
+            )
+        return user
+
+    return _dependency
 
 def get_current_user(
     user: Optional[AuthenticatedUser] = Depends(get_current_user_optional)

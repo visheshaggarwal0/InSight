@@ -25,14 +25,16 @@ Design
 
 PROVISIONAL NOTICES:
   - Cluster labels are unsupervised and not human-annotated.
-  - c-TF-IDF keywords are distinctive within the complaint corpus, not
-    validated root causes.
+  - Cluster titles are DERIVED from the same member sentences that define the
+    cluster, so a title restates the cluster definition. It is descriptive,
+    never causal, and never LLM-generated.
+  - c-TF-IDF keywords are distinctive within the complaint corpus (they are
+    class-based TF-IDF terms, not validated root causes).
   - Cluster count is heuristic; optimal k requires human evaluation.
 """
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import time
 from pathlib import Path
@@ -40,24 +42,49 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from sklearn.cluster import MiniBatchKMeans
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, CountVectorizer
 
 try:
     from app.ml.sentence_pipeline import SentenceRecord
 except ImportError:
     from InSight_ML.sentence_pipeline import SentenceRecord
 
+try:
+    from app.ml.pipeline_config import COMPLAINT_CLUSTERING, embedding_cache_key
+except ImportError:
+    from InSight_ML.pipeline_config import COMPLAINT_CLUSTERING, embedding_cache_key
+
+try:
+    from app.ml.severity import classify_complaint_severity
+except ImportError:  # pragma: no cover - only if app.ml is not importable
+    # Single source of truth is app.ml.severity. This fallback exists only so a
+    # broken/mis-installed backend cannot make the whole ml package unimportable;
+    # it reads the SAME thresholds from pipeline_config.
+    _SEV = COMPLAINT_CLUSTERING["severity_thresholds"]
+
+    def classify_complaint_severity(count: int) -> str:
+        if count >= _SEV["critical"]:
+            return "CRITICAL"
+        if count >= _SEV["high"]:
+            return "HIGH"
+        if count >= _SEV["medium"]:
+            return "MEDIUM"
+        return "LOW"
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+# All values are read live from pipeline_config.COMPLAINT_CLUSTERING so that a
+# threshold is changed in exactly one place.
 
-_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-_DEFAULT_N_CLUSTERS = 6
-_EMBEDDING_DIM = 384
+_MODEL_NAME: str = COMPLAINT_CLUSTERING["model_name"]
+_DEFAULT_N_CLUSTERS: int = COMPLAINT_CLUSTERING["n_clusters"]
+_EMBEDDING_DIM: int = 384
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 _CACHE_DIR = _PROJECT_ROOT / "outputs" / "complaint_cluster_cache"
+
 
 # ---------------------------------------------------------------------------
 # Lazy MiniLM encoder singleton (same model as theme_inference.py)
@@ -97,9 +124,17 @@ def embed_sentences(texts: List[str], cache_key_suffix: str = "") -> np.ndarray:
     """
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Content-addressable cache key
-    sample_str = "".join(texts[:5]) + "".join(texts[-5:]) + str(len(texts)) + cache_key_suffix
-    cache_key = hashlib.sha256(sample_str.encode()).hexdigest()[:16]
+    # Content-addressable cache key. This MUST cover the full ordered text of
+    # every row plus the encoder identity: a key built from the first/last few
+    # sentences and the corpus length collided whenever the middle of the pool
+    # changed (i.e. exactly when the complaint heuristics are edited), returning
+    # a stale matrix computed against a DIFFERENT sentence list.
+    cache_key = embedding_cache_key(
+        texts,
+        model_name=_MODEL_NAME,
+        dim=_EMBEDDING_DIM,
+        salt=cache_key_suffix,
+    )
     cache_file = _CACHE_DIR / f"emb_{cache_key}.npy"
 
     if cache_file.exists():
@@ -110,7 +145,7 @@ def embed_sentences(texts: List[str], cache_key_suffix: str = "") -> np.ndarray:
     t0 = time.time()
     embeddings = encoder.encode(
         texts,
-        batch_size=128,
+        batch_size=COMPLAINT_CLUSTERING["batch_size"],
         normalize_embeddings=True,
         show_progress_bar=False,
     )
@@ -127,8 +162,6 @@ def embed_sentences(texts: List[str], cache_key_suffix: str = "") -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Generic review and cosmetics filler tokens that overshadow specific defect terminology
 # ---------------------------------------------------------------------------
-
-from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 
 _VOC_STOPWORDS = {
     "product", "products", "use", "used", "using", "really", "feel", "feels", "feeling",
@@ -152,56 +185,107 @@ def extract_ctfidf_keywords(
 ) -> Dict[int, List[str]]:
     """Compute class-based c-TF-IDF keywords for each complaint cluster.
 
-    c-TF-IDF penalizes terms that appear uniformly across all clusters and
-    surfaces terms that are distinctively high in a specific cluster.
+    Implements class-based TF-IDF (Cohan, 2005) where each CLUSTER is a
+    "class" and each sentence inside it is a document:
+
+        tf_c(t, c) = 1 + log(t_c(t))
+        idf(t)     = log(1 + A / f(t))
+        weight_c(t) = tf_c(t, c) * idf(t)
+
+    where t_c(t) is the count of t across cluster c's documents, f(t) is the
+    number of clusters in which t appears, and A is the average of f(t) over
+    the observed terms. Terms that appear in every cluster get the smallest
+    weight; terms concentrated in one cluster dominate that cluster's ranking.
+
+    This is NOT plain TF-IDF. The previous implementation ran a TfidfVectorizer
+    over the k concatenated cluster documents, which L2-normalised each cluster
+    document independently, so a 3-sentence cluster outranked a 300-sentence
+    cluster, and with ``min_df=1`` every hapax received full IDF weight.
 
     Args:
         cluster_texts: {cluster_id: [list of sentence texts in this cluster]}
-        top_n: Number of top keywords to return per cluster.
+        top_n: Maximum number of keywords to return per cluster.
 
     Returns:
-        {cluster_id: [keyword, ...]} — sorted by descending c-TF-IDF score.
+        {cluster_id: [keyword, ...]} — strictly positive scores only, sorted by
+        descending c-TF-IDF weight. A cluster whose entire vocabulary is
+        stop-worded away maps to an empty list rather than a padded one.
     """
     cluster_ids = sorted(cluster_texts.keys())
     docs = [" ".join(cluster_texts[c]) for c in cluster_ids]
 
-    if not any(d.strip() for d in docs):
+    if not any(d.strip() for d in docs) or top_n <= 0:
         return {c: [] for c in cluster_ids}
 
-    try:
-        vectorizer = TfidfVectorizer(
-            max_features=3000,
-            ngram_range=(1, 2),
-            stop_words=_COMBINED_STOPWORDS,
-            min_df=1,
-        )
-        ctfidf_matrix = vectorizer.fit_transform(docs)
-        feature_names = np.array(vectorizer.get_feature_names_out())
-    except ValueError:
-        # Fall back to standard english stop words if domain filtering eliminated all words
+    def _count(stop_words) -> Optional[Tuple[Any, np.ndarray]]:
+        """CountVectorizer is used purely as a tokenizer/counter here.
+
+        Weighting is done explicitly below so the c-TF-IDF formula is visible
+        in this file rather than hidden inside sklearn's TF-IDF pipeline.
+        """
         try:
-            vectorizer = TfidfVectorizer(
+            vec = CountVectorizer(
                 max_features=3000,
                 ngram_range=(1, 2),
-                stop_words="english",
+                stop_words=stop_words,
                 min_df=1,
             )
-            ctfidf_matrix = vectorizer.fit_transform(docs)
-            feature_names = np.array(vectorizer.get_feature_names_out())
-        except Exception as exc:
-            logger.warning("c-TF-IDF vectorization fallback failed: %s", exc)
-            return {c: [] for c in cluster_ids}
-    except Exception as exc:
-        logger.warning("c-TF-IDF vectorization failed: %s", exc)
+            return vec.fit_transform(docs), vec.get_feature_names_out()
+        except ValueError:
+            return None
+
+    counted = _count(_COMBINED_STOPWORDS)
+    if counted is None:
+        # Fall back to standard english stop words if domain filtering
+        # eliminated every term.
+        counted = _count("english")
+    if counted is None:
+        logger.warning("c-TF-IDF: no usable terms in cluster vocabulary.")
         return {c: [] for c in cluster_ids}
+
+    counts, feature_names = counted
+    counts = np.asarray(counts.todense(), dtype=np.float64)  # (n_classes, n_terms)
+
+    # f(t): number of classes (clusters) in which term t appears at least once.
+    per_class_presence = (counts > 0).astype(np.float64)
+    f_t = per_class_presence.sum(axis=0)                      # (n_terms,)
+
+    observed = f_t > 0
+    if not observed.any():
+        return {c: [] for c in cluster_ids}
+
+    # A = average number of classes per observed term (Cohan/Chindock).
+    A = float(f_t[observed].mean())
+    if A <= 0:
+        return {c: [] for c in cluster_ids}
+
+    # idf(t) = log(1 + A / f(t)); only defined for observed terms. Unobserved
+    # terms (f(t) == 0) would divide by zero and are excluded by the mask.
+    idf = np.zeros_like(f_t)
+    idf[observed] = np.log(1.0 + A / f_t[observed])
 
     keywords: Dict[int, List[str]] = {}
     for doc_idx, c_id in enumerate(cluster_ids):
-        row = ctfidf_matrix[doc_idx].toarray()[0]
-        top_indices = row.argsort()[::-1][:top_n]
-        keywords[c_id] = feature_names[top_indices].tolist()
+        term_counts = counts[doc_idx]
+        positive = term_counts > 0
+        if not positive.any():
+            keywords[c_id] = []
+            continue
+
+        tf = np.zeros_like(term_counts)
+        tf[positive] = 1.0 + np.log(term_counts[positive])
+        weights = tf * idf
+
+        # Restrict the ranking to terms this cluster actually contains. Every
+        # other entry has a weight of exactly 0.0; including them is how the
+        # previous version fabricated keywords such as "unfortunately" for a
+        # cluster with only three in-vocabulary terms.
+        candidates = np.flatnonzero(positive)
+        order = candidates[np.argsort(weights[candidates])[::-1]][:top_n]
+        keywords[c_id] = feature_names[order].tolist()
 
     return keywords
+
 
 
 # ---------------------------------------------------------------------------
@@ -223,16 +307,18 @@ def cluster_complaint_sentences(
 
     Returns:
         A dict with:
-          clusters        : List[Dict] — one entry per cluster, containing:
+          clusters        : List[Dict] — one entry per NON-EMPTY cluster:
               cluster_id  : int
-              title       : str — descriptive root-cause title
-              keywords    : List[str] — c-TF-IDF root-cause keywords
+              title       : str — descriptive label derived from c-TF-IDF keywords
+              label_provenance : str — how the title was produced
+              keywords    : List[str] — class-based TF-IDF (c-TF-IDF) keywords
               sentence_count : int
               severity    : str  (CRITICAL / HIGH / MEDIUM / LOW)
               medoid_verbatim: str — most central representative complaint sentence
-              verbatims   : List[Dict] — up to 5 sentences with full traceability
+              verbatims   : List[Dict] — up to COMPLAINT_CLUSTERING["n_verbatims"]
+                            sentences with full traceability
           n_complaint_sentences : int
-          n_clusters_actual     : int
+          n_clusters_actual     : int — the OBSERVED number of non-empty clusters
           is_provisional        : True
           provisional_notices   : List[str]
     """
@@ -248,8 +334,10 @@ def cluster_complaint_sentences(
             "provisional_notices": ["No complaint sentences found in corpus."],
         }
 
-    # Auto-scale cluster count
-    k = max(2, min(n_clusters, n // 5, n))
+    # Auto-scale cluster count. The inner max(1, ...) matters: for n < 5 the
+    # integer division n // 5 is 0, which previously produced k = 2 > n and a
+    # reported n_clusters_actual that did not match the clusters returned.
+    k = max(1, min(n_clusters, max(1, n // 5), n))
     if k != n_clusters:
         logger.info(
             "Complaint clustering: auto-scaled k from %d → %d (corpus size=%d)",
@@ -267,8 +355,8 @@ def cluster_complaint_sentences(
     kmeans = MiniBatchKMeans(
         n_clusters=k,
         random_state=random_state,
-        batch_size=min(256, n),
-        n_init=3,
+        batch_size=min(COMPLAINT_CLUSTERING["batch_size"], n),
+        n_init=COMPLAINT_CLUSTERING["n_init"],
     )
     t0 = time.time()
     labels = kmeans.fit_predict(embeddings)
@@ -281,9 +369,13 @@ def cluster_complaint_sentences(
 
     # Step 4: c-TF-IDF keywords
     cluster_texts_map = {c: [s.sentence_text for s in sents] for c, sents in cluster_sentence_map.items()}
-    keywords_map = extract_ctfidf_keywords(cluster_texts_map, top_n=8)
+    keywords_map = extract_ctfidf_keywords(
+        cluster_texts_map, top_n=COMPLAINT_CLUSTERING["top_keywords"],
+    )
 
     # Step 5: Build cluster summaries with Medoid calculation & Defect Title
+    n_verbatims = COMPLAINT_CLUSTERING["n_verbatims"]
+    sev_thresholds = COMPLAINT_CLUSTERING["severity_thresholds"]
     clusters = []
     for cid in range(k):
         sents = cluster_sentence_map[cid]
@@ -314,37 +406,51 @@ def cluster_complaint_sentences(
                 "end": s.end,
                 "confidence": s.confidence,
             }
-            for s in ordered_sents[:5]
+            for s in ordered_sents[:n_verbatims]
         ]
 
+        # Defensive title construction. Filtering zero-score c-TF-IDF terms
+        # (see extract_ctfidf_keywords) means a cluster can now legitimately
+        # surface 0 or 1 keywords, so kws[0] / kws[1] must never be indexed
+        # unconditionally.
         kws = keywords_map.get(cid, [])
         if len(kws) >= 2:
             title = f"{kws[0].title()} & {kws[1].title()}"
+            label_provenance = (
+                "c-TF-IDF over this cluster's own member sentences "
+                "(descriptive, not causal)"
+            )
         elif len(kws) == 1:
             title = kws[0].title()
+            label_provenance = (
+                "c-TF-IDF over this cluster's own member sentences "
+                "(descriptive, not causal; only one term carried positive weight)"
+            )
         else:
             title = f"Defect Mode #{cid + 1}"
+            label_provenance = (
+                "fallback: no c-TF-IDF term in this cluster carried positive weight"
+            )
 
         # Severity: purely based on cluster size and complaint nature
-        # (all sentences here are already classified as COMPLAINT)
-        if count >= 200:
-            severity = "CRITICAL"
-        elif count >= 80:
-            severity = "HIGH"
-        elif count >= 20:
-            severity = "MEDIUM"
-        else:
-            severity = "LOW"
+        # (all sentences here are already classified as COMPLAINT). Delegated to
+        # app.ml.severity so there is exactly ONE severity implementation and
+        # the cutoffs live only in pipeline_config.
+        severity = classify_complaint_severity(count)
 
         clusters.append({
             "cluster_id": cid,
             "title": title,
+            "label_provenance": label_provenance,
             "keywords": kws,
             "sentence_count": count,
             "severity": severity,
             "severity_note": (
                 f"PROVISIONAL: severity={severity} based on complaint sentence count={count}. "
-                "Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. "
+                f"Thresholds: CRITICAL≥{sev_thresholds['critical']}, "
+                f"HIGH≥{sev_thresholds['high']}, "
+                f"MEDIUM≥{sev_thresholds['medium']}, "
+                f"LOW<{sev_thresholds['medium']}. "
                 "Not statistically validated for this domain."
             ),
             "medoid_verbatim": medoid_sent.sentence_text,
@@ -358,13 +464,17 @@ def cluster_complaint_sentences(
     return {
         "clusters": clusters,
         "n_complaint_sentences": n,
-        "n_clusters_actual": k,
+        # Report what was OBSERVED, not what was requested: empty clusters are
+        # skipped above, so `k` can overstate the number of clusters returned.
+        "n_clusters_actual": len(clusters),
         "is_provisional": True,
         "provisional_notices": [
             "Complaint clusters are unsupervised (MiniLM + MiniBatchKMeans). "
             "Cluster labels are NOT human-annotated.",
-            "c-TF-IDF keywords are statistically distinctive within the complaint corpus "
-            "but have not been validated as true root causes.",
+            "Cluster titles and keywords are class-based TF-IDF (c-TF-IDF) terms "
+            "computed over each cluster's own member sentences, so they restate the "
+            "cluster definition. They are descriptive, not causal, and are not "
+            "validated root causes.",
             "Cluster count k is heuristically determined. Optimal k requires human evaluation.",
             "Sentence classification is heuristic (regex). "
             "No precision/recall measured against labelled complaint sentences.",

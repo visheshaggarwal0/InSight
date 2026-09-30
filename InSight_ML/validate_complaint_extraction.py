@@ -27,6 +27,7 @@ from InSight_ML.pipeline_config import DATASETS
 
 REPORT_PATH = _HERE / "reports" / "complaint_extraction_validation.md"
 N_REVIEWS = 1000  # sample size for this validation report
+SAMPLE_SEED = 42   # fixed so the sampled subset is reproducible across runs
 
 
 def main():
@@ -36,7 +37,12 @@ def main():
         sys.exit(1)
 
     df = pd.read_csv(csv_path)
-    reviews = df["review_text"].dropna().astype(str).head(N_REVIEWS).tolist()
+    # Seeded RANDOM sample, not the first N rows: if the CSV is sorted (e.g. by
+    # rating or date) head(N) gives a systematically unrepresentative coverage
+    # rate. min(N, n_rows) guards short datasets.
+    pool = df["review_text"].dropna().astype(str)
+    n_sample = min(N_REVIEWS, len(pool))
+    reviews = pool.sample(n=n_sample, random_state=SAMPLE_SEED).tolist()
 
     n_detected = 0
     examples = []
@@ -51,12 +57,12 @@ def main():
             if len(examples) < 5:
                 examples.append((rev, txt, s, e))
 
-    detection_rate = n_detected / len(reviews) * 100
+    detection_rate = n_detected / max(len(reviews), 1) * 100
 
     lines = [
         "# Complaint Extraction Validation",
         "",
-        f"**Dataset**: `{csv_path.name}` (first {N_REVIEWS} reviews — real Sephora cosmetics data)",
+        f"**Dataset**: `{csv_path.name}` (seeded random sample of {N_REVIEWS} reviews, seed={SAMPLE_SEED} — real Sephora cosmetics data)",
         "",
         f"- Reviews processed: {len(reviews)}",
         f"- Detections: {n_detected} ({detection_rate:.1f}%)",

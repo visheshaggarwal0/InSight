@@ -1,13 +1,26 @@
+import hashlib
+import logging
 import os
 import re
 from typing import List, Dict, Any, Tuple, Optional
 import pandas as pd
 import numpy as np
-import joblib
 
 from app.core.pii import pii_redactor
 from app.data.datasets import extract_complaint_span
 from app.ml.drift import drift_detector
+from app.ml.severity import classify_severity, corpus_negative_fraction
+
+logger = logging.getLogger(__name__)
+
+# SHA-256 of the committed sentiment artifact. joblib/pickle deserialisation
+# executes arbitrary bytecode, so the artifact is verified before it is loaded.
+# Override with INSIGHT_SENTIMENT_PIPELINE_SHA256 after any retrain.
+SENTIMENT_PIPELINE_SHA256 = os.getenv(
+    "INSIGHT_SENTIMENT_PIPELINE_SHA256",
+    "db3786450839518ff8eac81146fe5b63b323723bbde6905b8dba83eb945427b0",
+)
+
 
 class RealDataLoader:
     """
@@ -55,6 +68,40 @@ class RealDataLoader:
                 return os.path.abspath(c)
         raise FileNotFoundError(f"Artifact not found at relative path '{relative_path}'. Checked: {candidates}")
 
+    def _sha256(self, path: str) -> str:
+        digest = hashlib.sha256()
+        with open(path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+
+    def _load_verified(self, pipeline_file: str):
+        """
+        Loads a joblib artifact only after an integrity check.
+
+        ``joblib.load`` is ``pickle.load``: loading a repository-controlled file
+        executes repository-controlled bytecode. When ``SENTIMENT_PIPELINE_SHA256``
+        is configured the digest must match; otherwise the load is refused,
+        because silently deserialising an unverified artifact is the vulnerability.
+        """
+        import joblib
+
+        if not SENTIMENT_PIPELINE_SHA256:
+            raise RuntimeError(
+                "Refusing to deserialise the sentiment artifact without an integrity hash. "
+                "Set INSIGHT_SENTIMENT_PIPELINE_SHA256 to the artifact's SHA-256, or convert "
+                "the pipeline to ONNX and load it with onnxruntime (no code execution)."
+            )
+
+        actual = self._sha256(pipeline_file)
+        if actual.lower() != SENTIMENT_PIPELINE_SHA256.strip().lower():
+            raise RuntimeError(
+                f"Sentiment artifact integrity check failed for {pipeline_file}: "
+                f"expected {SENTIMENT_PIPELINE_SHA256}, got {actual}."
+            )
+        logger.info("Verified sentiment artifact SHA-256 before deserialisation.")
+        return joblib.load(pipeline_file)
+
     def load_data(
         self,
         data_path: Optional[str] = None,
@@ -73,10 +120,12 @@ class RealDataLoader:
                 - 'row_count': Total valid processed reviews
         """
         # 1. Resolve paths
-        csv_file = data_path or self.resolve_path("InSight_ML/data/processed/cosmetics/cosmetics_10k.csv")
-        pipeline_file = sentiment_pipeline_path or self.resolve_path("InSight_ML/outputs/sentiment_baseline/sentiment_pipeline.joblib")
-        assign_file = cluster_assignments_path or self.resolve_path("InSight_ML/outputs/theme_detection/cluster_assignments.csv")
-        rep_file = cluster_representatives_path or self.resolve_path("InSight_ML/outputs/theme_detection/cluster_representatives.csv")
+        # Note: data/ and outputs/ now live at the project root directly.
+        # InSight_ML/ retains only its Python package files (*.py).
+        csv_file = data_path or self.resolve_path("data/processed/cosmetics/cosmetics_10k.csv")
+        pipeline_file = sentiment_pipeline_path or self.resolve_path("outputs/sentiment_baseline/sentiment_pipeline.joblib")
+        assign_file = cluster_assignments_path or self.resolve_path("outputs/theme_detection/cluster_assignments.csv")
+        rep_file = cluster_representatives_path or self.resolve_path("outputs/theme_detection/cluster_representatives.csv")
 
         # 2. Ingest raw dataset
         if not os.path.exists(csv_file):
@@ -135,22 +184,43 @@ class RealDataLoader:
         if not os.path.exists(pipeline_file):
             raise FileNotFoundError(f"Sentiment pipeline artifact missing at: {pipeline_file}")
         
-        sentiment_pipeline = joblib.load(pipeline_file)
+        sentiment_pipeline = self._load_verified(pipeline_file)
         raw_reviews_list = df_raw["review_text"].astype(str).tolist()
-        
-        preds_raw = sentiment_pipeline.predict(raw_reviews_list)
-        probs_raw = sentiment_pipeline.predict_proba(raw_reviews_list)
+
+        # predict + predict_proba in one pass: the TF-IDF transform dominates
+        # cost and was previously being run twice over the full corpus.
+        proba_matrix = sentiment_pipeline.predict_proba(raw_reviews_list)
+        preds_raw = np.asarray(sentiment_pipeline.classes_)[proba_matrix.argmax(axis=1)]
         pipeline_classes = [str(c).lower() for c in sentiment_pipeline.classes_]
 
         # 6. Parse timestamps into quarterly cohorts (YYYY-Q#)
         submission_dates = pd.to_datetime(df_raw["submission_time"], errors="coerce")
-        default_cohort = "2021-Q1"
-        cohorts = []
-        for dt in submission_dates:
-            if pd.notna(dt):
-                cohorts.append(f"{dt.year}-Q{dt.quarter}")
-            else:
-                cohorts.append(default_cohort)
+        unparsed_dates = int(pd.isna(submission_dates).sum())
+        if unparsed_dates:
+            # Previously these were silently bucketed into "2021-Q1", which fed
+            # the PSI timeline and could manufacture or mask a drift alert.
+            logger.warning(
+                "%d review(s) had an unparseable submission_time and are EXCLUDED from "
+                "drift cohort assignment rather than assigned to a synthetic cohort.",
+                unparsed_dates,
+            )
+        cohorts = [
+            f"{dt.year}-Q{dt.quarter}" if pd.notna(dt) else None
+            for dt in submission_dates
+        ]
+
+        # Real weak labels shipped with the Sephora corpus. These are the only
+        # honest basis for evaluating sentiment on this dataset; the previous
+        # code trained on the joblib model's own predictions and then scored
+        # them against synthetic template text.
+        weak_labels = None
+        if "weak_sentiment" in df_raw.columns:
+            weak_labels = df_raw["weak_sentiment"].astype(str).str.strip().str.lower().tolist()
+        else:
+            logger.warning(
+                "Dataset has no 'weak_sentiment' column; sentiment governance metrics "
+                "cannot be computed against real labels for this domain."
+            )
 
         # 7. Build standardized review records
         cluster_ids = df_assign["minilm_cluster_k6"].values
@@ -163,8 +233,16 @@ class RealDataLoader:
             pred_lower = str(preds_raw[idx]).lower()
             pred_upper = pred_lower.upper()
 
-            cls_idx = pipeline_classes.index(pred_lower) if pred_lower in pipeline_classes else 0
-            confidence = round(float(probs_raw[idx][cls_idx]), 4)
+            # Previously an unknown label silently fell back to index 0
+            # ("negative"), so a retrained model would report every confidence
+            # as the negative probability.
+            if pred_lower not in pipeline_classes:
+                raise ValueError(
+                    f"Sentiment model emitted label {pred_lower!r} which is absent from its "
+                    f"own class list {pipeline_classes!r}. Refusing to guess a probability column."
+                )
+            cls_idx = pipeline_classes.index(pred_lower)
+            confidence = round(float(proba_matrix[idx][cls_idx]), 4)
 
             c_id = int(cluster_ids[idx])
             title = theme_names.get(c_id, f"Theme Cluster {c_id}")
@@ -174,10 +252,11 @@ class RealDataLoader:
             product_id = str(df_raw["product_id"].iloc[idx])
             rating_val = int(df_raw["rating"].iloc[idx]) if pd.notna(df_raw["rating"].iloc[idx]) else 3
             cohort_str = cohorts[idx]
+            weak_label = weak_labels[idx] if weak_labels else None
 
             review_id = f"REV-SEP-{idx:05d}"
 
-            reviews.append({
+            record = {
                 "id": review_id,
                 "domain": "d2c_cosmetics",
                 "product_name": product_name,
@@ -185,8 +264,16 @@ class RealDataLoader:
                 "product_id": product_id,
                 "sku_or_module": f"{brand_name} - {product_name}",
                 "batch_or_version": cohort_str,
+                "submission_date": (
+                    submission_dates.iloc[idx].date().isoformat()
+                    if pd.notna(submission_dates.iloc[idx]) else None
+                ),
                 "channel": "Sephora Online",
                 "rating": rating_val,
+                # Retained in server-side state ONLY. Never serialised into a
+                # default API response; exposed solely through the role-gated
+                # show_raw_pii path so compliance can re-identify a customer
+                # for a safety recall.
                 "raw_text": raw_text,
                 "redacted_text": sanitized_text,
                 "pii_detected": pii_tags,
@@ -195,12 +282,17 @@ class RealDataLoader:
                 "cluster_id": c_id,
                 "theme_title": title,
                 "highlight_span": extract_complaint_span(sanitized_text)
-            })
+            }
+            if weak_label in ("positive", "neutral", "negative"):
+                record["ground_truth_label"] = weak_label.upper()
+            reviews.append(record)
 
         # 8. Build aggregated themes
         theme_groups: Dict[int, List[Dict[str, Any]]] = {c: [] for c in range(6)}
         for r in reviews:
             theme_groups[r["cluster_id"]].append(r)
+
+        baseline_neg = corpus_negative_fraction(reviews)
 
         themes = []
         for c_id in range(6):
@@ -214,21 +306,18 @@ class RealDataLoader:
             pos_count = sum(1 for r in c_reviews if r["sentiment_pred"] == "POSITIVE")
             neg_ratio = (neg_count / total_c) if total_c > 0 else 0.0
 
-            if neg_ratio > 0.35:
-                severity = "CRITICAL" if total_c > 500 else "HIGH"
-            elif neg_ratio > 0.20:
-                severity = "MEDIUM"
-            else:
-                severity = "LOW"
+            severity = classify_severity(neg_ratio, total_c, baseline_neg)
 
             keywords = theme_keywords.get(c_id) or [kw.lower() for kw in theme_names[c_id].split() if len(kw) > 3][:5]
 
+            # NOTE: raw_text is deliberately NOT included. Shipping unredacted
+            # customer text inside /themes put raw PII in the browser before
+            # any masking toggle was touched.
             sample_verbatims = [
                 {
                     "id": r["id"],
                     "rating": r["rating"],
                     "text": r["redacted_text"],
-                    "raw_text": r["raw_text"],
                     "batch_or_version": r["batch_or_version"],
                     "sku_or_module": r["sku_or_module"],
                     "highlight_span": r["highlight_span"]
@@ -253,15 +342,20 @@ class RealDataLoader:
 
         themes.sort(key=lambda t: (t["severity"] == "CRITICAL", t["negative_rate"], t["review_count"]), reverse=True)
 
-        # 9. Compute chronological drift results across quarterly cohorts
-        sorted_reviews = sorted(reviews, key=lambda r: r["batch_or_version"])
-        drift_results = drift_detector.analyze_drift(sorted_reviews)
+        # 9. Compute chronological drift results across quarterly cohorts.
+        # Reviews with an unparseable submission_time carry batch_or_version=None
+        # and are excluded from cohort analysis rather than forcing a value.
+        dated_reviews = [r for r in reviews if r["batch_or_version"]]
+        cohort_order = sorted({r["batch_or_version"] for r in dated_reviews})
+        drift_results = drift_detector.analyze_drift_ordered(dated_reviews, cohort_order)
 
         return {
             "reviews": reviews,
             "themes": themes,
             "drift_results": drift_results,
-            "row_count": total_rows
+            "row_count": total_rows,
+            "reviews_without_cohort": len(reviews) - len(dated_reviews),
+            "label_source": "weak_sentiment" if weak_labels else None,
         }
 
     def export_theme_centroids(
@@ -273,9 +367,9 @@ class RealDataLoader:
         """
         Computes and persists normalized centroids for the six MiniLM clusters.
         """
-        emb_file = embeddings_path or self.resolve_path("InSight_ML/outputs/theme_detection/minilm_embeddings.npy")
-        assign_file = assignments_path or self.resolve_path("InSight_ML/outputs/theme_detection/cluster_assignments.csv")
-        out_file = output_path or os.path.join(self.base_dir, "InSight_ML", "outputs", "theme_detection", "theme_centroids.npy")
+        emb_file = embeddings_path or self.resolve_path("outputs/theme_detection/minilm_embeddings.npy")
+        assign_file = assignments_path or self.resolve_path("outputs/theme_detection/cluster_assignments.csv")
+        out_file = output_path or os.path.join(self.base_dir, "outputs", "theme_detection", "theme_centroids.npy")
 
         embeddings = np.load(emb_file)
         df_assign = pd.read_csv(assign_file)
@@ -285,11 +379,20 @@ class RealDataLoader:
 
         labels = df_assign["minilm_cluster_k6"].values
         centroids = []
-        for c in range(6):
+        for c in range(int(labels.max()) + 1):
             mask = (labels == c)
+            if not mask.any():
+                logger.warning("Cluster %d has no members; skipping centroid.", c)
+                continue
             c_mean = embeddings[mask].mean(axis=0)
-            c_norm = c_mean / np.linalg.norm(c_mean)
-            centroids.append(c_norm)
+            norm = float(np.linalg.norm(c_mean))
+            # An empty/zero-norm slice previously produced NaN, which
+            # np.maximum(norm, 1e-12) does NOT fix (NaN propagates), poisoning
+            # every downstream similarity and emitting invalid JSON.
+            if not np.isfinite(norm) or norm < 1e-12:
+                logger.warning("Cluster %d centroid has degenerate norm %r; skipping.", c, norm)
+                continue
+            centroids.append(c_mean / norm)
 
         centroids_arr = np.array(centroids, dtype=np.float32)
         os.makedirs(os.path.dirname(out_file), exist_ok=True)

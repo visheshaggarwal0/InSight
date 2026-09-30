@@ -1,4 +1,6 @@
+import { memo } from 'react';
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
+import { EmptyState, fmtPsi } from './EmptyState';
 import type { DriftData, DynamicInsightItem } from '../types/telemetry';
 
 interface RecentInsightsProps {
@@ -7,33 +9,47 @@ interface RecentInsightsProps {
   onViewDrift?: () => void;
 }
 
-export function RecentInsights({ driftData, insights, onViewDrift }: RecentInsightsProps) {
-  const firstAlert = driftData?.alerts && driftData.alerts.length > 0 ? driftData.alerts[0] : null;
-  const alertPsiScore = firstAlert ? `PSI ${firstAlert.psi_score.toFixed(2)}` : null;
+const PSI_PATTERN = /([0-9]*\.?[0-9]+)/;
 
-  const displayInsights = insights && insights.length > 0 ? insights : [
-    {
-      title: firstAlert ? firstAlert.message : 'Spike in skin irritation complaints in Batch-24C',
-      percent: firstAlert ? `+${Math.round(firstAlert.psi_score * 100)}%` : '+48%',
-      period: firstAlert ? `in ${firstAlert.batch_or_version}` : 'in Batch-24C',
-      isWarning: true,
-      psiAlert: alertPsiScore
-    },
-    {
-      title: 'Packaging defect: dropper pipettes leaking on delivery',
-      percent: '62 reviews',
-      period: 'critical QA alert',
-      isWarning: true,
-      psiAlert: null
-    },
-    {
-      title: 'Overall customer satisfaction at 72% positive sentiment',
-      percent: '72%',
-      period: 'across all SKUs',
-      isWarning: false,
-      psiAlert: null
-    },
-  ];
+interface RenderItem {
+  key: string;
+  title: string;
+  isWarning: boolean;
+  /** Raw PSI index, unitless — never rendered as a percentage. */
+  psi?: number;
+  /** Backend-supplied non-PSI metric text (e.g. "412 reviews", "72%"). */
+  metric?: string;
+  period?: string;
+}
+
+function ComponentRecentInsights({ driftData, insights, onViewDrift }: RecentInsightsProps) {
+  const alerts = driftData?.alerts ?? [];
+
+  // Only real data: /overview insights, or real drift alerts when none were returned.
+  const items: RenderItem[] = (insights ?? []).map((item, idx) => {
+    const match = item.psiAlert ? item.psiAlert.match(PSI_PATTERN) : null;
+    return {
+      key: `insight-${idx}-${item.title}`,
+      title: item.title,
+      isWarning: item.isWarning,
+      psi: match ? Number(match[1]) : undefined,
+      metric: match ? undefined : (item.metric?.value ?? ''),
+      period: match ? `in ${item.period.replace(/^in\s+/, '')}` : item.period
+    };
+  });
+
+  const fallbackItems: RenderItem[] =
+    items.length === 0
+      ? alerts.map((a, idx) => ({
+          key: `alert-${a.batch_or_version}-${idx}`,
+          title: a.message,
+          isWarning: a.severity === 'CRITICAL',
+          psi: a.psi_score,
+          period: `in ${a.batch_or_version}`
+        }))
+      : [];
+
+  const displayItems = items.length > 0 ? items : fallbackItems;
 
   return (
     <div className="dashboard-card" style={{ padding: '22px 24px', flex: 1 }}>
@@ -68,82 +84,112 @@ export function RecentInsights({ driftData, insights, onViewDrift }: RecentInsig
       </div>
 
       {/* Insight Items */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-        {displayInsights.map((item, idx) => (
-          <div
-            key={idx}
-            onClick={onViewDrift}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: '12px',
-              padding: '8px 10px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'background 0.15s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            {/* Arrow & Title */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
-              <ArrowUpRight
-                size={16}
-                strokeWidth={2.4}
-                style={{
-                  color: item.isWarning ? '#EF4444' : '#10B981',
-                  flexShrink: 0,
-                  marginTop: '2px'
-                }}
-              />
-              <div>
-                <p style={{
-                  fontSize: '0.82rem',
-                  fontWeight: 600,
-                  color: '#111827',
-                  lineHeight: 1.35
-                }}>
-                  {item.title}
-                </p>
-                {item.psiAlert && (
-                  <span style={{
-                    fontSize: '0.68rem',
-                    backgroundColor: '#FEF2F2',
-                    color: '#991B1B',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                    fontWeight: 700,
-                    marginTop: '4px',
-                    display: 'inline-block'
+      {displayItems.length === 0 ? (
+        <EmptyState
+          label="No insights available."
+          hint="No drift alerts were raised for the active dataset."
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {displayItems.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={onViewDrift}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '12px',
+                padding: '8px 10px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: 'transparent',
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F9FAFB')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
+                <ArrowUpRight
+                  size={16}
+                  strokeWidth={2.4}
+                  style={{
+                    color: item.isWarning ? '#EF4444' : '#10B981',
+                    flexShrink: 0,
+                    marginTop: '2px'
+                  }}
+                />
+                <div>
+                  <p style={{
+                    fontSize: '0.82rem',
+                    fontWeight: 600,
+                    color: '#111827',
+                    lineHeight: 1.35,
+                    margin: 0
                   }}>
-                    {item.psiAlert} Critical Drift Alert
-                  </span>
+                    {item.title}
+                  </p>
+                  {item.psi !== undefined && (
+                    <span style={{
+                      fontSize: '0.68rem',
+                      backgroundColor: '#FEF2F2',
+                      color: '#991B1B',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      fontWeight: 700,
+                      marginTop: '4px',
+                      display: 'inline-block'
+                    }}>
+                      PSI {fmtPsi(item.psi)} Critical Drift Alert
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Metrics */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                {item.psi !== undefined ? (
+                  <>
+                    <div style={{
+                      fontSize: '0.86rem',
+                      fontWeight: 700,
+                      color: item.isWarning ? '#EF4444' : '#059669',
+                      lineHeight: 1.1,
+                      fontFamily: "'JetBrains Mono', monospace"
+                    }}>
+                      {fmtPsi(item.psi)}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: '#9CA3AF', marginTop: '2px', fontWeight: 700 }}>
+                      PSI
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{
+                      fontSize: '0.86rem',
+                      fontWeight: 700,
+                      color: item.isWarning ? '#EF4444' : '#059669',
+                      lineHeight: 1.1
+                    }}>
+                      {item.metric ?? '—'}
+                    </div>
+                    {item.period && (
+                      <div style={{ fontSize: '0.7rem', color: '#9CA3AF', marginTop: '2px' }}>
+                        {item.period}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
-            </div>
-
-            {/* Metrics */}
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{
-                fontSize: '0.92rem',
-                fontWeight: 700,
-                color: item.isWarning ? '#EF4444' : '#059669',
-                lineHeight: 1.1
-              }}>
-                {item.percent}
-              </div>
-              <div style={{
-                fontSize: '0.7rem',
-                color: '#9CA3AF',
-                marginTop: '2px'
-              }}>
-                {item.period}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+export const RecentInsights = memo(ComponentRecentInsights);

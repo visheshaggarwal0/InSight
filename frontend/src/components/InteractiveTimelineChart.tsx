@@ -14,6 +14,8 @@ export const InteractiveTimelineChart: React.FC<Props> = ({ driftData, onSelectB
 
   const timeline = driftData.timeline;
   const maxReviews = Math.max(...timeline.map((t) => t.review_count), 1);
+  const PLOT_HEIGHT_PX = 180;
+  const MIN_BAR_PX = 32;
 
   return (
     <div className="glass-panel" style={{ padding: '22px 24px', marginBottom: '24px' }}>
@@ -63,7 +65,8 @@ export const InteractiveTimelineChart: React.FC<Props> = ({ driftData, onSelectB
           const isCrit = item.status === 'CRITICAL_DRIFT';
           const isMod = item.status === 'MODERATE_DRIFT';
           const isHovered = hoveredIdx === idx;
-          const heightPct = Math.max(25, (item.review_count / maxReviews) * 100);
+          const reviewCount = item.review_count || 1;
+          const barHeightPx = Math.max(MIN_BAR_PX, Math.round((item.review_count / maxReviews) * PLOT_HEIGHT_PX));
 
           return (
             <div
@@ -110,7 +113,7 @@ export const InteractiveTimelineChart: React.FC<Props> = ({ driftData, onSelectB
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-pos)' }}>
                       <span>Positive:</span>
-                      <b>{Math.round(item.positive_count / item.review_count * 100)}%</b>
+                      <b>{Math.round((item.positive_count / reviewCount) * 100)}%</b>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-neg)' }}>
                       <span>Negative Rate:</span>
@@ -148,7 +151,7 @@ export const InteractiveTimelineChart: React.FC<Props> = ({ driftData, onSelectB
                 style={{
                   width: '100%',
                   maxWidth: '96px',
-                  height: `${heightPct * 1.3}px`,
+                  height: `${barHeightPx}px`,
                   borderRadius: '6px',
                   overflow: 'hidden',
                   display: 'flex',
@@ -158,9 +161,9 @@ export const InteractiveTimelineChart: React.FC<Props> = ({ driftData, onSelectB
                   transition: 'border-color 0.15s ease'
                 }}
               >
-                <div style={{ height: `${(item.positive_count / item.review_count) * 100}%`, background: 'var(--color-pos)' }} />
-                <div style={{ height: `${(item.neutral_count / item.review_count) * 100}%`, background: 'var(--color-neu)' }} />
-                <div style={{ height: `${(item.negative_count / item.review_count) * 100}%`, background: 'var(--color-neg)' }} />
+                <div style={{ height: `${(item.positive_count / reviewCount) * 100}%`, background: 'var(--color-pos)' }} />
+                <div style={{ height: `${(item.neutral_count / reviewCount) * 100}%`, background: 'var(--color-neu)' }} />
+                <div style={{ height: `${(item.negative_count / reviewCount) * 100}%`, background: 'var(--color-neg)' }} />
               </div>
 
               {/* Batch Label Footer */}

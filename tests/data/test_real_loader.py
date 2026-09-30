@@ -104,7 +104,7 @@ class TestRealDataLoader(unittest.TestCase):
     def test_07_theme_centroids_artifact(self):
         """Verify that theme_centroids.npy exists, has shape (6, 384), and unit norm."""
         centroids_path = os.path.join(
-            self.loader.base_dir, "InSight_ML", "outputs", "theme_detection", "theme_centroids.npy"
+            self.loader.base_dir, "outputs", "theme_detection", "theme_centroids.npy"
         )
         self.assertTrue(os.path.exists(centroids_path), "theme_centroids.npy must exist")
         centroids = np.load(centroids_path)

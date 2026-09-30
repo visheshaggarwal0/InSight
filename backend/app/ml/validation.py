@@ -17,6 +17,7 @@ All functions return a ValidationResult dataclass containing:
 from __future__ import annotations
 
 import logging
+import numbers
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -152,6 +153,7 @@ def validate_cosmetics_df(df: pd.DataFrame) -> ValidationResult:
         mask_valid &= ~null_text
 
     # 3. Rating range
+    coerced_columns: List[str] = []
     if "rating" in df.columns:
         numeric_rating = pd.to_numeric(df["rating"], errors="coerce")
         bad_rating = mask_valid & (numeric_rating.isna() | (numeric_rating < 1) | (numeric_rating > 5))
@@ -163,6 +165,10 @@ def validate_cosmetics_df(df: pd.DataFrame) -> ValidationResult:
                 message=f"{n_bad} rows have rating outside [1,5]. Rating coerced to NaN → will be treated as missing.",
                 n_affected=int(n_bad),
             ))
+        # The report above promises the coercion; perform it on the RETURNED
+        # frame so downstream consumers never see a non-numeric rating string
+        # (e.g. "N/A") that would crash a numeric coercion downstream.
+        coerced_columns.append("rating")
 
     # 4. Duplicates (warning only – keep first occurrence)
     dup_mask = df.duplicated(subset=["review_text"], keep="first")
@@ -174,8 +180,13 @@ def validate_cosmetics_df(df: pd.DataFrame) -> ValidationResult:
             message=f"{n_dup} duplicate review_text values detected. Keeping first occurrence.",
             n_affected=int(n_dup),
         ))
-        # De-duplicate among valid rows
-        dup_in_valid = mask_valid & dup_mask
+        # De-duplicate among VALID rows only. Computing duplicates over the full
+        # frame would drop a later VALID copy whenever the FIRST occurrence was
+        # already masked out (blank/invalid), losing the only usable text.
+        dup_in_valid = pd.Series(False, index=df.index)
+        dup_in_valid.loc[mask_valid] = df.loc[mask_valid].duplicated(
+            subset=["review_text"], keep="first"
+        )
         mask_valid &= ~dup_in_valid
 
     # 5. submission_time parseable
@@ -206,6 +217,9 @@ def validate_cosmetics_df(df: pd.DataFrame) -> ValidationResult:
             ))
 
     valid_df = df[mask_valid].copy()
+    for col in coerced_columns:
+        if col in valid_df.columns:
+            valid_df[col] = pd.to_numeric(valid_df[col], errors="coerce")
     n_valid = len(valid_df)
     n_rejected = n_input - n_valid
 
@@ -286,9 +300,15 @@ def validate_custom_csv(df: pd.DataFrame, text_col: str, rating_col: Optional[st
             message=f"{n_dup} duplicate texts detected. Keeping first occurrence.",
             n_affected=int(n_dup),
         ))
-        mask_valid &= ~(mask_valid & dup_mask)
+        # De-duplicate among VALID rows only (see validate_cosmetics_df).
+        dup_in_valid = pd.Series(False, index=df.index)
+        dup_in_valid.loc[mask_valid] = df.loc[mask_valid].duplicated(
+            subset=[text_col], keep="first"
+        )
+        mask_valid &= ~dup_in_valid
 
     # Rating range
+    coerced_columns: List[str] = []
     if rating_col and rating_col in df.columns:
         numeric_rating = pd.to_numeric(df[rating_col], errors="coerce")
         bad_rating = mask_valid & numeric_rating.notna() & ((numeric_rating < 1) | (numeric_rating > 5))
@@ -300,8 +320,14 @@ def validate_custom_csv(df: pd.DataFrame, text_col: str, rating_col: Optional[st
                 message=f"{n_bad} rows have rating outside [1,5].",
                 n_affected=int(n_bad),
             ))
+        # Apply the coercion to the returned frame (not just a local) so
+        # downstream numeric consumers cannot crash on a string like "N/A".
+        coerced_columns.append(rating_col)
 
     valid_df = df[mask_valid].copy()
+    for col in coerced_columns:
+        if col in valid_df.columns:
+            valid_df[col] = pd.to_numeric(valid_df[col], errors="coerce")
     n_valid = len(valid_df)
     n_rejected = n_input - n_valid
 
@@ -335,6 +361,15 @@ def verify_complaint_spans(
     n_invalid_offset = 0
     n_text_mismatch = 0
 
+    # A length mismatch would silently validate only the zip() prefix, hiding
+    # unchecked spans. Fail loudly instead.
+    if len(spans) != len(source_texts):
+        raise ValueError(
+            f"verify_complaint_spans: spans/source_texts length mismatch "
+            f"({len(spans)} spans vs {len(source_texts)} source texts). "
+            "Refusing to silently verify only the overlapping prefix."
+        )
+
     for i, (span, src) in enumerate(zip(spans, source_texts)):
         if not span.get("detected"):
             continue
@@ -343,8 +378,12 @@ def verify_complaint_spans(
         end = span.get("end")
         span_text = span.get("text", "")
 
-        # Offset type and range
-        if not (isinstance(start, int) and isinstance(end, int)):
+        # Offset type and range. numbers.Integral covers numpy.int64 offsets
+        # (which is what a pandas-derived offset is) as well as plain ints.
+        if not (
+            isinstance(start, numbers.Integral)
+            and isinstance(end, numbers.Integral)
+        ):
             n_invalid_offset += 1
             continue
         if not (0 <= start < end <= len(src)):

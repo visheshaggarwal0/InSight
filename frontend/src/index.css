@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&family=DM+Serif+Display:ital@0;1&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
   /* ChatGPT Clean Warm Palette */
@@ -28,7 +28,7 @@
   --text-primary: #111827;
   --text-secondary: #4B5563;
   --text-muted: #6B7280;
-  --text-dim: #9CA3AF;
+  --text-dim: #6B7280;
   --text-inverse: #FFFFFF;
 
   /* Semantic Status Colors (Soft, Professional, Consumer-friendly) */
@@ -52,11 +52,24 @@
   --color-amber-border: #FDE68A;
   --color-amber-text: #92400E;
 
+  /* Critical: darker than --color-neg so severity reads on light surfaces.
+     #B91C1C = 6.2:1 on --bg-page, --color-crit-text #991B1B = 7.8:1 on --color-crit-bg (WCAG AA). */
+  --color-crit: #B91C1C;
+  --color-crit-bg: #FEF2F2;
+  --color-crit-border: #FCA5A5;
+  --color-crit-text: #991B1B;
+
   /* Elevation Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(16, 24, 40, 0.04);
   --shadow-card: 0 1px 3px 0 rgba(16, 24, 40, 0.04), 0 1px 2px -1px rgba(16, 24, 40, 0.03);
   --shadow-hover: 0 6px 20px -2px rgba(15, 56, 46, 0.08), 0 2px 6px -2px rgba(15, 56, 46, 0.04);
   --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  /* Type System */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-display-alt: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 * {
@@ -66,9 +79,10 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  letter-spacing: -0.012em;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-family: var(--font-body);
+  letter-spacing: -0.008em;
+  font-feature-settings: "ss01", "ss02";
+  font-optical-sizing: auto;
   background-color: var(--bg-page);
   color: var(--text-primary);
   min-height: 100vh;
@@ -78,15 +92,40 @@ body {
 }
 
 .font-serif {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--font-display);
+}
+
+.font-serif-display {
+  font-family: var(--font-display-alt);
+  letter-spacing: -0.01em;
 }
 
 .font-sans {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-body);
 }
 
 .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+/* Accessibility: visible keyboard focus on every interactive element */
+:focus-visible {
+  outline: 2px solid var(--brand-primary-hover);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Accessibility: honour reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Card Foundations */
@@ -116,28 +155,37 @@ body {
   line-height: 1.25;
 }
 
-.badge-pos {
-  background: var(--color-pos-bg);
-  color: var(--color-pos-text);
-  border: 1px solid var(--color-pos-border);
+/* Severity Badges (critical / high / medium / low) */
+.badge-critical {
+  background: var(--color-crit-bg);
+  color: var(--color-crit-text);
+  border: 1px solid var(--color-crit-border);
 }
 
-.badge-neu {
-  background: var(--color-neu-bg);
-  color: var(--color-neu-text);
-  border: 1px solid var(--color-neu-border);
-}
-
-.badge-neg {
+.badge-high {
   background: var(--color-neg-bg);
   color: var(--color-neg-text);
   border: 1px solid var(--color-neg-border);
 }
 
-.badge-amber {
+.badge-medium {
   background: var(--color-amber-bg);
   color: var(--color-amber-text);
   border: 1px solid var(--color-amber-border);
+}
+
+.badge-low {
+  background: var(--color-neu-bg);
+  color: var(--color-neu-text);
+  border: 1px solid var(--color-neu-border);
+}
+
+/* Surfaces used by panel-style components */
+.glass-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
 }
 
 /* Buttons */
@@ -209,12 +257,21 @@ body {
   to { transform: translateX(0); }
 }
 
-/* Modals & Panels */
-.modal-panel {
-  background: #FFFFFF !important;
-  color: #111827 !important;
-  border: 1px solid #E5E7EB !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18) !important;
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 1s infinite ease-in-out;
 }
 
 /* Scrollbars */
@@ -428,13 +485,22 @@ body {
 }
 
 .hero-title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 3.1rem;
   line-height: 1.15;
   font-weight: 700;
   color: #111827;
   letter-spacing: -0.02em;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+}
+
+.hero-subtitle {
+  font-family: var(--font-display-alt);
+  font-size: 1.05rem;
+  color: #6B7280;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  font-style: italic;
 }
 
 @media (max-width: 1024px) {
@@ -519,6 +585,13 @@ body {
 }
 
 /* Action Banner */
+.action-banner-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .action-banner-container {
   background-color: #F0FDF4;
   border: 1px solid #D1FAE5;

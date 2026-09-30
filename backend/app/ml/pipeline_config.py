@@ -12,8 +12,11 @@ inline comment explaining its rationale and status.
 """
 
 from __future__ import annotations
+
+import hashlib
 import os
 from pathlib import Path
+from typing import Iterable
 
 # ---------------------------------------------------------------------------
 # Path resolution
@@ -132,6 +135,9 @@ THEME = {
     "n_clusters": 6,
     "model_name": "sentence-transformers/all-MiniLM-L6-v2",
     "batch_size": 64,
+    # Expected MiniLM embedding width. Used to validate / warn about centroid
+    # artifacts; the engine still derives the true dim from the .npy itself.
+    "embedding_dim": 384,
 }
 
 # Map cluster IDs to provisional human-readable names.
@@ -205,4 +211,71 @@ COMPLAINT_CLUSTERING = {
     # Output path for the complaint cluster dashboard JSON
     "output_path": PROJECT_ROOT / "InSight_ML" / "outputs" / "pipeline_runs" / "complaint_clusters_latest.json",
 }
+
+
+# ---------------------------------------------------------------------------
+# Shared embedding cache key (single source of truth)
+# ---------------------------------------------------------------------------
+# Two modules persist MiniLM embedding matrices to disk
+# (complaint_clustering.embed_sentences and clustering.SemanticThematicClusterer).
+# They previously each derived a key from only the first/last few texts plus the
+# corpus length, so two corpora differing only in the middle produced an
+# IDENTICAL key. Any edit to the complaint heuristics - or to the middle of the
+# corpus - then silently reused a stale embedding matrix against a new sentence
+# list, poisoning every downstream cluster with no warning.
+#
+# The key now covers:
+#   * the FULL text of every row (order sensitive),
+#   * the encoder model name (different weights => different matrix),
+#   * the embedding dimensionality,
+#   * an optional caller-supplied salt for extra cache partitioning.
+
+def embedding_cache_key(
+    texts: Iterable[str],
+    model_name: str,
+    dim: int,
+    salt: str = "",
+) -> str:
+    """Return a content-addressed cache key for an embedding matrix.
+
+    Args:
+        texts: The exact ordered list of strings that will be encoded.
+        model_name: Fully-qualified SentenceTransformer id.
+        dim: Embedding dimensionality.
+        salt: Optional extra discriminator (e.g. a pipeline stage tag).
+
+    Returns:
+        A 16-character hex digest. Identical (texts, model, dim, salt) always
+        produce the same key; any change to any element produces a new one.
+    """
+    digest = hashlib.sha256()
+    digest.update("\x1f".join(texts).encode("utf-8"))
+    digest.update(f"|{model_name}|{int(dim)}|{salt}".encode("utf-8"))
+    return digest.hexdigest()[:16]
+
+
+# ---------------------------------------------------------------------------
+# Explicit export surface
+# ---------------------------------------------------------------------------
+# The InSight_ML/pipeline_config.py backward-compatibility shim re-exports
+# exactly these names, so this list is part of the public contract.
+
+__all__ = [
+    "PROJECT_ROOT",
+    "ARTIFACTS_ROOT",
+    "DATASETS_ROOT",
+    "ARTIFACTS",
+    "DATASETS",
+    "PIPELINE_OUTPUT_DIR",
+    "verify_artifacts",
+    "embedding_cache_key",
+    "SEVERITY",
+    "PSI",
+    "COMPLAINT_KEYWORDS",
+    "SENTIMENT_CLASSIFIER",
+    "THEME",
+    "PROVISIONAL_THEME_NAMES",
+    "SENTENCE_PIPELINE",
+    "COMPLAINT_CLUSTERING",
+]
 

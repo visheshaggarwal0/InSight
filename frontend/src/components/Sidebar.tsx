@@ -1,11 +1,13 @@
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  Layers, 
-  Smile, 
-  TrendingUp, 
-  GitCompare, 
-  Settings, 
+import { useState } from 'react';
+import {
+  LayoutDashboard,
+  MessageSquare,
+  Layers,
+  Smile,
+  Award,
+  TrendingUp,
+  GitCompare,
+  Settings,
   Sparkles,
   X
 } from 'lucide-react';
@@ -18,15 +20,40 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-export function Sidebar({ currentTab, onSelectTab, isOpen = false, onClose }: SidebarProps) {
-  const navItems = [
+interface NavItem {
+  id: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  /**
+   * Present for entries that open something instead of switching tabs. Those
+   * must never carry `aria-current`, which means "you are on this page".
+   */
+  action?: () => void;
+}
+
+export function Sidebar({
+  currentTab,
+  onSelectTab,
+  onOpenGovernance,
+  isOpen = false,
+  onClose
+}: SidebarProps) {
+  // Hover is React state rather than `e.currentTarget.style.backgroundColor = …`.
+  // Direct style mutation writes an inline value that no stylesheet rule can
+  // override afterwards, and it had no keyboard equivalent.
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'reviews', label: 'Reviews', icon: MessageSquare },
     { id: 'themes', label: 'Themes', icon: Layers },
     { id: 'sentiment', label: 'Sentiment', icon: Smile },
+    // Wired to the real handler. It used to be declared on the props and then
+    // silently dropped, so the governance report was unreachable from the nav.
+    { id: 'governance', label: 'Model Governance', icon: Award, action: onOpenGovernance },
     { id: 'trends', label: 'Trends', icon: TrendingUp },
     { id: 'compare', label: 'Compare', icon: GitCompare },
-    { id: 'settings', label: 'Data & Settings', icon: Settings },
+    { id: 'settings', label: 'Data & Settings', icon: Settings }
   ];
 
   return (
@@ -34,35 +61,47 @@ export function Sidebar({ currentTab, onSelectTab, isOpen = false, onClose }: Si
       <div>
         {/* Brand Logo & Mobile Close Button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px 22px 6px' }}>
-          <img 
-            src="/insight-logo.png" 
-            alt="InSight - Real Feedback. Real Insights." 
+          <img
+            src="/insight-logo.png"
+            alt="InSight — Real Feedback. Real Insights."
             style={{ height: '28px', width: 'auto', display: 'block', objectFit: 'contain' }}
           />
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               className="mobile-menu-btn"
-              style={{ padding: '4px', border: 'none', background: 'transparent' }}
+              style={{ padding: '4px', border: 'none', background: 'transparent', cursor: 'pointer' }}
               aria-label="Close navigation"
             >
-              <X size={20} style={{ color: '#6B7280' }} />
+              <X size={20} aria-hidden="true" style={{ color: '#6B7280' }} />
             </button>
           )}
         </div>
 
         {/* Navigation List */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        <nav aria-label="Primary" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.id;
+            const isHovered = hoveredId === item.id;
             return (
               <button
                 key={item.id}
+                type="button"
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
-                  onSelectTab(item.id);
+                  if (item.action) {
+                    item.action();
+                  } else {
+                    onSelectTab(item.id);
+                  }
                   onClose?.();
                 }}
+                onMouseEnter={() => setHoveredId(item.id)}
+                onMouseLeave={() => setHoveredId((current) => (current === item.id ? null : current))}
+                onFocus={() => setHoveredId(item.id)}
+                onBlur={() => setHoveredId((current) => (current === item.id ? null : current))}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -71,28 +110,24 @@ export function Sidebar({ currentTab, onSelectTab, isOpen = false, onClose }: Si
                   padding: '8px 10px',
                   borderRadius: '8px',
                   border: 'none',
-                  backgroundColor: isActive ? '#E6F7F0' : 'transparent',
+                  // Non-colour cue for the active item. Colour alone failed WCAG
+                  // 1.4.1; the inset bar survives greyscale and forced colours.
+                  boxShadow: isActive ? 'inset 3px 0 0 #0F382E' : 'none',
+                  backgroundColor: isActive ? '#E6F7F0' : isHovered ? '#F3F4F6' : 'transparent',
                   color: isActive ? '#065F46' : '#4B5563',
                   fontSize: '0.84rem',
-                  fontWeight: isActive ? 600 : 500,
+                  fontWeight: isActive ? 700 : 500,
                   cursor: 'pointer',
                   textAlign: 'left',
-                  transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.backgroundColor = '#F9FAFB';
-                    e.currentTarget.style.color = '#111827';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = '#4B5563';
-                  }
+                  transition: 'background-color 0.15s ease, color 0.15s ease'
                 }}
               >
-                <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} style={{ color: isActive ? '#10B981' : '#6B7280' }} />
+                <Icon
+                  size={17}
+                  aria-hidden="true"
+                  strokeWidth={isActive ? 2.2 : 1.8}
+                  style={{ color: isActive ? '#047857' : '#6B7280', flexShrink: 0 }}
+                />
                 <span>{item.label}</span>
               </button>
             );
@@ -109,17 +144,20 @@ export function Sidebar({ currentTab, onSelectTab, isOpen = false, onClose }: Si
           padding: '14px',
           position: 'relative'
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '26px',
-            height: '26px',
-            borderRadius: '6px',
-            backgroundColor: '#DCFCE7',
-            color: '#10B981',
-            marginBottom: '8px'
-          }}>
+          <div
+            aria-hidden="true"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '26px',
+              height: '26px',
+              borderRadius: '6px',
+              backgroundColor: '#DCFCE7',
+              color: '#047857',
+              marginBottom: '8px'
+            }}
+          >
             <Sparkles size={15} />
           </div>
           <p style={{
@@ -131,12 +169,15 @@ export function Sidebar({ currentTab, onSelectTab, isOpen = false, onClose }: Si
           }}>
             Turn feedback into better products.
           </p>
-          <div style={{
-            width: '20px',
-            height: '3px',
-            borderRadius: '999px',
-            backgroundColor: '#10B981'
-          }} />
+          <div
+            aria-hidden="true"
+            style={{
+              width: '20px',
+              height: '3px',
+              borderRadius: '999px',
+              backgroundColor: '#047857'
+            }}
+          />
         </div>
       </div>
     </aside>

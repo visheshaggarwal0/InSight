@@ -24,6 +24,34 @@ class Settings(BaseSettings):
     NEON_AUTH_URL: Optional[str] = None
     NEON_JWKS_URL: Optional[str] = None
 
+    # Deployment environment. Development enables localhost-only conveniences
+    # (regex CORS, auto-reload) that must never apply in production.
+    ENVIRONMENT: str = "development"
+
+    # When true, every /api data route requires an authenticated caller.
+    # Development defaults to false so the dashboard works without an auth
+    # server; set REQUIRE_AUTH=true in any shared or deployed environment.
+    REQUIRE_AUTH: bool = False
+
+    # Localhost origins are matched by regex so any Vite dev port works.
+    # Only honoured when ENVIRONMENT == "development".
+    LOCALHOST_ORIGIN_REGEX: Optional[str] = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+    # Hard ceiling on uploaded CSV payloads (bytes). Prevents memory-exhaustion
+    # DoS via `await file.read()` on an unbounded multipart body.
+    MAX_UPLOAD_BYTES: int = 25 * 1024 * 1024
+    MAX_UPLOAD_ROWS: int = 50_000
+
+    # Minimum rows / distinct classes required before a supervised model is fitted.
+    MIN_TRAIN_ROWS: int = 20
+
+    # Roles permitted to request unredacted ("raw") customer text.
+    PII_UNMASK_ROLES: list[str] = ["admin", "auditor", "compliance"]
+
+    # HMAC key for the reversible PII surrogate vault. When unset, redaction
+    # emits non-reversible placeholders (no surrogate tag).
+    PII_VAULT_SECRET: Optional[str] = None
+
     # CORS Allowed Origins
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",

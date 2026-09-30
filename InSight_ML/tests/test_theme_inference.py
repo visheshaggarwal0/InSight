@@ -25,16 +25,16 @@ class TestThemeInferenceEngine(unittest.TestCase):
         print(f"\n[Test Setup] Engine initialized in {cls.init_time:.2f}s (Model load time: {cls.engine.model_load_time_sec}s)")
 
         # Load 10k dataset (Known Embedding Set)
-        data_path = os.path.join(root_dir, "InSight_ML", "data", "processed", "cosmetics", "cosmetics_10k.csv")
+        data_path = os.path.join(root_dir, "data", "processed", "cosmetics", "cosmetics_10k.csv")
         cls.df_10k = pd.read_csv(data_path)
 
         # Load offline cluster assignments for comparison
-        assign_path = os.path.join(root_dir, "InSight_ML", "outputs", "theme_detection", "cluster_assignments.csv")
+        assign_path = os.path.join(root_dir, "outputs", "theme_detection", "cluster_assignments.csv")
         cls.df_assign = pd.read_csv(assign_path) if os.path.exists(assign_path) else None
 
         # Extract 30 genuinely unseen reviews from archive.zip
         cls.unseen_reviews = []
-        archive_path = os.path.join(root_dir, "InSight_ML", "data", "raw", "cosmetics", "archive.zip")
+        archive_path = os.path.join(root_dir, "data", "raw", "cosmetics", "archive.zip")
         if os.path.exists(archive_path):
             known_texts = set(cls.df_10k["review_text"].dropna().astype(str).tolist())
             with zipfile.ZipFile(archive_path, "r") as z:

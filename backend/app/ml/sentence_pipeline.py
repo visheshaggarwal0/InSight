@@ -50,13 +50,19 @@ LABEL_PRAISE_NOISE = "PRAISE/NOISE"
 # COMPLAINT signals: defect keywords, discourse markers of contrast, negative
 # experience descriptors.  These overlap intentionally with complaint_extraction.py
 # but are extended for sentence-level precision.
+#
+# NOTE on the `yet` branch: the trailing context is a LOOKAHEAD, not part of the
+# alternation.  It used to sit inside the group (`yet\b[^,]`), so findall()
+# returned the string "yet " with a trailing space, which then failed the
+# `pure_markers` membership test and made EVERY sentence containing "yet" a
+# COMPLAINT ("I love this cream, yet the pump broke." -> COMPLAINT 0.833).
 _COMPLAINT_PATTERN = re.compile(
     r"\b(?:"
     # Discourse markers of contrast / concession
     r"but|however|although|though|except|unfortunately|sadly|regrettably|"
-    r"despite|nevertheless|yet\b[^,]|"
+    r"despite|nevertheless|yet(?=\s+[^,.])|"
     # Physical defect / safety
-    r"cracked|broken|shattered|leaked|leaking|spilled|exploded|"
+    r"cracked|broke|broken|shattered|leaked|leaking|spilled|exploded|"
     r"jammed|stuck|clogged|blocked|stripped|peeled|"
     # Skin / health reactions
     r"burning|burns|burned|stinging|stings|stung|itching|itchy|"
@@ -65,14 +71,45 @@ _COMPLAINT_PATTERN = re.compile(
     # Product failure / quality
     r"terrible|horrible|awful|worst|useless|waste|disappointed|"
     r"doesn't work|didn't work|not work|stopped working|"
-    r"fake|counterfeit|expired|smells off|changed formula|"
+    r"expired|smells off|changed formula|"
     r"no effect|no results|zero effect|"
     # App / tech
     r"crash|crashes|crashed|freeze|freezes|frozen|"
-    r"failed|fails|failure|error|bug|glitch|"
-    r"limbo|pending|stuck|not loading|times out|timed out|timeout|redirect loop|login loop|unresponsive|memory leak|deadlock|"
+    r"failed|fails|failure|glitch|"
+    r"limbo|pending|not loading|times out|timed out|timeout|redirect loop|login loop|unresponsive|memory leak|deadlock|"
     # Delivery / service
-    r"never arrived|damaged|defective|recalled|refund|return"
+    r"never arrived|defective"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Generic service/commerce/tech nouns that indicate a complaint ONLY when the
+# surrounding clause is itself complaint-ish.  On their own they are neutral:
+# "The return policy on their site is unclear and hard to find." is a usability
+# observation, not a product failure, yet it used to score COMPLAINT 0.556.
+# These are a SECONDARY TIER: they never trigger COMPLAINT by themselves.
+_WEAK_TRIGGER_PATTERN = re.compile(
+    r"\b(?:"
+    r"return|returns|returned|returning|refund|refunded|replacement|exchange|"
+    r"money back|"
+    r"fake|fakes|counterfeit|knockoff|"
+    r"error|errors|bug|bugs|"
+    r"damaged|recalled|recall"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Context required to promote a weak trigger to a real complaint signal.
+_WEAK_TRIGGER_CONTEXT = re.compile(
+    r"\b(?:"
+    r"can't|cannot|couldn't|could not|won't|will not|still|never|"
+    r"waiting|waited|refuse|refused|refusing|denied|deny|"
+    r"twice|second time|again|another|every time|constantly|always|"
+    r"broken|damaged|defective|cracked|leaked|jammed|"
+    r"arrived|arrival|received|delivery|delivered|package|parcel|shipment|box|"
+    r"order|ordered|purchase|purchased|bought|"
+    r"terrible|horrible|awful|worst|useless|disappointed|angry|furious|"
+    r"unusable|immediately"
     r")\b",
     re.IGNORECASE,
 )
@@ -104,13 +141,79 @@ _PRAISE_PATTERN = re.compile(
 )
 
 # NEGATION & SYMPTOM MITIGATION guards: e.g. "isn't drying", "never irritated", "no breakouts", "removes redness", "without feeling stripped"
+#
+# The previous version allowed a 9-token look-ahead between the negation and the
+# symptom, so ANY negation anywhere in a sentence suppressed the WHOLE sentence.
+# Three unambiguous complaints were routed to PRAISE/NOISE and dropped from the
+# complaint pool that drives the entire complaint dashboard:
+#     "I have no breakouts but my skin is raw and burning badly."
+#     "No redness at all, but the pump is jammed solid."
+#     "Not worth it, the serum did not stop my irritation."
+#
+# Two changes fix this:
+#   1. The window is 2 tokens, so the negation must actually MODIFY the symptom
+#      rather than merely sharing a sentence with it.
+#   2. The guard is evaluated PER CLAUSE (see _CLAUSE_SPLITTER) rather than per
+#      sentence, so a negated first clause no longer cancels the defect stated in
+#      the clause after "but".
+# Trade-off: a genuinely negated clause whose symptom sits further than 2 tokens
+# away ("I did not, after two weeks, see any reduction in redness") can still
+# leak into the complaint pool. The 2-token window plus clause scoping is the
+# compromise that keeps precision on "no breakouts" without eating real
+# complaints; widening the window again reintroduces the bug above.
+_NEGATION_TOKENS = (
+    r"never|didn't|did not|not|no|wasn't|was not|isn't|is not|doesn't|does not|"
+    r"without|zero|barely|hardly|scarcely"
+)
+_MITIGATION_TOKENS = (
+    r"stop(?:ped|s)?|decrease in|decreased|prevented|prevents|removes?|reduces?|"
+    r"soothes?|clears?|cures?|calms?|won't|wont|relieves?"
+)
+_SYMPTOM_TERMS = (
+    r"irritat\w*|burn\w*|breakout\w*|acne|rash\w*|peel\w*|sting\w*|pill\w*|"
+    r"problem\w*|issue\w*|defect\w*|clog\w*|leak\w*|dry\w*|crash\w*|shrink\w*|"
+    r"strip\w*|redness|tightness|puffiness|wrinkle\w*"
+)
 _NEGATION_FILTER = re.compile(
+    # "<negation> ... <symptom>"  (≤2 tokens apart)
+    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _SYMPTOM_TERMS + r")"
+    r"|"
+    # "<symptom> ... <negation>"  (≤2 tokens apart)
+    r"\b(?:" + _SYMPTOM_TERMS + r")\b(?:\s+\w+){0,2}\s+(?:" + _NEGATION_TOKENS + r")\b"
+    r"|"
+    # "<mitigation verb> ... <symptom>"  (≤2 tokens apart)
+    r"\b(?:" + _MITIGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _SYMPTOM_TERMS + r")",
+    re.IGNORECASE,
+)
+
+# A negation applied to a MITIGATION VERB is a failure of the product, not
+# evidence of relief: "did not stop my irritation" means the irritation
+# persisted. Checked before _NEGATION_FILTER so such a clause is NOT suppressed.
+_FAILED_MITIGATION = re.compile(
+    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _MITIGATION_TOKENS + r")",
+    re.IGNORECASE,
+)
+
+# Resolved-service phrases: a service noun ("return", "refund") inside a clause
+# that reports the matter as settled is not a complaint. Checked only when a weak
+# trigger fires, so it costs nothing on the common path.
+_RESOLVED_SERVICE = re.compile(
     r"\b(?:"
-    r"never|didn't|did not|not|no|wasn't|was not|isn't|is not|doesn't|does not|without|zero|barely|"
-    r"stopped|decrease in|decreased|prevented|prevents|removes?|reduces?|soothes?|clears?|cures?|calms?|won't|wont"
-    r")\b(?:\s+\w+){0,9}\s+"
-    r"(?:irritat\w*|burn\w*|breakout\w*|acne|rash\w*|peel\w*|sting\w*|pill\w*|problem\w*|issue\w*|defect\w*|"
-    r"clog\w*|leak\w*|dry\w*|crash\w*|shrink\w*|strip\w*|redness|tightness|puffiness|wrinkle\w*)",
+    r"works? (?:fine|great|well|perfectly)|"
+    r"no (?:issues?|problems?)|"
+    r"all (?:good|set|sorted|resolved|fixed)|"
+    r"(?:already )?(?:sorted|resolved|fixed|processed|handled|replaced|refunded)|"
+    r"happy with"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Clause boundaries. The negation guard, the praise guard and the complaint
+# evidence are all evaluated per clause, so a mitigation statement in one clause
+# cannot cancel a defect statement in another.
+_CLAUSE_SPLITTER = re.compile(
+    r"\s*(?:[,;:.!?]|[—–]|\bbut\b|\bhowever\b|\balthough\b|\bthough\b|\bexcept\b|"
+    r"\byet\b|\bwhereas\b|\bwhile\b|\bdespite\b|\bthen\b)\s*",
     re.IGNORECASE,
 )
 
@@ -119,6 +222,71 @@ _NEGATION_FILTER = re.compile(
 _SENT_SPLITTER = re.compile(
     r"""(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!)\s+""",
     re.VERBOSE,
+)
+
+
+# ---------------------------------------------------------------------------
+# Confidence model (HEURISTIC — NOT a calibrated probability)
+# ---------------------------------------------------------------------------
+# The dashboard surfaces these numbers verbatim as `confidence`, so the field
+# name over-promises: nothing here has been fitted, validated against labelled
+# data, or compared with a ROC curve. They are monotone evidence-strength
+# scores, useful for RANKING, and must not be read as probabilities.
+#
+# The previous formula was
+#     min(1.0, n_matched / max(n_words * 0.15, 1))
+# which is inversely proportional to evidence in the regime that matters: a
+# 2-word sentence with one defect token scored 1.0 ("It cracked." -> 1.0) while a
+# 16-word sentence carrying a real defect scored 0.42. Confidence now saturates
+# on the NUMBER OF DISTINCT complaint terms instead, and never reaches 1.0 from
+# a single token.
+_EVIDENCE_SATURATION_TOKENS = 3      # distinct terms for a strong score
+_CONFIDENCE_CEILING = 0.95            # heuristic output never claims certainty
+_COMPLAINT_CONFIDENCE_FLOOR = 0.50
+_RECOMMENDATION_CONFIDENCE_FLOOR = 0.40
+# A sentence with no complaint/praise/recommendation evidence is routed to
+# PRAISE/NOISE at a fixed score. This is also the floor for blank input: a blank
+# sentence carries no evidence either way, and reporting 0.0 (as the empty-string
+# branch used to) ranked it as the WEAKEST signal in the corpus, below the 0.8
+# catch-all for text that was at least examined.
+_NO_EVIDENCE_CONFIDENCE = 0.80
+_MITIGATED_CONFIDENCE = 0.85         # negation/mitigation guard fired
+_PRAISE_CONFIDENCE = 0.90
+
+# Contrastive discourse markers carry no defect information on their own.
+_PURE_MARKERS = frozenset({
+    "but", "however", "although", "though", "except", "until",
+    "despite", "nevertheless", "yet", "then", "while", "whereas",
+})
+
+
+def _evidence_confidence(tokens: List[str], floor: float) -> float:
+    """Map distinct matched terms to a bounded evidence-strength score.
+
+    Monotonically increasing in the number of DISTINCT matched terms and
+    saturating at ``_CONFIDENCE_CEILING``. Sentence length deliberately does not
+    appear: dividing by word count is what let a two-word fragment outrank a
+    detailed complaint.
+    """
+    distinct = len({t.lower() for t in tokens if t})
+    if distinct <= 0:
+        return float(floor)
+    # Saturating curve: 1 term -> ~0.49, 2 -> ~0.74, 3 -> ~0.86, 5 -> ~0.96 of
+    # the floor..ceiling range.
+    ratio = 1.0 - pow(2.718281828, -distinct / 1.5)
+    return min(_CONFIDENCE_CEILING, floor + (_CONFIDENCE_CEILING - floor) * ratio)
+
+
+# Default note for heuristic-classified sentences. Held as a module constant
+# rather than read off `SentenceRecord.classifier_note`: that field is a
+# dataclass default today, and the day it becomes
+# `field(default_factory=...)` the class-attribute read silently returns the
+# factory function instead of the note text.
+HEURISTIC_CLASSIFIER_NOTE = (
+    "PROVISIONAL: heuristic rule-based classification. "
+    "No supervised training data available yet. "
+    "Replace _classify_sentence() with a DeBERTa-v3 or MiniLM fine-tuned model. "
+    "'confidence' is an uncalibrated evidence-strength score, not a probability."
 )
 
 
@@ -141,13 +309,10 @@ class SentenceRecord:
 
     # Classification (PROVISIONAL)
     label: str                # COMPLAINT | RECOMMENDATION | PRAISE/NOISE
-    confidence: float         # Heuristic confidence proxy [0.0, 1.0]
+    confidence: float         # Heuristic evidence score in [0.0, 1.0]. NOT a
+                               # calibrated probability.
     is_provisional: bool = True
-    classifier_note: str = (
-        "PROVISIONAL: heuristic rule-based classification. "
-        "No supervised training data available yet. "
-        "Replace _classify_sentence() with a DeBERTa-v3 or MiniLM fine-tuned model."
-    )
+    classifier_note: str = HEURISTIC_CLASSIFIER_NOTE
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -241,13 +406,20 @@ def deconstruct_sentences(
         start = idx
         end = start + len(part_stripped)
 
-        # Invariant check
-        assert redacted_text[start:end] == part_stripped, (
-            f"Offset invariant failed for review {review_id}: "
-            f"text[{start}:{end}] != sentence. "
-            f"text_slice={repr(redacted_text[start:end])[:60]}, "
-            f"sentence={repr(part_stripped)[:60]}"
-        )
+        # Invariant check. This is a DATA invariant, not a code invariant, so it
+        # must not be an `assert`: asserts are stripped under `python -O`
+        # (routine in containers) and, when present, one pathological review
+        # aborted the entire 10,000-row run with AssertionError. Log and skip
+        # the fragment so a single bad row cannot kill the pipeline.
+        if redacted_text[start:end] != part_stripped:
+            logger.error(
+                "Offset invariant failed for review %s (source_row_index=%s): "
+                "text[%s:%s] != sentence. text_slice=%r, sentence=%r — fragment skipped.",
+                review_id, source_row_index, start, end,
+                redacted_text[start:end][:60], part_stripped[:60],
+            )
+            search_start = max(end, idx + 1)
+            continue
 
         sentences.append((part_stripped, start, end))
         search_start = end
@@ -262,45 +434,78 @@ def deconstruct_sentences(
 def _classify_sentence(sentence_text: str) -> Tuple[str, float]:
     """Assign a sentence to COMPLAINT | RECOMMENDATION | PRAISE/NOISE.
 
-    PROVISIONAL: Heuristic rule-based with negation and praise guards.
-    Can be seamlessly upgraded by DeBERTa-v3 model weights.
+    PROVISIONAL: heuristic rule-based with clause-scoped negation and praise
+    guards. Can be upgraded by DeBERTa-v3 model weights.
 
     Returns:
-        (label, confidence) where confidence is a proxy score [0.0, 1.0].
+        (label, confidence) where confidence is an UNCALIBRATED
+        evidence-strength score in [0.0, 1.0] - see the confidence-model notes
+        above. It is monotonic in the amount of evidence and is intended for
+        ranking, not for interpretation as a probability.
     """
     text = sentence_text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').strip()
     if not text:
-        return LABEL_PRAISE_NOISE, 0.0
+        # Blank input carries no evidence in either direction. It must not score
+        # BELOW the no-evidence catch-all, or blank rows sort as the weakest
+        # signal in the corpus.
+        return LABEL_PRAISE_NOISE, _NO_EVIDENCE_CONFIDENCE
 
     # 1. Recommendation: suggestions, requests, wishes take precedence
     recommendation_matches = _RECOMMENDATION_PATTERN.findall(text)
     if recommendation_matches:
-        n_words = max(len(text.split()), 1)
-        conf = min(1.0, len(recommendation_matches) / max(n_words * 0.15, 1))
+        conf = _evidence_confidence(recommendation_matches, _RECOMMENDATION_CONFIDENCE_FLOOR)
         return LABEL_RECOMMENDATION, round(conf, 3)
 
-    # 2. Negation / Symptom mitigation guard: e.g. "isn't drying", "never irritated my skin", "no breakouts"
-    if _NEGATION_FILTER.search(text):
-        return LABEL_PRAISE_NOISE, 0.85
+    # 2. Clause-scoped evidence gathering.
+    #    The negation guard, the praise guard and the complaint evidence are all
+    #    evaluated per clause, so "No redness at all, but the pump is jammed
+    #    solid." keeps its complaint clause while the negated clause is dropped.
+    real_complaint_tokens: List[str] = []
+    praise_evidence = False
+    mitigated = False
+    clauses = [c for c in _CLAUSE_SPLITTER.split(text) if c and c.strip()]
 
-    complaint_matches = _COMPLAINT_PATTERN.findall(text)
-    praise_matches = _PRAISE_PATTERN.findall(text)
+    for clause in clauses:
+        if _PRAISE_PATTERN.search(clause):
+            praise_evidence = True
+        if _FAILED_MITIGATION.search(clause):
+            # "did not stop my irritation": the negation attaches to a mitigation
+            # verb, so the symptom is still an unresolved complaint.
+            mitigated = False
+        elif _NEGATION_FILTER.search(clause):
+            mitigated = True
+            continue  # negated/mitigated clause: its symptoms are not complaints
 
-    # Filter out pure contrastive discourse markers if no actual defect is stated
-    pure_markers = {"but", "however", "although", "though", "except", "until", "despite", "nevertheless", "yet"}
-    real_complaint_tokens = [m.lower() for m in complaint_matches if m.lower() not in pure_markers]
+        tokens = [m.lower() for m in _COMPLAINT_PATTERN.findall(clause)]
+        # Filter out pure contrastive discourse markers if no actual defect is stated
+        tokens = [m for m in tokens if m not in _PURE_MARKERS]
+        if (
+            _WEAK_TRIGGER_PATTERN.search(clause)
+            and _WEAK_TRIGGER_CONTEXT.search(clause)
+            and not _RESOLVED_SERVICE.search(clause)
+        ):
+            # Secondary tier: a generic commerce/tech noun only counts as
+            # evidence when the clause reads as a complaint.
+            tokens.extend(_WEAK_TRIGGER_PATTERN.findall(clause))
+        real_complaint_tokens.extend(tokens)
 
-    # 3. Praise guard: If praise words exist and no real physical defect occurred, route to PRAISE/NOISE
-    if praise_matches and not real_complaint_tokens:
-        return LABEL_PRAISE_NOISE, 0.90
-
-    # 4. Genuine complaint: requires at least one real failure verb or defect descriptor
+    # 3. Genuine complaint: at least one real failure verb or defect descriptor
+    #    in a clause that is not negated.
     if real_complaint_tokens:
-        n_words = max(len(text.split()), 1)
-        conf = min(1.0, len(real_complaint_tokens) / max(n_words * 0.15, 1))
-        return LABEL_COMPLAINT, max(0.5, round(conf, 3))
+        conf = _evidence_confidence(real_complaint_tokens, _COMPLAINT_CONFIDENCE_FLOOR)
+        return LABEL_COMPLAINT, round(conf, 3)
 
-    return LABEL_PRAISE_NOISE, 0.8   # Catch-all: pure discourse markers (but/however) without defects are not complaints
+    # 4. Praise guard: praise words and no defect evidence at all
+    if praise_evidence:
+        return LABEL_PRAISE_NOISE, _PRAISE_CONFIDENCE
+
+    # 5. Every complaint-bearing clause was negated ("no breakouts, no redness")
+    if mitigated:
+        return LABEL_PRAISE_NOISE, _MITIGATED_CONFIDENCE
+
+    # 6. Catch-all: no defect, no praise, no negation. Pure discourse markers
+    #    (but/however) without defects are not complaints.
+    return LABEL_PRAISE_NOISE, _NO_EVIDENCE_CONFIDENCE
 
 
 # ---------------------------------------------------------------------------

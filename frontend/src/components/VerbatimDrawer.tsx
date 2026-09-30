@@ -1,74 +1,129 @@
-import React, { useState, useEffect } from 'react';
-import { X, Search, Shield, ShieldAlert, Star, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { X, Search, Shield, Star, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { EmptyState } from './EmptyState';
 import type { VerbatimItem } from '../types/telemetry';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const PAGE_SIZE = 20;
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   clusterId?: number | null;
   clusterTitle?: string | null;
+  /** Externally-driven search term (e.g. a keyword-cloud click). */
+  search?: string;
 }
 
 export const VerbatimDrawer: React.FC<Props> = ({
   isOpen,
   onClose,
   clusterId,
-  clusterTitle
+  clusterTitle,
+  search: externalSearch
 }) => {
   const [reviews, setReviews] = useState<VerbatimItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(1);
   const [showRawPii, setShowRawPii] = useState(false);
   const [search, setSearch] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchVerbatims = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        page_size: '20',
-        show_raw_pii: showRawPii ? 'true' : 'false'
-      });
-      if (clusterId !== null && clusterId !== undefined) {
-        params.append('cluster_id', clusterId.toString());
-      }
-      if (sentimentFilter) {
-        params.append('sentiment', sentimentFilter);
-      }
-      if (search) {
-        params.append('search', search);
-      }
+  const generationRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
-      const res = await fetch(`${API_BASE}/verbatims?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setReviews(data.verbatims);
-        setTotal(data.total);
-      }
-    } catch (err) {
-      console.error("Failed to load verbatims:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Reset all paging/filter state when the drawer is re-opened for a different scope.
+  // Done during render (React's derived-state pattern) so it does not cascade an extra
+  // render pass, and the fetch effect below only sees the settled state.
+  const scopeKey = isOpen ? `${clusterId ?? 'all'}|${externalSearch ?? ''}` : 'closed';
+  const [lastScopeKey, setLastScopeKey] = useState<string>('closed');
+  if (scopeKey !== lastScopeKey) {
+    setLastScopeKey(scopeKey);
+    setPage(1);
+    setSentimentFilter('');
+    setShowRawPii(false);
+    setSearch(externalSearch ?? '');
+    setSearchDraft(externalSearch ?? '');
+  }
 
   useEffect(() => {
-    if (isOpen) {
-      fetchVerbatims();
-    }
-  }, [isOpen, page, showRawPii, clusterId, sentimentFilter]);
+    if (!isOpen) return;
+    const generation = ++generationRef.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          page_size: PAGE_SIZE.toString(),
+          show_raw_pii: showRawPii ? 'true' : 'false'
+        });
+        if (clusterId !== null && clusterId !== undefined) {
+          params.append('cluster_id', clusterId.toString());
+        }
+        if (sentimentFilter) {
+          params.append('sentiment', sentimentFilter);
+        }
+        if (search) {
+          params.append('search', search);
+        }
+
+        const res = await fetch(`${API_BASE}/verbatims?${params.toString()}`, {
+          signal: controller.signal
+        });
+        if (!res.ok) {
+          setError(`Verbatim query failed (HTTP ${res.status}).`);
+          return;
+        }
+        const data = await res.json();
+        if (generation !== generationRef.current) return;
+        setReviews(Array.isArray(data.verbatims) ? data.verbatims : []);
+        setTotal(typeof data.total === 'number' ? data.total : 0);
+        setTotalPages(typeof data.total_pages === 'number' ? data.total_pages : 0);
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return;
+        if (generation !== generationRef.current) return;
+        setError(`Verbatim query failed: ${(err as Error).message}`);
+      } finally {
+        if (generation === generationRef.current) setLoading(false);
+      }
+    };
+
+    void load();
+  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search]);
+
+  // Unmount cleanup: abort any in-flight request so no response lands after teardown.
+  useEffect(() => {
+    const controller = abortRef.current;
+    return () => controller?.abort();
+  }, []);
+
+  const handleSearchSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
+    const next = searchDraft;
+    // A single request: paging state and the query term are updated together and
+    // the fetch effect performs exactly one request for the new combination.
+    setSearch(next);
     setPage(1);
-    fetchVerbatims();
-  };
+  }, [searchDraft]);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchDraft('');
+    setSearch('');
+    setPage(1);
+  }, []);
 
   if (!isOpen) return null;
+
+  const pageCount = Math.max(1, totalPages || Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="overlay-backdrop" style={{ justifyContent: 'flex-end' }}>
@@ -107,7 +162,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
               {clusterTitle ? clusterTitle : 'All Customer Verbatims'}
             </h2>
             <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
-              Showing {reviews.length} of <b>{total.toLocaleString()} matched quotes</b>
+              Showing {reviews.length.toLocaleString()} of <b>{total.toLocaleString()} matched quotes</b>
             </span>
           </div>
 
@@ -121,6 +176,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
               padding: '6px',
               borderRadius: '8px'
             }}
+            aria-label="Close verbatim drawer"
           >
             <X size={16} />
           </button>
@@ -142,9 +198,10 @@ export const VerbatimDrawer: React.FC<Props> = ({
             <div style={{ position: 'relative', width: '100%' }}>
               <input
                 type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchDraft}
+                onChange={(e) => setSearchDraft(e.target.value)}
                 placeholder="Search quotes, order IDs, errors..."
+                aria-label="Search verbatims"
                 style={{
                   width: '100%',
                   backgroundColor: '#FFFFFF',
@@ -158,6 +215,22 @@ export const VerbatimDrawer: React.FC<Props> = ({
               />
               <Search size={14} style={{ color: '#9CA3AF', position: 'absolute', left: '10px', top: '9px' }} />
             </div>
+            {searchDraft !== search && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#6B7280',
+                  fontSize: '0.74rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Clear
+              </button>
+            )}
           </form>
 
           {/* Sentiment Filter */}
@@ -166,6 +239,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
             <select
               value={sentimentFilter}
               onChange={(e) => { setSentimentFilter(e.target.value); setPage(1); }}
+              aria-label="Filter by sentiment"
               style={{
                 backgroundColor: '#FFFFFF',
                 border: '1px solid #E5E7EB',
@@ -183,9 +257,11 @@ export const VerbatimDrawer: React.FC<Props> = ({
             </select>
           </div>
 
-          {/* PII Toggle */}
+          {/* PII request toggle — the server decides what is actually returned. */}
           <button
-            onClick={() => setShowRawPii(!showRawPii)}
+            type="button"
+            onClick={() => { setShowRawPii(!showRawPii); setPage(1); }}
+            aria-pressed={showRawPii}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -195,27 +271,31 @@ export const VerbatimDrawer: React.FC<Props> = ({
               fontSize: '0.74rem',
               fontWeight: 600,
               cursor: 'pointer',
-              border: showRawPii ? '1px solid #FECACA' : '1px solid #A7F3D0',
-              backgroundColor: showRawPii ? '#FEF2F2' : '#ECFDF5',
-              color: showRawPii ? '#991B1B' : '#065F46',
+              border: showRawPii ? '1px solid #FDE68A' : '1px solid #A7F3D0',
+              backgroundColor: showRawPii ? '#FFFBEB' : '#ECFDF5',
+              color: showRawPii ? '#92400E' : '#065F46',
               transition: 'all 0.15s ease'
             }}
+            title="Requests raw text from the server. Whether unredacted PII is returned depends entirely on server-side authorization."
           >
-            {showRawPii ? <ShieldAlert size={13} /> : <Shield size={13} />}
-            {showRawPii ? 'Raw (Auditor Mode)' : 'PII Scrubbed'}
+            <Shield size={13} />
+            {showRawPii ? 'Raw requested (server-gated)' : 'PII Scrubbed'}
           </button>
         </div>
 
         {/* Verbatims List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {loading ? (
+          {error ? (
+            <EmptyState label={error} hint="Retry by changing a filter or reopening the drawer." />
+          ) : loading ? (
             <div style={{ textAlign: 'center', padding: '50px', color: '#6B7280' }}>
               Querying reviews...
             </div>
           ) : reviews.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '50px', color: '#6B7280' }}>
-              No reviews match the current filters.
-            </div>
+            <EmptyState
+              label="No reviews match the current filters."
+              hint={search ? `No quotes matched "${search}".` : undefined}
+            />
           ) : (
             reviews.map((r) => (
               <div
@@ -260,7 +340,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
                   </div>
                 </div>
 
-                {/* Review Text with Clause Span Highlighting */}
+                {/* Review Text with Clause Span Highlighting (server-provided display_text only) */}
                 <div style={{ fontSize: '0.84rem', color: '#1F2937', lineHeight: '1.5', fontWeight: 450 }}>
                   {r.highlight_span && r.highlight_span.text && r.display_text.includes(r.highlight_span.text) ? (
                     (() => {
@@ -300,7 +380,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                     {r.pii_detected && r.pii_detected.length > 0 ? (
                       r.pii_detected.map((p, idx) => (
-                        <span key={idx} style={{
+                        <span key={`${r.id}-pii-${idx}`} style={{
                           fontSize: '0.66rem',
                           backgroundColor: '#FEF3C7',
                           color: '#92400E',
@@ -344,13 +424,14 @@ export const VerbatimDrawer: React.FC<Props> = ({
           backgroundColor: '#FAFAFA'
         }}>
           <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
-            Page {page} of {Math.max(1, Math.ceil(total / 20))}
+            Page {Math.min(page, pageCount)} of {pageCount}
           </span>
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
+              type="button"
               disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -367,8 +448,9 @@ export const VerbatimDrawer: React.FC<Props> = ({
               <ChevronLeft size={14} /> Prev
             </button>
             <button
-              disabled={page >= Math.ceil(total / 20)}
-              onClick={() => setPage(page + 1)}
+              type="button"
+              disabled={page >= pageCount}
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -377,9 +459,9 @@ export const VerbatimDrawer: React.FC<Props> = ({
                 borderRadius: '6px',
                 border: '1px solid #E5E7EB',
                 backgroundColor: '#FFFFFF',
-                color: page >= Math.ceil(total / 20) ? '#D1D5DB' : '#374151',
+                color: page >= pageCount ? '#D1D5DB' : '#374151',
                 fontSize: '0.76rem',
-                cursor: page >= Math.ceil(total / 20) ? 'not-allowed' : 'pointer'
+                cursor: page >= pageCount ? 'not-allowed' : 'pointer'
               }}
             >
               Next <ChevronRight size={14} />

@@ -1,9 +1,0 @@
-representation,k,silhouette_score_sample5k,inertia,min_cluster_size,max_cluster_size,runtime_sec,sample_size
-MiniLM (all-MiniLM-L6-v2),5,0.052,5239.9,714,3009,1.63,10000
-TF-IDF Baseline,5,0.0101,9607.21,452,4480,0.8,10000
-MiniLM (all-MiniLM-L6-v2),6,0.056,5166.64,695,2780,1.83,10000
-TF-IDF Baseline,6,0.0098,9579.34,318,4213,0.9,10000
-MiniLM (all-MiniLM-L6-v2),8,0.0652,5029.3,455,2078,2.48,10000
-TF-IDF Baseline,8,0.0114,9534.34,304,3261,1.24,10000
-MiniLM (all-MiniLM-L6-v2),10,0.0664,4931.77,458,1524,3.99,10000
-TF-IDF Baseline,10,0.0132,9497.82,273,3683,6.16,10000

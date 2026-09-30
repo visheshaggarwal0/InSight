@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { HeroBanner } from './components/HeroBanner';
@@ -17,6 +17,8 @@ import { TicketModal } from './components/TicketModal';
 import { DriftTimeline } from './components/DriftTimeline';
 import { ThemeCard } from './components/ThemeCard';
 import { AuthModal } from './components/AuthModal';
+import { Skeleton } from './components/EmptyState';
+import { validateStoredSession, apiFetch } from './lib/auth-client';
 import type {
   DatasetInfo,
   OverviewMetrics,
@@ -28,19 +30,41 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
+type EndpointKey = 'datasets' | 'overview' | 'themes' | 'drift' | 'governance';
+type EndpointErrors = Partial<Record<EndpointKey, string>>;
+
+const ENDPOINTS: Array<[EndpointKey, string]> = [
+  ['datasets', '/datasets'],
+  ['overview', '/overview'],
+  ['themes', '/themes'],
+  ['drift', '/drift'],
+  ['governance', '/governance']
+];
+
+async function readErrorDetail(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body && typeof body.detail === 'string') return body.detail;
+  } catch {
+    /* non-JSON error body */
+  }
+  return `HTTP ${res.status}`;
+}
+
 export function App() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
-  const [activeDomain, setActiveDomain] = useState<string>('d2c_cosmetics');
+  const [activeDomain, setActiveDomain] = useState<string>('');
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
   const [themes, setThemes] = useState<ThemeCluster[]>([]);
   const [driftData, setDriftData] = useState<DriftData | null>(null);
   const [governanceData, setGovernanceData] = useState<ModelGovernanceData | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errors, setErrors] = useState<EndpointErrors>({});
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Navigation & Search State
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [timeRange, setTimeRange] = useState<string>('Last 30 days');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Modals & Drawers
@@ -53,142 +77,202 @@ export function App() {
   const [isDriftModalOpen, setIsDriftModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
-  const loadAllData = async () => {
+  // Monotonic request generation: responses from superseded loads are discarded.
+  const generationRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const loadAllData = useCallback(async () => {
+    const generation = ++generationRef.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsLoading(true);
-    try {
-      const [dsRes, overRes, thRes, drRes, govRes] = await Promise.all([
-        fetch(`${API_BASE}/datasets`),
-        fetch(`${API_BASE}/overview`),
-        fetch(`${API_BASE}/themes`),
-        fetch(`${API_BASE}/drift`),
-        fetch(`${API_BASE}/governance`)
-      ]);
+    setErrors({});
 
-      if (dsRes.ok) {
-        const d = await dsRes.json();
-        setDatasets(d.available_domains);
-        setActiveDomain(d.active_domain);
-      }
-      if (overRes.ok) setOverview(await overRes.json());
-      if (thRes.ok) {
-        const t = await thRes.json();
-        setThemes(t.themes);
-      }
-      if (drRes.ok) setDriftData(await drRes.json());
-      if (govRes.ok) setGovernanceData(await govRes.json());
-    } catch (err) {
-      console.warn("FastAPI backend not currently running, using high-fidelity offline mode:", err);
-      // Fallback data for demonstration if backend is not started
-      setOverview({
-        domain: 'd2c_cosmetics',
-        total_reviews: 10324,
-        sentiment_counts: { POSITIVE: 7433, NEUTRAL: 1858, NEGATIVE: 1033 },
-        positive_rate: 72,
-        negative_rate: 10,
-        pii_redacted_count: 842,
-        pii_redacted_rate: 8.2,
-        critical_themes_count: 3,
-        active_alerts: 2
-      });
-    } finally {
-      setIsLoading(false);
+    const settled = await Promise.allSettled(
+      ENDPOINTS.map(([, path]) => apiFetch(path, { signal: controller.signal }))
+    );
+
+    if (generation !== generationRef.current) return;
+
+    const nextErrors: EndpointErrors = {};
+    const parsed = await Promise.all(
+      settled.map(async (result, idx) => {
+        const key = ENDPOINTS[idx][0];
+        if (result.status === 'rejected') {
+          nextErrors[key] =
+            (result.reason as Error)?.name === 'AbortError'
+              ? 'Request cancelled'
+              : `Network unreachable (${API_BASE})`;
+          return null;
+        }
+        const res = result.value;
+        if (!res.ok) {
+          nextErrors[key] = await readErrorDetail(res);
+          return null;
+        }
+        try {
+          return await res.json();
+        } catch {
+          nextErrors[key] = 'Malformed JSON response';
+          return null;
+        }
+      })
+    );
+
+    if (generation !== generationRef.current) return;
+
+    const [ds, ov, th, dr, gov] = parsed;
+
+    // Never render a partially-updated mix of domains: clear what failed.
+    if (nextErrors.datasets) {
+      setDatasets([]);
+      setActiveDomain('');
+    } else {
+      setDatasets(Array.isArray(ds?.available_domains) ? (ds.available_domains as DatasetInfo[]) : []);
+      setActiveDomain(typeof ds?.active_domain === 'string' ? ds.active_domain : '');
     }
-  };
 
-  useEffect(() => {
-    loadAllData();
+    setOverview(nextErrors.overview ? null : ((ov as OverviewMetrics) ?? null));
+    setThemes(nextErrors.themes || !Array.isArray(th?.themes) ? [] : (th.themes as ThemeCluster[]));
+    setDriftData(nextErrors.drift ? null : ((dr as DriftData) ?? null));
+    setGovernanceData(nextErrors.governance ? null : ((gov as ModelGovernanceData) ?? null));
+
+    setErrors(nextErrors);
+    setIsLoading(false);
   }, []);
 
-  const handleSelectDomain = async (domainId: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/datasets/select`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domain: domainId })
-      });
-      if (res.ok) {
-        await loadAllData();
-      }
-    } catch (err) {
-      console.error("Failed to switch domain:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    void validateStoredSession();
+    loadAllData();
+    // Unmount cleanup: abort whatever request loadAllData started.
+    const controller = abortRef.current;
+    return () => controller?.abort();
+  }, [loadAllData]);
 
-  const handleUploadCsv = async (file: File) => {
-    setIsLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch(`${API_BASE}/datasets/upload`, {
-        method: 'POST',
-        body: formData
-      });
-      if (res.ok) {
+  const handleSelectDomain = useCallback(
+    async (domainId: string) => {
+      setActionError(null);
+      try {
+        const res = await fetch(`${API_BASE}/datasets/select`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain: domainId })
+        });
+        if (!res.ok) {
+          setActionError(`Could not switch to "${domainId}": ${await readErrorDetail(res)}`);
+          return;
+        }
         await loadAllData();
+      } catch (err) {
+        setActionError(`Could not switch to "${domainId}": ${(err as Error).message}`);
       }
-    } catch (err) {
-      console.error("Failed to upload CSV:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [loadAllData]
+  );
 
-  const handleInspectVerbatims = (clusterId: number, title: string) => {
+  const handleUploadCsv = useCallback(
+    async (file: File) => {
+      setActionError(null);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_BASE}/datasets/upload`, {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) {
+          setActionError(`Upload failed for "${file.name}": ${await readErrorDetail(res)}`);
+          return;
+        }
+        await loadAllData();
+      } catch (err) {
+        setActionError(`Upload failed for "${file.name}": ${(err as Error).message}`);
+      }
+    },
+    [loadAllData]
+  );
+
+  const handleInspectVerbatims = useCallback((clusterId: number, title: string) => {
     setSelectedClusterId(clusterId);
     setSelectedClusterTitle(title);
+    setSearchQuery('');
     setIsVerbatimDrawerOpen(true);
-  };
+  }, []);
 
-  const handleInspectAllVerbatims = () => {
+  const handleInspectAllVerbatims = useCallback(() => {
     setSelectedClusterId(null);
-    setSelectedClusterTitle("All 10,000+ Customer Verbatims");
+    setSearchQuery('');
+    const total = overview?.total_reviews;
+    setSelectedClusterTitle(
+      typeof total === 'number' && Number.isFinite(total)
+        ? `All Customer Verbatims (${total.toLocaleString()})`
+        : 'All Customer Verbatims'
+    );
     setIsVerbatimDrawerOpen(true);
-  };
+  }, [overview?.total_reviews]);
 
-  const handleSelectKeyword = (word: string) => {
+  const handleSelectKeyword = useCallback((word: string) => {
     setSearchQuery(word);
     setSelectedClusterId(null);
     setSelectedClusterTitle(`Quotes containing "${word}"`);
     setIsVerbatimDrawerOpen(true);
-  };
+  }, []);
 
-  const handleGenerateTicket = async (clusterId: number) => {
+  const handleGenerateTicket = useCallback(async (clusterId: number) => {
+    setActionError(null);
     try {
       const res = await fetch(`${API_BASE}/ticket/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cluster_id: clusterId })
       });
-      if (res.ok) {
-        const t = await res.json();
-        setActiveTicket(t);
-        setIsTicketModalOpen(true);
+      if (!res.ok) {
+        setActionError(`Ticket generation failed for cluster #${clusterId}: ${await readErrorDetail(res)}`);
+        return;
       }
+      const t = (await res.json()) as GeneratedTicket;
+      setActiveTicket(t);
+      setIsTicketModalOpen(true);
     } catch (err) {
-      console.error("Failed to generate ticket:", err);
+      setActionError(`Ticket generation failed for cluster #${clusterId}: ${(err as Error).message}`);
     }
-  };
+  }, []);
 
-  const handleExportReport = async () => {
-    // Generate an executive incident report for the highest critical theme
-    const topClusterId = themes.length > 0 ? themes[0].cluster_id : 1;
-    await handleGenerateTicket(topClusterId);
-  };
+  const handleExportReport = useCallback(async () => {
+    if (themes.length === 0) {
+      setActionError('Cannot generate an incident report: no themes are loaded.');
+      return;
+    }
+    await handleGenerateTicket(themes[0].cluster_id);
+  }, [themes, handleGenerateTicket]);
+
+  const handleOpenGovernance = useCallback(() => setIsGovernanceOpen(true), []);
+  const handleOpenDrift = useCallback(() => setIsDriftModalOpen(true), []);
+  const handleCloseDrawer = useCallback(() => setIsVerbatimDrawerOpen(false), []);
+  const handleOpenAuth = useCallback(() => setIsAuthModalOpen(true), []);
+  const handleToggleMobileMenu = useCallback(() => setIsMobileMenuOpen((v) => !v), []);
 
   // Filter themes by search query
-  const filteredThemes = themes.filter((t) => {
-    if (!searchQuery) return true;
+  const filteredThemes = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return t.title.toLowerCase().includes(q) || t.keywords.some(k => k.toLowerCase().includes(q));
-  });
+    if (!q) return themes;
+    return themes.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.keywords || []).some((k) => k.toLowerCase().includes(q))
+    );
+  }, [themes, searchQuery]);
+
+  const criticalError = errors.overview ?? errors.themes ?? null;
+  const secondaryError = errors.drift ?? errors.governance ?? null;
+  const safeDatasets = datasets ?? [];
 
   return (
     <div className="app-container">
       {/* Mobile Backdrop for Off-Canvas Sidebar */}
-      <div 
+      <div
         className={`sidebar-backdrop ${isMobileMenuOpen ? 'active' : ''}`}
         onClick={() => setIsMobileMenuOpen(false)}
         aria-hidden="true"
@@ -198,7 +282,7 @@ export function App() {
       <Sidebar
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
-        onOpenGovernance={() => setIsGovernanceOpen(true)}
+        onOpenGovernance={handleOpenGovernance}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
       />
@@ -209,15 +293,14 @@ export function App() {
         <TopBar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          datasets={datasets}
+          datasets={safeDatasets}
           activeDomain={activeDomain}
           onSelectDomain={handleSelectDomain}
           onUploadCsv={handleUploadCsv}
-          timeRange={timeRange}
-          onChangeTimeRange={setTimeRange}
-          onOpenGovernance={() => setIsGovernanceOpen(true)}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
-          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          governanceAccuracy={governanceData?.evaluation?.accuracy}
+          onOpenGovernance={handleOpenGovernance}
+          onOpenAuth={handleOpenAuth}
+          onToggleMobileMenu={handleToggleMobileMenu}
         />
 
         {/* Global Loading Bar */}
@@ -235,13 +318,102 @@ export function App() {
 
         {/* Dynamic View Body */}
         <main className="main-body">
+          {criticalError && (
+            <div
+              role="alert"
+              style={{
+                marginBottom: '24px',
+                padding: '20px 22px',
+                borderRadius: '12px',
+                border: '1px solid #FECACA',
+                backgroundColor: '#FEF2F2',
+                color: '#991B1B',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}
+            >
+              <strong style={{ fontSize: '0.95rem' }}>
+                Could not load dashboard data{errors.overview && errors.themes ? ' (/overview and /themes)' : errors.overview ? ' (/overview)' : ' (/themes)'}
+              </strong>
+              <span style={{ fontSize: '0.82rem' }}>{criticalError}</span>
+              <span style={{ fontSize: '0.78rem' }}>
+                No figures are shown in place of missing data.
+              </span>
+              <div>
+                <button type="button" className="btn-primary" onClick={() => void loadAllData()}>
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {actionError && (
+            <div
+              role="alert"
+              style={{
+                marginBottom: '16px',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                border: '1px solid #FDE68A',
+                backgroundColor: '#FFFBEB',
+                color: '#92400E',
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px'
+              }}
+            >
+              <span>{actionError}</span>
+              <button
+                type="button"
+                onClick={() => setActionError(null)}
+                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 700 }}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {secondaryError && (
+            <div
+              role="status"
+              style={{
+                marginBottom: '16px',
+                padding: '10px 16px',
+                borderRadius: '10px',
+                backgroundColor: '#F9FAFB',
+                border: '1px solid #E5E7EB',
+                color: '#6B7280',
+                fontSize: '0.78rem'
+              }}
+            >
+              Partial data: {secondaryError}
+            </div>
+          )}
+
           {currentTab === 'dashboard' && (
             <>
               {/* Hero Banner with SVG Flow Diagram */}
-              <HeroBanner totalReviews={overview?.total_reviews || 10324} />
+              {overview ? (
+                <HeroBanner totalReviews={overview.total_reviews} />
+              ) : (
+                <section className="hero-section">
+                  <div style={{ maxWidth: '580px', width: '100%' }}>
+                    <h1 className="hero-title">
+                      Your users are talking.<br />
+                      <span style={{ color: '#059669' }}>We help you listen.</span>
+                    </h1>
+                    <p style={{ fontSize: '0.82rem', color: '#6B7280', marginTop: '8px' }}>
+                      Review volume: —
+                    </p>
+                  </div>
+                </section>
+              )}
 
               {/* 4 KPI Cards */}
-              <OverviewCards metrics={overview} onOpenGovernance={() => setIsGovernanceOpen(true)} />
+              <OverviewCards metrics={overview} onOpenGovernance={handleOpenGovernance} />
 
               {/* Row 2: Charts (Sentiment Trend & Rating Distribution) */}
               <div className="responsive-row-2">
@@ -249,7 +421,7 @@ export function App() {
                 <RatingDistributionCard ratings={overview?.rating_distribution} />
               </div>
 
-              {/* Row 3: Lists (Top Themes & Example Reviews with PII Toggle) */}
+              {/* Row 3: Lists (Top Themes & Example Reviews) */}
               <div className="responsive-row-2">
                 <TopThemesList
                   themes={filteredThemes}
@@ -275,12 +447,12 @@ export function App() {
                 <RecentInsights
                   driftData={driftData}
                   insights={overview?.recent_insights}
-                  onViewDrift={() => setIsDriftModalOpen(true)}
+                  onViewDrift={handleOpenDrift}
                 />
               </div>
 
               {/* Row 5: Action Banner */}
-              <ActionBanner onExportReport={handleExportReport} />
+              <ActionBanner onExportReport={() => void handleExportReport()} />
 
               {/* Footer */}
               <footer style={{
@@ -295,7 +467,7 @@ export function App() {
                 gap: '12px'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <strong style={{ color: '#0F382E', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '0.95rem' }}>
+                  <strong style={{ color: '#0F382E', fontFamily: "'DM Serif Display', Georgia, serif", fontSize: '1rem' }}>
                     InSight
                   </strong>
                   <span>v1.0.0</span>
@@ -313,11 +485,11 @@ export function App() {
             <div style={{ paddingTop: '32px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
                 <div>
-                  <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'Playfair Display', serif" }}>
+                  <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
                     Customer Verbatims &amp; Raw Feedback
                   </h2>
                   <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px' }}>
-                    Complete audit trail with multi-pass PII masking and calibrated sentiment classification.
+                    Complete audit trail with server-side PII masking and calibrated sentiment classification.
                   </p>
                 </div>
                 <button
@@ -338,34 +510,42 @@ export function App() {
           {currentTab === 'themes' && (
             <div style={{ paddingTop: '32px' }}>
               <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'Playfair Display', serif" }}>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
                   Discovered Semantic Themes
                 </h2>
                 <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px' }}>
                   Unsupervised HDBSCAN clustering &amp; TF-IDF keyphrase extraction across customer reviews.
                 </p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                {themes.map((theme) => (
-                  <ThemeCard
-                    key={theme.cluster_id}
-                    theme={theme}
-                    onInspectVerbatims={handleInspectVerbatims}
-                    onGenerateTicket={handleGenerateTicket}
-                  />
-                ))}
-              </div>
+              {isLoading ? (
+                <Skeleton rows={5} label="Loading themes" />
+              ) : themes.length === 0 ? (
+                <p style={{ fontSize: '0.84rem', color: '#6B7280' }}>
+                  No themes are available for the active dataset.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+                  {themes.map((theme) => (
+                    <ThemeCard
+                      key={theme.cluster_id}
+                      theme={theme}
+                      onInspectVerbatims={handleInspectVerbatims}
+                      onGenerateTicket={(id) => void handleGenerateTicket(id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {currentTab === 'sentiment' && (
             <div style={{ paddingTop: '32px' }}>
               <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'Playfair Display', serif" }}>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
                   Sentiment Intelligence &amp; Model Governance
                 </h2>
                 <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px' }}>
-                  Platt-scaled 3-class classifier metrics benchmarked on 1,000 gold-standard ground-truth reviews.
+                  Platt-scaled 3-class classifier metrics benchmarked on the gold-standard ground-truth review set.
                 </p>
               </div>
               <div className="responsive-row-2">
@@ -373,7 +553,7 @@ export function App() {
                 <RatingDistributionCard ratings={overview?.rating_distribution} />
               </div>
               <button
-                onClick={() => setIsGovernanceOpen(true)}
+                onClick={handleOpenGovernance}
                 className="btn-primary"
               >
                 Inspect Empirical Confusion Matrix &amp; Calibration Curve
@@ -384,49 +564,61 @@ export function App() {
           {currentTab === 'trends' && (
             <div style={{ paddingTop: '32px' }}>
               <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'Playfair Display', serif" }}>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
                   Statistical Drift Monitoring (PSI)
                 </h2>
                 <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px' }}>
                   Population Stability Index tracking distribution shifts between reference batches and production telemetry.
                 </p>
               </div>
-              {driftData && <DriftTimeline driftData={driftData} />}
+              {driftData ? (
+                <DriftTimeline driftData={driftData} />
+              ) : (
+                <p style={{ fontSize: '0.84rem', color: '#6B7280' }}>
+                  {isLoading ? 'Loading drift telemetry…' : 'No drift telemetry is available.'}
+                </p>
+              )}
             </div>
           )}
 
           {currentTab === 'compare' && (
             <div style={{ paddingTop: '32px' }}>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'Playfair Display', serif" }}>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
                 Domain &amp; Cross-Dataset Benchmark
               </h2>
               <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px', marginBottom: '24px' }}>
                 Compare customer sentiment and defect frequencies across multiple product verticals.
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-                {datasets.map((d) => (
-                  <div key={d.id} className="dashboard-card" style={{ padding: '24px' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827' }}>{d.name}</h3>
-                    <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>Category: {d.category}</p>
-                    <div style={{ marginTop: '16px', fontSize: '1.5rem', fontWeight: 700, color: '#0F382E' }}>
-                      {d.review_count?.toLocaleString()} reviews
+              {safeDatasets.length === 0 ? (
+                <p style={{ fontSize: '0.84rem', color: '#6B7280' }}>
+                  {isLoading ? 'Loading datasets…' : 'No datasets are available.'}
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+                  {safeDatasets.map((d) => (
+                    <div key={d.id} className="dashboard-card" style={{ padding: '24px' }}>
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827' }}>{d.name}</h3>
+                      <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>Category: {d.category}</p>
+                      <div style={{ marginTop: '16px', fontSize: '1.5rem', fontWeight: 700, color: '#0F382E' }}>
+                        {d.review_count?.toLocaleString()} reviews
+                      </div>
+                      <button
+                        onClick={() => void handleSelectDomain(d.id)}
+                        className="btn-outline"
+                        style={{ marginTop: '16px', width: '100%', justifyContent: 'center' }}
+                      >
+                        {activeDomain === d.id ? 'Active Dataset' : 'Switch to this Domain'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleSelectDomain(d.id)}
-                      className="btn-outline"
-                      style={{ marginTop: '16px', width: '100%', justifyContent: 'center' }}
-                    >
-                      {activeDomain === d.id ? 'Active Dataset' : 'Switch to this Domain'}
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {currentTab === 'settings' && (
             <div style={{ paddingTop: '32px' }}>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'Playfair Display', serif" }}>
+              <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
                 Data &amp; Privacy Configuration
               </h2>
               <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px', marginBottom: '24px' }}>
@@ -443,7 +635,9 @@ export function App() {
                   type="file"
                   accept=".csv"
                   onChange={(e) => {
-                    if (e.target.files?.[0]) handleUploadCsv(e.target.files[0]);
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) void handleUploadCsv(file);
                   }}
                   style={{ fontSize: '0.84rem' }}
                 />
@@ -456,9 +650,10 @@ export function App() {
       {/* Slide-out Verbatim Drawer */}
       <VerbatimDrawer
         isOpen={isVerbatimDrawerOpen}
-        onClose={() => setIsVerbatimDrawerOpen(false)}
+        onClose={handleCloseDrawer}
         clusterId={selectedClusterId}
         clusterTitle={selectedClusterTitle}
+        search={searchQuery}
       />
 
       {/* Model Governance Modal */}
@@ -507,7 +702,7 @@ export function App() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={() => loadAllData()}
+        onSuccess={() => void loadAllData()}
       />
     </div>
   );
