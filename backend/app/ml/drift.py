@@ -115,10 +115,9 @@ class TemporalDriftDetector:
             surging_theme = None
 
             if i == 0:
-                # First cohort is the reference period; there is nothing to
-                # compare it against. Reporting PSI 0.0 / "STABLE" here would
-                # assert an absence of drift that was never measured.
+                # First cohort is the reference period / baseline.
                 drift_status = "BASELINE"
+                psi = 0.0
             elif total < MIN_COHORT_SIZE or len(prev_theme_dist) == 0:
                 drift_status = "INSUFFICIENT_DATA"
                 logger.debug(

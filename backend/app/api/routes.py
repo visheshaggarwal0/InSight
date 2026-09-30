@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.data.datasets import dataset_manager
 from app.data.real_loader import real_data_loader
+from app.data.knowledge_pipeline import knowledge_pipeline
 from app.ml.sentiment import sentiment_model, CalibratedSentimentClassifier
 from app.ml.evaluation import evaluation_harness
 from app.ml.clustering import clusterer, transformer_encoder
@@ -370,15 +371,25 @@ def _process_custom_csv(contents: bytes, filename: str) -> dict:
 
 
 @router.post("/datasets/upload")
-async def upload_custom_csv(
+async def upload_custom_dataset(
     file: UploadFile = File(...),
     user: Optional[AuthenticatedUser] = _privileged_auth(),
 ):
-    if not (file.filename or "").lower().endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV files are supported.")
-
-    # Stream with a hard byte ceiling instead of `await file.read()`, which
-    # buffered an unbounded body into memory.
+    """
+    Enterprise Knowledge Pipeline Ingestion Endpoint.
+    Supports CSV, TSV, JSON, JSONL, and Excel (.xlsx, .xls).
+    Executes full pipeline:
+      1. Schema Normalization with Fuzzy Matching
+      2. Data Quality & Quarantine Gate
+      3. Enterprise PII Scrubbing
+      4. Surgical Sentence & Contrastive Complaint Extraction
+      5. Production Vector ETL (384D all-MiniLM-L6-v2)
+      6. Supervised Calibrated Sentiment Classification
+      7. Semantic Thematic Clustering (c-TF-IDF)
+      8. Temporal Drift Analysis (PSI)
+      9. Dual-Storage Persistence to Neon PostgreSQL pgvector
+    """
+    # Stream with a hard byte ceiling instead of unbounded buffer
     chunks: list[bytes] = []
     total_bytes = 0
     while True:
@@ -393,30 +404,44 @@ async def upload_custom_csv(
             )
         chunks.append(chunk)
 
+    contents = b"".join(chunks)
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
     try:
-        result = await run_in_threadpool(_process_custom_csv, b"".join(chunks), file.filename)
+        result = await run_in_threadpool(
+            knowledge_pipeline.process_and_ingest,
+            file_input=contents,
+            filename=file.filename,
+            domain_id="custom",
+            persist_db=True,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
     except HTTPException:
         raise
-    except Exception:
-        logger.exception("Pipeline failed on custom upload %s", file.filename)
-        raise HTTPException(status_code=500, detail="The analysis pipeline failed on this dataset.")
+    except Exception as e:
+        logger.error(f"Pipeline error during ingestion of '{file.filename}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Knowledge pipeline error: {str(e)}")
 
-    # Atomic commit: every field swaps together under the lock, and
-    # is_initialized is set so the lazy initializer cannot clobber the upload
-    # on the next read (which previously discarded it entirely).
+    # Atomic commit under the state lock
     with INIT_LOCK:
-        state.active_domain = "custom"
+        result["data_provenance"] = {"synthetic": False, "source": f"user upload: {file.filename}"}
+        DOMAIN_CACHE["custom"] = result
         _swap_state("custom", result)
 
     return {
         "status": "success",
-        "rows_ingested": len(state.reviews),
-        "total_rows_ingested": result["total_rows"],
+        "rows_ingested": result["rows_ingested"],
+        "total_rows_ingested": result["rows_ingested"],
         "eval_rows": len(result["ground_truth"]) or None,
         "active_domain": "custom",
         "data_provenance": result["data_provenance"],
+        "schema_report": result.get("schema_report", {}),
+        "quality_manifest": result.get("quality_manifest", {}),
+        "embedding_manifest": result.get("embedding_manifest", {}),
+        "themes_count": len(result["themes"]),
     }
-
 
 @router.get("/overview")
 def get_overview(user: Optional[AuthenticatedUser] = _auth()):

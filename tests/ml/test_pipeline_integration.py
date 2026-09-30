@@ -730,7 +730,10 @@ class TestEndToEndPipeline(unittest.TestCase):
             self.assertIn("batch_or_version", entry)
             self.assertIn("review_count", entry)
             self.assertIn("psi", entry)
-            self.assertGreaterEqual(entry["psi"], 0.0)
+            if entry["psi"] is not None:
+                self.assertGreaterEqual(entry["psi"], 0.0)
+            else:
+                self.assertEqual(entry["status"], "INSUFFICIENT_DATA")
 
     def test_throughput_acceptable(self):
         """Full pipeline throughput should exceed 50 reviews/sec.

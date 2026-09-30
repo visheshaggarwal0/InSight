@@ -31,7 +31,8 @@ class DatabaseService:
         themes: List[Dict[str, Any]],
         drift_results: Dict[str, Any],
         eval_results: Dict[str, Any],
-        embeddings: Optional[Any] = None
+        embeddings: Optional[Any] = None,
+        overwrite: bool = False
     ) -> bool:
         """
         Seeds domain metadata, themes, reviews with 384D vector embeddings, and governance records.
@@ -48,13 +49,13 @@ class DatabaseService:
                     category=domain_info.get("category", "General"),
                     focus=domain_info.get("focus", ""),
                     review_count=len(reviews),
-                    updated_at=datetime.utcnow()
+                    updated_at=datetime.now(timezone.utc)
                 )
                 db.add(domain_record)
                 db.commit()
             else:
                 existing_domain.review_count = len(reviews)
-                existing_domain.updated_at = datetime.utcnow()
+                existing_domain.updated_at = datetime.now(timezone.utc)
                 db.commit()
 
             # 2. Clear old themes and insert fresh themes
@@ -71,14 +72,19 @@ class DatabaseService:
                     neutral_rate=float(t.get("neutral_rate", 0.0)),
                     keywords=t.get("keywords", []),
                     sample_verbatims=t.get("sample_verbatims", []),
-                    created_at=datetime.utcnow()
+                    created_at=datetime.now(timezone.utc)
                 )
                 db.add(theme_record)
             db.commit()
 
             # 3. Seed Reviews in chunks
-            # Check if reviews already exist
-            existing_review_count = db.query(func.count(ReviewModel.id)).filter(ReviewModel.domain_id == domain_id).scalar()
+            if overwrite:
+                db.query(ReviewModel).filter(ReviewModel.domain_id == domain_id).delete()
+                db.commit()
+                existing_review_count = 0
+            else:
+                existing_review_count = db.query(func.count(ReviewModel.id)).filter(ReviewModel.domain_id == domain_id).scalar()
+
             if existing_review_count == 0:
                 logger.info(f"Seeding {len(reviews)} reviews for domain '{domain_id}' into Neon PostgreSQL...")
                 chunk_size = 500
@@ -112,7 +118,7 @@ class DatabaseService:
                             cluster_id=r.get("cluster_id"),
                             theme_title=r.get("theme_title"),
                             embedding=emb,
-                            created_at=datetime.utcnow()
+                            created_at=datetime.now(timezone.utc)
                         )
                         records_to_insert.append(record)
 
@@ -128,7 +134,7 @@ class DatabaseService:
                     model_architecture="Calibrated Logistic Regression (Platt Scaling) + Bi-Encoder Embeddings",
                     evaluation=eval_results,
                     drift_results=drift_results,
-                    created_at=datetime.utcnow()
+                    created_at=datetime.now(timezone.utc)
                 )
                 db.add(gov_record)
             else:
@@ -227,91 +233,127 @@ class DatabaseService:
         limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
-        Executes native cosine distance vector similarity search using pgvector.
+        Executes native cosine distance vector similarity search using pgvector on PostgreSQL,
+        or vectorized cosine similarity fallback on SQLite (for test/local environments).
         Returns the most relevant reviews with similarity scores.
         """
-        # Fallback for SQLite or environments without native pgvector
-        if db.bind is None or db.bind.dialect.name != "postgresql":
-            import numpy as np
-            from app.api.routes import state
-            from app.ml.pipeline_config import ARTIFACTS
-
-            active_reviews = [r for r in state.reviews if r.get("domain", domain_id) == domain_id] or state.reviews
-            if not active_reviews:
-                return []
-
-            emb_path = ARTIFACTS.get("minilm_embeddings")
-            if emb_path and emb_path.exists() and domain_id == "d2c_cosmetics" and len(active_reviews) >= 1000:
-                try:
-                    embeddings = np.load(emb_path)
-                    q_vec = np.array(query_vector, dtype=np.float32)
-                    sims = np.dot(embeddings[:len(active_reviews)], q_vec)
-                    top_indices = np.argsort(sims)[::-1][:limit]
-                    matches = []
-                    for idx in top_indices:
-                        r = active_reviews[idx]
-                        matches.append({
-                            "id": r.get("id"),
-                            "similarity_score": round(float(sims[idx]), 4),
-                            "redacted_text": r.get("redacted_text", ""),
-                            "sentiment_pred": r.get("sentiment_pred"),
-                            "sentiment_confidence": r.get("sentiment_confidence", 0.0),
-                            "cluster_id": r.get("cluster_id"),
-                            "theme_title": r.get("theme_title"),
-                            "batch_or_version": r.get("batch_or_version"),
-                            "rating": r.get("rating", 3)
-                        })
-                    return matches
-                except Exception as exc:
-                    logger.warning("Fast embedding search fallback failed, using head sample: %s", exc)
-
-            # Heuristic text match fallback for arbitrary domain on SQLite
-            q_terms = set(re.findall(r"\w+", " ".join(str(query_vector[:5]))))
-            sample = active_reviews[:limit]
-            return [
-                {
-                    "id": r.get("id"),
-                    "similarity_score": 0.85,
-                    "redacted_text": r.get("redacted_text", ""),
-                    "sentiment_pred": r.get("sentiment_pred"),
-                    "sentiment_confidence": r.get("sentiment_confidence", 0.0),
-                    "cluster_id": r.get("cluster_id"),
-                    "theme_title": r.get("theme_title"),
-                    "batch_or_version": r.get("batch_or_version"),
-                    "rating": r.get("rating", 3)
-                }
-                for r in sample
-            ]
-
-        # ReviewModel.embedding.cosine_distance calculates 1 - cosine_similarity
-        # Order by cosine distance ascending
-        results = (
-            db.query(
-                ReviewModel,
-                ReviewModel.embedding.cosine_distance(query_vector).label("distance")
+        bind = db.get_bind()
+        if bind.dialect.name == "postgresql":
+            results = (
+                db.query(
+                    ReviewModel,
+                    ReviewModel.embedding.cosine_distance(query_vector).label("distance")
+                )
+                .filter(ReviewModel.domain_id == domain_id)
+                .filter(ReviewModel.embedding.isnot(None))
+                .order_by("distance")
+                .limit(limit)
+                .all()
             )
-            .filter(ReviewModel.domain_id == domain_id)
-            .filter(ReviewModel.embedding.isnot(None))
-            .order_by("distance")
-            .limit(limit)
-            .all()
-        )
 
-        matches = []
-        for r, dist in results:
-            similarity = round(max(0.0, 1.0 - float(dist)), 4)
-            matches.append({
-                "id": r.id,
-                "similarity_score": similarity,
-                "redacted_text": r.redacted_text,
-                "sentiment_pred": r.sentiment_pred,
-                "sentiment_confidence": r.sentiment_confidence,
-                "cluster_id": r.cluster_id,
-                "theme_title": r.theme_title,
-                "batch_or_version": r.batch_or_version,
-                "rating": r.rating
-            })
-        return matches
+            matches = []
+            for r, dist in results:
+                similarity = round(max(0.0, 1.0 - float(dist)), 4)
+                matches.append({
+                    "id": r.id,
+                    "similarity_score": similarity,
+                    "redacted_text": r.redacted_text,
+                    "sentiment_pred": r.sentiment_pred,
+                    "sentiment_confidence": r.sentiment_confidence,
+                    "cluster_id": r.cluster_id,
+                    "theme_title": r.theme_title,
+                    "batch_or_version": r.batch_or_version,
+                    "rating": r.rating
+                })
+            return matches
+        else:
+            # Resilient in-memory fallback for SQLite / test environments
+            import numpy as np
+            q_vec = np.array(query_vector, dtype=float)
+            q_norm = np.linalg.norm(q_vec)
+            if q_norm > 0:
+                q_vec = q_vec / q_norm
+
+            candidates = db.query(ReviewModel).filter(ReviewModel.domain_id == domain_id).all()
+            scored = []
+            for r in candidates:
+                if r.embedding is not None:
+                    try:
+                        emb_arr = np.array(r.embedding, dtype=float)
+                        e_norm = np.linalg.norm(emb_arr)
+                        if e_norm > 0:
+                            sim = float(np.dot(q_vec, emb_arr / e_norm))
+                            scored.append((r, sim))
+                    except Exception:
+                        continue
+
+            if scored:
+                scored.sort(key=lambda x: x[1], reverse=True)
+                matches = []
+                for r, sim in scored[:limit]:
+                    matches.append({
+                        "id": r.id,
+                        "similarity_score": round(max(0.0, sim), 4),
+                        "redacted_text": r.redacted_text,
+                        "sentiment_pred": r.sentiment_pred,
+                        "sentiment_confidence": r.sentiment_confidence,
+                        "cluster_id": r.cluster_id,
+                        "theme_title": r.theme_title,
+                        "batch_or_version": r.batch_or_version,
+                        "rating": r.rating
+                    })
+                return matches
+
+            # If no DB records exist in SQLite, fall back to state.reviews / artifacts
+            try:
+                from app.api.routes import state
+                from app.ml.pipeline_config import ARTIFACTS
+
+                active_reviews = [r for r in state.reviews if r.get("domain", domain_id) == domain_id] or state.reviews
+                if not active_reviews:
+                    return []
+
+                emb_path = ARTIFACTS.get("minilm_embeddings")
+                if emb_path and emb_path.exists() and domain_id == "d2c_cosmetics" and len(active_reviews) >= 1000:
+                    try:
+                        embeddings = np.load(emb_path)
+                        sims = np.dot(embeddings[:len(active_reviews)], q_vec)
+                        top_indices = np.argsort(sims)[::-1][:limit]
+                        matches = []
+                        for idx in top_indices:
+                            r = active_reviews[idx]
+                            matches.append({
+                                "id": r.get("id"),
+                                "similarity_score": round(float(sims[idx]), 4),
+                                "redacted_text": r.get("redacted_text", ""),
+                                "sentiment_pred": r.get("sentiment_pred"),
+                                "sentiment_confidence": r.get("sentiment_confidence", 0.0),
+                                "cluster_id": r.get("cluster_id"),
+                                "theme_title": r.get("theme_title"),
+                                "batch_or_version": r.get("batch_or_version"),
+                                "rating": r.get("rating", 3)
+                            })
+                        return matches
+                    except Exception as exc:
+                        logger.warning("Fast embedding search fallback failed, using head sample: %s", exc)
+
+                sample = active_reviews[:limit]
+                return [
+                    {
+                        "id": r.get("id"),
+                        "similarity_score": 0.85,
+                        "redacted_text": r.get("redacted_text", ""),
+                        "sentiment_pred": r.get("sentiment_pred"),
+                        "sentiment_confidence": r.get("sentiment_confidence", 0.0),
+                        "cluster_id": r.get("cluster_id"),
+                        "theme_title": r.get("theme_title"),
+                        "batch_or_version": r.get("batch_or_version"),
+                        "rating": r.get("rating", 3)
+                    }
+                    for r in sample
+                ]
+            except Exception:
+                return []
 
     @staticmethod
     def save_ticket(
