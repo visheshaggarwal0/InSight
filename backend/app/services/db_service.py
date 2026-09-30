@@ -31,7 +31,8 @@ class DatabaseService:
         themes: List[Dict[str, Any]],
         drift_results: Dict[str, Any],
         eval_results: Dict[str, Any],
-        embeddings: Optional[Any] = None
+        embeddings: Optional[Any] = None,
+        overwrite: bool = False
     ) -> bool:
         """
         Seeds domain metadata, themes, reviews with 384D vector embeddings, and governance records.
@@ -48,13 +49,13 @@ class DatabaseService:
                     category=domain_info.get("category", "General"),
                     focus=domain_info.get("focus", ""),
                     review_count=len(reviews),
-                    updated_at=datetime.utcnow()
+                    updated_at=datetime.now(timezone.utc)
                 )
                 db.add(domain_record)
                 db.commit()
             else:
                 existing_domain.review_count = len(reviews)
-                existing_domain.updated_at = datetime.utcnow()
+                existing_domain.updated_at = datetime.now(timezone.utc)
                 db.commit()
 
             # 2. Clear old themes and insert fresh themes
@@ -71,14 +72,19 @@ class DatabaseService:
                     neutral_rate=float(t.get("neutral_rate", 0.0)),
                     keywords=t.get("keywords", []),
                     sample_verbatims=t.get("sample_verbatims", []),
-                    created_at=datetime.utcnow()
+                    created_at=datetime.now(timezone.utc)
                 )
                 db.add(theme_record)
             db.commit()
 
             # 3. Seed Reviews in chunks
-            # Check if reviews already exist
-            existing_review_count = db.query(func.count(ReviewModel.id)).filter(ReviewModel.domain_id == domain_id).scalar()
+            if overwrite:
+                db.query(ReviewModel).filter(ReviewModel.domain_id == domain_id).delete()
+                db.commit()
+                existing_review_count = 0
+            else:
+                existing_review_count = db.query(func.count(ReviewModel.id)).filter(ReviewModel.domain_id == domain_id).scalar()
+
             if existing_review_count == 0:
                 logger.info(f"Seeding {len(reviews)} reviews for domain '{domain_id}' into Neon PostgreSQL...")
                 chunk_size = 500
@@ -112,7 +118,7 @@ class DatabaseService:
                             cluster_id=r.get("cluster_id"),
                             theme_title=r.get("theme_title"),
                             embedding=emb,
-                            created_at=datetime.utcnow()
+                            created_at=datetime.now(timezone.utc)
                         )
                         records_to_insert.append(record)
 
@@ -128,7 +134,7 @@ class DatabaseService:
                     model_architecture="Calibrated Logistic Regression (Platt Scaling) + Bi-Encoder Embeddings",
                     evaluation=eval_results,
                     drift_results=drift_results,
-                    created_at=datetime.utcnow()
+                    created_at=datetime.now(timezone.utc)
                 )
                 db.add(gov_record)
             else:

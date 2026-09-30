@@ -47,8 +47,11 @@ class ModelEvaluationHarness:
         brier_scores = []
         for idx, cls in enumerate(classes):
             binary_true = [1 if y == cls else 0 for y in y_true]
-            brier_scores.append(brier_score_loss(binary_true, y_probs[:, idx]))
-        avg_brier = float(np.mean(brier_scores))
+            if idx < y_probs.shape[1]:
+                brier_scores.append(brier_score_loss(binary_true, y_probs[:, idx]))
+            else:
+                brier_scores.append(brier_score_loss(binary_true, np.zeros(len(binary_true))))
+        avg_brier = float(np.mean(brier_scores)) if brier_scores else 0.0
 
         return {
             "sample_size": len(y_true),

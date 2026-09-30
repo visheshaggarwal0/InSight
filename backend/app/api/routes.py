@@ -9,6 +9,7 @@ import threading
 from app.core.config import settings
 from app.data.datasets import dataset_manager
 from app.data.real_loader import real_data_loader
+from app.data.knowledge_pipeline import knowledge_pipeline
 from app.ml.sentiment import sentiment_model, CalibratedSentimentClassifier
 from app.ml.evaluation import evaluation_harness
 from app.ml.clustering import clusterer, transformer_encoder
@@ -173,58 +174,59 @@ def select_dataset(req: DomainSelectRequest):
     return {"status": "success", "active_domain": state.active_domain}
 
 @router.post("/datasets/upload")
-async def upload_custom_csv(file: UploadFile = File(...)):
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV files are supported.")
-    
+async def upload_custom_file(file: UploadFile = File(...)):
+    """
+    Enterprise Knowledge Pipeline Ingestion Endpoint.
+    Supports CSV, TSV, JSON, JSONL, and Excel (.xlsx, .xls).
+    Executes full pipeline:
+      1. Schema Normalization with Fuzzy Matching
+      2. Data Quality & Quarantine Gate
+      3. Enterprise PII Scrubbing
+      4. Surgical Sentence & Contrastive Complaint Extraction
+      5. Production Vector ETL (384D all-MiniLM-L6-v2)
+      6. Supervised Calibrated Sentiment Classification
+      7. Semantic Thematic Clustering (c-TF-IDF)
+      8. Temporal Drift Analysis (PSI)
+      9. Dual-Storage Persistence to Neon PostgreSQL pgvector
+    """
     contents = await file.read()
-    try:
-        df = pd.read_csv(io.StringIO(contents.decode('utf-8', errors='ignore')))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
     try:
-        reviews, gt = dataset_manager.parse_custom_csv(df)
-        state.reviews = reviews
-        state.ground_truth = gt
+        result = knowledge_pipeline.process_and_ingest(
+            file_input=contents,
+            filename=file.filename,
+            domain_id="custom",
+            persist_db=True
+        )
+
+        state.reviews = result["reviews"]
+        state.ground_truth = result["ground_truth"]
+        state.themes = result["themes"]
+        state.drift_results = result["drift_results"]
+        state.eval_results = result["eval_results"]
+        state.sentiment_model = result["sentiment_model"]
         state.active_domain = "custom"
-
-        # Fast fit on isolated model
-        custom_model = CalibratedSentimentClassifier()
-        train_texts = [r["redacted_text"] for r in state.reviews[:min(2000, len(state.reviews))]]
-        train_labels = [r["ground_truth_label"] for r in state.reviews[:min(2000, len(state.reviews))]]
-        custom_model.fit(train_texts, train_labels)
-
-        all_texts = [r["redacted_text"] for r in state.reviews]
-        preds = custom_model.predict(all_texts)
-        probs = custom_model.predict_proba(all_texts)
-
-        for i, r in enumerate(state.reviews):
-            r["sentiment_pred"] = preds[i]
-            cls_idx = list(custom_model.pipeline.classes_).index(preds[i])
-            r["sentiment_confidence"] = round(float(probs[i][cls_idx]), 4)
-
-        if len(state.ground_truth) > 0:
-            gt_texts = [r["redacted_text"] for r in state.ground_truth]
-            gt_true = [r["ground_truth_label"] for r in state.ground_truth]
-            gt_preds = custom_model.predict(gt_texts)
-            gt_probs = custom_model.predict_proba(gt_texts)
-            state.eval_results = evaluation_harness.evaluate(
-                gt_true, gt_preds, gt_probs, custom_model.CLASSES
-            )
-
-        state.sentiment_model = custom_model
-        sentiment_model.pipeline = custom_model.pipeline
+        state.is_initialized = True
+        DOMAIN_CACHE["custom"] = result
+        sentiment_model.pipeline = result["sentiment_model"].pipeline
         sentiment_model.is_fitted = True
 
-        cluster_res = clusterer.fit_and_cluster(state.reviews)
-        state.themes = cluster_res["themes"]
-        state.reviews = cluster_res["reviews"]
-        state.drift_results = drift_detector.analyze_drift(state.reviews)
-
-        return {"status": "success", "rows_ingested": len(state.reviews), "active_domain": "custom"}
+        return {
+            "status": "success",
+            "rows_ingested": result["rows_ingested"],
+            "active_domain": "custom",
+            "schema_report": result["schema_report"],
+            "quality_manifest": result["quality_manifest"],
+            "embedding_manifest": result["embedding_manifest"],
+            "themes_count": len(result["themes"])
+        }
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Pipeline error on custom data: {str(e)}")
+        logger.error(f"Pipeline error during ingestion of '{file.filename}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Knowledge pipeline error: {str(e)}")
 
 @router.get("/overview")
 def get_overview():
