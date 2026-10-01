@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { ArrowRight, ArrowUpRight } from 'lucide-react';
-import { EmptyState, fmtPsi } from './EmptyState';
+import { EmptyState } from './EmptyState';
+import { fmtPsi } from '../lib/formatters';
 import type { DriftData, DynamicInsightItem } from '../types/telemetry';
 
 interface RecentInsightsProps {

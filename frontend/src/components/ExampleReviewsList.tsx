@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { ArrowRight, Star, Shield } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import type { SampleVerbatim, ThemeCluster } from '../types/telemetry';
@@ -38,8 +38,8 @@ function toRenderReview(v: SampleVerbatim, themeTitle: string, fallbackId: strin
 }
 
 function ComponentExampleReviewsList({ themes, selectedClusterId, onViewAll }: ExampleReviewsListProps) {
-  const displayReviews = useMemo<RenderReview[]>(() => {
-    const selected = themes.find((t) => t.cluster_id === selectedClusterId);
+  const selected = themes.find((t) => t.cluster_id === selectedClusterId);
+  const displayReviews: RenderReview[] = (() => {
     if (selected && (selected.sample_verbatims?.length ?? 0) > 0) {
       return (selected.sample_verbatims ?? [])
         .slice(0, 3)
@@ -54,9 +54,9 @@ function ComponentExampleReviewsList({ themes, selectedClusterId, onViewAll }: E
       }
     }
     return [];
-  }, [themes, selectedClusterId]);
+  })();
 
-  const selectedCluster = themes.find((t) => t.cluster_id === selectedClusterId);
+  const selectedCluster = selected;
 
   const renderStars = (count: number) => {
     const safe = Math.max(0, Math.min(5, Math.round(count || 0)));

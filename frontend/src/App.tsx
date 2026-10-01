@@ -144,11 +144,19 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    void validateStoredSession();
-    loadAllData();
-    // Unmount cleanup: abort whatever request loadAllData started.
-    const controller = abortRef.current;
-    return () => controller?.abort();
+    let cancelled = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    void (async () => {
+      await validateStoredSession();
+      if (!cancelled) await loadAllData();
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [loadAllData]);
 
   const handleSelectDomain = useCallback(

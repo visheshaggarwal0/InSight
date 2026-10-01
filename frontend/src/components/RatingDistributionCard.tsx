@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { EmptyState, fmtPct } from './EmptyState';
+import { EmptyState } from './EmptyState';
+import { fmtPct } from '../lib/formatters';
 import type { RatingDistributionItem } from '../types/telemetry';
 
 interface RatingDistributionCardProps {

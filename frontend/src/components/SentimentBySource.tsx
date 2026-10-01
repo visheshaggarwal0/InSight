@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { EmptyState, fmtPct } from './EmptyState';
+import { EmptyState } from './EmptyState';
+import { fmtPct } from '../lib/formatters';
 import type { SentimentSourceItem } from '../types/telemetry';
 
 interface SentimentBySourceProps {

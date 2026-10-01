@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut, Menu } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 import { useSession, signOut } from '../lib/auth-client';
-import { EmptyState, fmtPct } from './EmptyState';
+import { EmptyState } from './EmptyState';
+import { fmtPct } from '../lib/formatters';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const CUSTOM_DOMAIN_ID = 'custom';

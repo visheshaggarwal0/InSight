@@ -1,27 +1,5 @@
 import React from 'react';
 
-export function fmtNum(value: number | null | undefined, fallback = '—'): string {
-  if (value === null || value === undefined || typeof value !== 'number' || !Number.isFinite(value)) {
-    return fallback;
-  }
-  return value.toLocaleString();
-}
-
-export function fmtPct(value: number | null | undefined, digits = 1, fallback = '—'): string {
-  if (value === null || value === undefined || typeof value !== 'number' || !Number.isFinite(value)) {
-    return fallback;
-  }
-  return `${value.toFixed(digits)}%`;
-}
-
-/** Population Stability Index is a unitless index, never a percentage. */
-export function fmtPsi(value: number | null | undefined, fallback = '—'): string {
-  if (value === null || value === undefined || typeof value !== 'number' || !Number.isFinite(value)) {
-    return fallback;
-  }
-  return value.toFixed(3);
-}
-
 export const Skeleton: React.FC<{ rows?: number; height?: number; label?: string }> = ({
   rows = 3,
   height = 14,

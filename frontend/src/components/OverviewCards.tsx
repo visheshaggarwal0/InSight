@@ -1,6 +1,6 @@
 import { memo, type FC } from 'react';
 import { MessageCircle, Smile, Meh, Frown, ShieldCheck } from 'lucide-react';
-import { fmtNum, fmtPct } from './EmptyState';
+import { fmtNum, fmtPct } from '../lib/formatters';
 import type { OverviewMetrics } from '../types/telemetry';
 
 interface Props {
