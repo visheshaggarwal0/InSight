@@ -140,6 +140,41 @@ THEME = {
     "embedding_dim": 384,
 }
 
+# ---------------------------------------------------------------------------
+# Clustering mode toggle
+# ---------------------------------------------------------------------------
+# "kmeans"  → MiniBatchKMeans (default, always available, requires n_clusters)
+# "hdbscan" → UMAP(cosine, 12 components) + HDBSCAN density clustering.
+#             Requires `hdbscan` and `umap-learn` packages.
+#             Automatically discovers cluster count; surfaces zero-day clusters
+#             as a special "Uncategorized" theme (cluster_id = -1).
+#             Falls back to KMeans if either library is not installed.
+
+CLUSTERING_MODE: str = "kmeans"   # change to "hdbscan" to enable density clustering
+
+# HDBSCAN + UMAP tuning parameters (used only when CLUSTERING_MODE == "hdbscan")
+HDBSCAN_CONFIG = {
+    # UMAP: reduce 384-dim MiniLM space to this many components before HDBSCAN.
+    # 12 components preserve ~95% of cluster structure while eliminating noise dims.
+    "umap_n_components": 12,
+
+    # UMAP metric — cosine is correct for unit-normalised MiniLM embeddings.
+    "umap_metric": "cosine",
+
+    # UMAP: number of neighbours considered per point (higher = more global structure)
+    "umap_n_neighbors": 15,
+
+    # HDBSCAN: minimum number of reviews to form a dense cluster.
+    # Clusters smaller than this are assigned to the -1 zero-day pool.
+    "min_cluster_size": 15,
+
+    # HDBSCAN: minimum samples in the core of a cluster (controls noise tolerance).
+    "min_samples": 5,
+
+    # HDBSCAN: linkage method — "eom" (Excess of Mass) is the HDBSCAN default.
+    "cluster_selection_method": "eom",
+}
+
 # Map cluster IDs to provisional human-readable names.
 # These were assigned based on visual inspection of cluster representatives
 # (see outputs/theme_detection/audit/). They are NOT validated labels.
@@ -277,5 +312,7 @@ __all__ = [
     "PROVISIONAL_THEME_NAMES",
     "SENTENCE_PIPELINE",
     "COMPLAINT_CLUSTERING",
+    "CLUSTERING_MODE",
+    "HDBSCAN_CONFIG",
 ]
 
