@@ -41,7 +41,7 @@ jobs:
           DATABASE_URL: sqlite:///./test_ci.db
           USE_DB_STORAGE: "false"
         run: |
-          pytest tests/
+          pytest tests/ backend/tests/
 
   frontend-validation:
     name: Frontend TypeScript & Build Test

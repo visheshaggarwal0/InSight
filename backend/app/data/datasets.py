@@ -1,5 +1,5 @@
 import random
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 import pandas as pd
 from app.core.pii import pii_redactor
 
