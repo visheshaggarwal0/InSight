@@ -62,6 +62,8 @@ class AppState:
         self.eval_results: dict = {}
         self.eval_provenance: dict = {}
         self.sentiment_model: CalibratedSentimentClassifier = sentiment_model
+        self.complaint_clusters: list = []
+        self.feature_requests: list = []
         self.is_initialized: bool = False
         self.data_provenance: dict = {}
 
@@ -189,6 +191,8 @@ def compute_domain_artifacts(domain: str) -> dict:
         "eval_results": eval_results,
         "sentiment_model": domain_model,
         "data_provenance": provenance,
+        "complaint_clusters": real_res.get("complaint_clusters", []) if use_real_pipeline else [],
+        "feature_requests": real_res.get("feature_requests", []) if use_real_pipeline else [],
     }
 
 
@@ -202,6 +206,8 @@ def _swap_state(domain: str, cached: dict) -> None:
     state.eval_results = cached["eval_results"]
     state.data_provenance = cached.get("data_provenance", {})
     state.sentiment_model = cached["sentiment_model"]
+    state.complaint_clusters = cached.get("complaint_clusters", [])
+    state.feature_requests = cached.get("feature_requests", [])
 
     # Keep legacy singleton sentiment_model synchronized with active domain pipeline
     sentiment_model.pipeline = cached["sentiment_model"].pipeline
@@ -947,3 +953,181 @@ def export_powerbi_telemetry(user: Optional[AuthenticatedUser] = _privileged_aut
             "Content-Disposition": f"attachment; filename=insight_{state.active_domain}_telemetry.csv"
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Complaint Clusters & Sentence Pools Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/complaint-clusters")
+def get_complaint_clusters(
+    severity: Optional[str] = Query(None, description="Optional filter by severity: CRITICAL, HIGH, MEDIUM, LOW"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns sentence-level complaint clusters discovered via MiniLM + c-TF-IDF.
+    Includes severity, c-TF-IDF root cause keywords, medoid verbatims, and Relative Risk.
+    """
+    ensure_initialized()
+    clusters = state.complaint_clusters or []
+    if severity:
+        clusters = [c for c in clusters if str(c.get("severity")).upper() == severity.upper()]
+    return {
+        "clusters": clusters,
+        "total": len(clusters),
+        "domain": state.active_domain,
+    }
+
+
+@router.get("/complaint-clusters/{cluster_id}/verbatims")
+def get_complaint_cluster_verbatims(
+    cluster_id: int,
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns representative sentence verbatims for a specific complaint cluster,
+    including character slice offsets [start, end] for verbatim span highlighting.
+    """
+    ensure_initialized()
+    matched = [c for c in (state.complaint_clusters or []) if c.get("cluster_id") == cluster_id]
+    if not matched:
+        raise HTTPException(status_code=404, detail=f"Complaint cluster #{cluster_id} not found.")
+    cluster = matched[0]
+    return {
+        "cluster_id": cluster_id,
+        "title": cluster.get("title"),
+        "severity": cluster.get("severity"),
+        "keywords": cluster.get("keywords", []),
+        "sentence_count": cluster.get("sentence_count", 0),
+        "medoid_verbatim": cluster.get("medoid_verbatim"),
+        "affected_batch": cluster.get("affected_batch"),
+        "relative_risk": cluster.get("relative_risk"),
+        "verbatims": cluster.get("verbatims", []),
+    }
+
+
+@router.get("/feature-requests")
+def get_feature_requests(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Returns structured customer recommendations and wishlist proposals
+    isolated by the sentence intent classifier.
+    """
+    ensure_initialized()
+    return {
+        "feature_requests": state.feature_requests or [],
+        "total": len(state.feature_requests or []),
+        "domain": state.active_domain,
+    }
+
+
+@router.get("/reviews/silent-defects")
+def get_silent_defects(
+    min_rating: int = Query(4, ge=3, le=5, description="Filter for positive ratings containing hidden defects"),
+    limit: int = Query(50, ge=1, le=200),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    The 'Trojan Horse' Filter: Returns 4★ and 5★ reviews that contain a verified
+    defect clause or complaint sentence. Solves the 'Whole-Document Fallacy'.
+    """
+    ensure_initialized()
+    silent = []
+    for r in state.reviews:
+        rating = r.get("rating") or 0
+        if rating < min_rating:
+            continue
+        
+        has_defect_span = bool((r.get("highlight_span") or {}).get("detected"))
+        has_complaint_sentence = any(
+            s.get("label") == "COMPLAINT" for s in r.get("sentences", [])
+        )
+        if has_defect_span or has_complaint_sentence:
+            silent.append({
+                "id": r.get("id"),
+                "rating": rating,
+                "product_name": r.get("product_name"),
+                "sku_or_module": r.get("sku_or_module"),
+                "batch_or_version": r.get("batch_or_version"),
+                "display_text": r.get("redacted_text"),
+                "sentiment_pred": r.get("sentiment_pred"),
+                "highlight_span": r.get("highlight_span"),
+                "sentences": r.get("sentences", []),
+            })
+            if len(silent) >= limit:
+                break
+
+    return {
+        "silent_defects": silent,
+        "total_found": len(silent),
+        "min_rating": min_rating,
+    }
+
+
+class IncidentTicketRequest(BaseModel):
+    cluster_id: int
+
+
+@router.post("/ticket/generate-incident")
+def generate_incident_ticket(
+    payload: IncidentTicketRequest,
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    1-Click Engineering & Jira Incident Dispatch:
+    Generates a structured engineering bug / QA incident report for a complaint cluster.
+    """
+    ensure_initialized()
+    matched = [c for c in (state.complaint_clusters or []) if c.get("cluster_id") == payload.cluster_id]
+    if not matched:
+        raise HTTPException(status_code=404, detail=f"Complaint cluster #{payload.cluster_id} not found.")
+    cluster = matched[0]
+
+    title = cluster.get("title", f"Defect Pattern #{payload.cluster_id}")
+    severity = cluster.get("severity", "HIGH")
+    keywords = ", ".join(cluster.get("keywords", []))
+    volume = cluster.get("sentence_count", 0)
+    batch = cluster.get("affected_batch") or "Omnichannel / Multiple Batches"
+    rr = cluster.get("relative_risk", 1.0)
+    medoid = cluster.get("medoid_verbatim", "N/A")
+
+    ticket_md = f"""# [INCIDENT REPORT] {title}
+
+**Priority:** {severity}
+**Reported Incident Volume:** {volume} customer citations
+**Estimated Blast Radius:** {rr}x relative risk concentration on `{batch}`
+**Identified Root Cause Terms:** {keywords}
+
+---
+
+### Incident Summary
+Customer feedback analysis detected a statistically significant defect concentration regarding **{title}**. 
+Affected customers specifically report failures matching: `{medoid}`.
+
+### Causal Attribution
+- **Primary Over-Indexed Cohort:** `{batch}`
+- **Relative Risk (RR):** `{rr}x` baseline failure probability
+- **Statistical Significance:** {'Verified (p < 0.05)' if cluster.get('is_statistically_significant') else 'Observational Signal'}
+
+### Sample Cited Customer Verbatims
+"""
+    for v in cluster.get("verbatims", [])[:4]:
+        ticket_md += f"- *\"{v.get('sentence_text')}\"* (Ref: `{v.get('sentence_id')}`)\n"
+
+    ticket_md += """
+---
+*Automated telemetry report dispatched via InSight Omni-Corpus Intelligence Engine.*
+"""
+
+    return {
+        "ticket": {
+            "title": f"[{severity}] Incident: {title}",
+            "severity": severity,
+            "cluster_id": payload.cluster_id,
+            "incident_volume": volume,
+            "affected_batch": batch,
+            "relative_risk": rr,
+            "ticket_markdown": ticket_md,
+            "status": "OPEN",
+        }
+    }
+

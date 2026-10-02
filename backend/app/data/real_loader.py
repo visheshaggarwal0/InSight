@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import os
 import re
@@ -349,10 +350,33 @@ class RealDataLoader:
         cohort_order = sorted({r["batch_or_version"] for r in dated_reviews})
         drift_results = drift_detector.analyze_drift_ordered(dated_reviews, cohort_order)
 
+        # 10. Load sentence-level complaint clusters & feature requests if available
+        complaint_clusters = []
+        feature_requests = []
+        try:
+            cc_path = self.resolve_path("outputs/pipeline_runs/complaint_clusters_latest.json")
+            if os.path.exists(cc_path):
+                with open(cc_path, "r", encoding="utf-8") as f:
+                    cc_data = json.load(f)
+                    complaint_clusters = cc_data.get("clusters", [])
+        except Exception as exc:
+            logger.info("Complaint clusters artifact not loaded: %s", exc)
+
+        try:
+            fr_path = self.resolve_path("outputs/pipeline_runs/feature_requests_latest.json")
+            if os.path.exists(fr_path):
+                with open(fr_path, "r", encoding="utf-8") as f:
+                    fr_data = json.load(f)
+                    feature_requests = fr_data.get("feature_requests", [])
+        except Exception as exc:
+            logger.info("Feature requests artifact not loaded: %s", exc)
+
         return {
             "reviews": reviews,
             "themes": themes,
             "drift_results": drift_results,
+            "complaint_clusters": complaint_clusters,
+            "feature_requests": feature_requests,
             "row_count": total_rows,
             "reviews_without_cohort": len(reviews) - len(dated_reviews),
             "label_source": "weak_sentiment" if weak_labels else None,

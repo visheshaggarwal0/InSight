@@ -14,6 +14,7 @@ from app.ml.complaint_clustering import (
     embed_sentences,
     extract_ctfidf_keywords,
     cluster_complaint_sentences,
+    cluster_feature_requests,
     _VOC_STOPWORDS,
     _COMBINED_STOPWORDS,
 )
@@ -22,6 +23,8 @@ __all__ = [
     "embed_sentences",
     "extract_ctfidf_keywords",
     "cluster_complaint_sentences",
+    "cluster_feature_requests",
     "_VOC_STOPWORDS",
     "_COMBINED_STOPWORDS",
 ]
+

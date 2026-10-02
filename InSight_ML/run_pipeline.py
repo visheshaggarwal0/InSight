@@ -70,7 +70,10 @@ from InSight_ML.sentence_pipeline import (
     LABEL_RECOMMENDATION,
     LABEL_PRAISE_NOISE,
 )
-from InSight_ML.complaint_clustering import cluster_complaint_sentences
+from InSight_ML.complaint_clustering import (
+    cluster_complaint_sentences,
+    cluster_feature_requests,
+)
 
 # Backend modules (PII redactor and drift detector)
 _BACKEND = _ROOT / "backend"
@@ -304,7 +307,10 @@ def stage_sentence_pipeline(
     return all_sentences, pools
 
 
-def stage_complaint_clustering(pools: RoutedPools) -> Dict[str, Any]:
+def stage_complaint_clustering(
+    pools: RoutedPools,
+    review_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     """Stage 6b: Complaint-sentence MiniLM embedding + MiniBatchKMeans + c-TF-IDF.
 
     NEW STAGE — operates exclusively on the COMPLAINT sentence pool.
@@ -331,6 +337,7 @@ def stage_complaint_clustering(pools: RoutedPools) -> Dict[str, Any]:
     result = cluster_complaint_sentences(
         pools.complaint,
         n_clusters=COMPLAINT_CLUSTERING["n_clusters"],
+        review_metadata=review_metadata,
     )
     logger.info(
         "  Complaint clusters: %d | Keywords extracted per cluster: %d [PROVISIONAL]",
@@ -338,6 +345,26 @@ def stage_complaint_clustering(pools: RoutedPools) -> Dict[str, Any]:
         COMPLAINT_CLUSTERING["top_keywords"],
     )
     return result
+
+
+def stage_feature_request_clustering(pools: RoutedPools) -> Dict[str, Any]:
+    """Stage 6c: Recommendation-sentence MiniLM embedding + KMeans + c-TF-IDF.
+
+    Clusters the RECOMMENDATION pool into structured product backlog / wishlist themes.
+    """
+    n = len(pools.recommendation)
+    logger.info("Stage 6c: Feature request clustering on %d recommendation sentences", n)
+    if n == 0:
+        return {
+            "feature_requests": [],
+            "total_recommendations": 0,
+            "n_clusters_actual": 0,
+        }
+
+    result = cluster_feature_requests(pools.recommendation, n_clusters=4)
+    logger.info("  Feature request themes: %d identified from %d sentences", result["n_clusters_actual"], n)
+    return result
+
 
 
 def stage_build_records(
@@ -647,9 +674,27 @@ def run_pipeline(
 
         # ── Stage 6b: Complaint clustering (NEW) ──
         if SENTENCE_PIPELINE.get("run_complaint_clustering", True) and pools is not None:
+            # Build review metadata map for Relative Risk attribution
+            review_meta_map = {}
+            sub_dates = pd.to_datetime(df["submission_time"], errors="coerce")
+            for local_idx, oi in enumerate(original_indices):
+                r_id = f"REV-SEP-{int(oi):05d}"
+                b_str = _quarterly_cohort(sub_dates.iloc[local_idx]) if local_idx < len(sub_dates) else "General"
+                review_meta_map[r_id] = {
+                    "batch_or_version": b_str,
+                    "sku_or_module": f"{df['brand_name'].iloc[local_idx]} - {df['product_name'].iloc[local_idx]}"
+                }
+
             t = time.time()
-            complaint_clusters = stage_complaint_clustering(pools)
+            complaint_clusters = stage_complaint_clustering(pools, review_metadata=review_meta_map)
             stage_timings["complaint_clustering"] = time.time() - t
+
+            # ── Stage 6c: Feature request clustering (NEW) ──
+            t = time.time()
+            feature_requests = stage_feature_request_clustering(pools)
+            stage_timings["feature_request_clustering"] = time.time() - t
+        else:
+            feature_requests = {}
 
     # ── Stage 7: Build records ──
     t = time.time()
@@ -742,7 +787,8 @@ def run_pipeline(
     latest_themes_path = output_dir / "themes_latest.json"
     latest_drift_path = output_dir / "drift_latest.json"
     latest_summary_path = output_dir / "summary_latest.json"
-    latest_complaint_clusters_path = output_dir / "complaint_clusters_latest.json"
+    feature_requests_path = output_dir / f"feature_requests_{run_id}.json"
+    latest_feature_requests_path = output_dir / "feature_requests_latest.json"
 
     logger.info("Writing outputs to %s", output_dir)
 
@@ -767,6 +813,8 @@ def run_pipeline(
         json.dump(summary, f, ensure_ascii=False, indent=2, allow_nan=False)
     with open(complaint_clusters_path, "w", encoding="utf-8") as f:
         json.dump(complaint_clusters, f, ensure_ascii=False, indent=2, allow_nan=False)
+    with open(feature_requests_path, "w", encoding="utf-8") as f:
+        json.dump(feature_requests, f, ensure_ascii=False, indent=2, allow_nan=False)
 
     # "latest" mirrors. Use a hardlink when possible so the ~40MB reviews array
     # is not duplicated on every run; fall back to copy2 across filesystems.
@@ -776,6 +824,7 @@ def run_pipeline(
         (drift_path, latest_drift_path),
         (summary_path, latest_summary_path),
         (complaint_clusters_path, latest_complaint_clusters_path),
+        (feature_requests_path, latest_feature_requests_path),
     ]:
         if dst.exists():
             dst.unlink()

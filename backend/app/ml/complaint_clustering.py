@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import importlib.util
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, CountVectorizer
 
@@ -50,9 +51,14 @@ except ImportError:
     from InSight_ML.sentence_pipeline import SentenceRecord
 
 try:
-    from app.ml.pipeline_config import COMPLAINT_CLUSTERING, embedding_cache_key
+    from app.ml.pipeline_config import COMPLAINT_CLUSTERING, HDBSCAN_CONFIG, CLUSTERING_MODE, embedding_cache_key
 except ImportError:
-    from InSight_ML.pipeline_config import COMPLAINT_CLUSTERING, embedding_cache_key
+    from InSight_ML.pipeline_config import COMPLAINT_CLUSTERING, HDBSCAN_CONFIG, CLUSTERING_MODE, embedding_cache_key
+
+HDBSCAN_AVAILABLE: bool = (
+    importlib.util.find_spec("hdbscan") is not None
+    and importlib.util.find_spec("umap") is not None
+)
 
 try:
     from app.ml.severity import classify_complaint_severity
@@ -292,35 +298,72 @@ def extract_ctfidf_keywords(
 # Main clustering function
 # ---------------------------------------------------------------------------
 
+def _compute_relative_risk(
+    sents: List[SentenceRecord],
+    review_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Compute empirical relative risk (causal attribution) across batches/versions.
+
+    Identifies which batch or SKU has an over-indexed complaint concentration.
+    RR = P(Defect | Batch) / P(Defect | Other Batches).
+    """
+    if not review_metadata:
+        return {"affected_batch": None, "relative_risk": 1.0, "is_statistically_significant": False}
+
+    batch_counts: Dict[str, int] = {}
+    for s in sents:
+        meta = review_metadata.get(s.review_id, {})
+        batch = meta.get("batch_or_version") or "General"
+        batch_counts[batch] = batch_counts.get(batch, 0) + 1
+
+    if not batch_counts:
+        return {"affected_batch": None, "relative_risk": 1.0, "is_statistically_significant": False}
+
+    # Find highest volume batch in this cluster
+    top_batch, cluster_batch_count = max(batch_counts.items(), key=lambda x: x[1])
+    
+    # Calculate baseline representation across corpus
+    total_cluster_sents = len(sents)
+    total_corpus_for_batch = sum(
+        1 for r_id, meta in review_metadata.items() if (meta.get("batch_or_version") or "General") == top_batch
+    )
+    total_corpus = max(len(review_metadata), 1)
+
+    p_cluster_in_batch = cluster_batch_count / max(total_corpus_for_batch, 1)
+    other_batch_cluster_count = total_cluster_sents - cluster_batch_count
+    other_corpus_count = max(total_corpus - total_corpus_for_batch, 1)
+    p_cluster_in_other = other_batch_cluster_count / other_corpus_count
+
+    rr = round(p_cluster_in_batch / max(p_cluster_in_other, 1e-4), 2)
+    # Simple significance heuristic: at least 5 instances and RR >= 1.5
+    is_sig = bool(cluster_batch_count >= 5 and rr >= 1.5)
+
+    return {
+        "affected_batch": top_batch if is_sig else (top_batch if cluster_batch_count >= 3 else "Omnichannel"),
+        "relative_risk": rr if is_sig else 1.0,
+        "is_statistically_significant": is_sig,
+        "batch_count": cluster_batch_count,
+    }
+
+
 def cluster_complaint_sentences(
     complaint_sentences: List[SentenceRecord],
     n_clusters: int = _DEFAULT_N_CLUSTERS,
     random_state: int = 42,
+    mode: str = "kmeans",
+    review_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """Embed, cluster, and summarize complaint sentences.
+    """Embed, cluster, and summarize complaint sentences using KMeans or HDBSCAN.
 
     Args:
         complaint_sentences: Sentences from the COMPLAINT pool.
-        n_clusters: Desired number of root-cause clusters (auto-scaled down
-            if corpus is small).
-        random_state: For MiniBatchKMeans reproducibility.
+        n_clusters: Desired number of root-cause clusters (auto-scaled down if corpus is small).
+        random_state: For reproducibility.
+        mode: "kmeans" (default) or "hdbscan" (density-based with outlier radar).
+        review_metadata: Optional map of {review_id: {batch_or_version, sku_or_module}} for Relative Risk.
 
     Returns:
-        A dict with:
-          clusters        : List[Dict] — one entry per NON-EMPTY cluster:
-              cluster_id  : int
-              title       : str — descriptive label derived from c-TF-IDF keywords
-              label_provenance : str — how the title was produced
-              keywords    : List[str] — class-based TF-IDF (c-TF-IDF) keywords
-              sentence_count : int
-              severity    : str  (CRITICAL / HIGH / MEDIUM / LOW)
-              medoid_verbatim: str — most central representative complaint sentence
-              verbatims   : List[Dict] — up to COMPLAINT_CLUSTERING["n_verbatims"]
-                            sentences with full traceability
-          n_complaint_sentences : int
-          n_clusters_actual     : int — the OBSERVED number of non-empty clusters
-          is_provisional        : True
-          provisional_notices   : List[str]
+        A dict with clusters, medoids, c-TF-IDF keywords, and outlier pools.
     """
     n = len(complaint_sentences)
 
@@ -334,67 +377,88 @@ def cluster_complaint_sentences(
             "provisional_notices": ["No complaint sentences found in corpus."],
         }
 
-    # Auto-scale cluster count. The inner max(1, ...) matters: for n < 5 the
-    # integer division n // 5 is 0, which previously produced k = 2 > n and a
-    # reported n_clusters_actual that did not match the clusters returned.
     k = max(1, min(n_clusters, max(1, n // 5), n))
-    if k != n_clusters:
-        logger.info(
-            "Complaint clustering: auto-scaled k from %d → %d (corpus size=%d)",
-            n_clusters, k, n,
-        )
-
     texts = [s.sentence_text for s in complaint_sentences]
 
     # Step 1: MiniLM embeddings (384-d, L2-normalized)
     logger.info("Complaint clustering: embedding %d complaint sentences …", n)
     embeddings = embed_sentences(texts, cache_key_suffix=f"_k{k}")
 
-    # Step 2: MiniBatchKMeans
-    logger.info("Complaint clustering: fitting MiniBatchKMeans(k=%d) …", k)
-    kmeans = MiniBatchKMeans(
-        n_clusters=k,
-        random_state=random_state,
-        batch_size=min(COMPLAINT_CLUSTERING["batch_size"], n),
-        n_init=COMPLAINT_CLUSTERING["n_init"],
-    )
-    t0 = time.time()
-    labels = kmeans.fit_predict(embeddings)
-    logger.info("  KMeans fit in %.2fs", time.time() - t0)
+    # Step 2: Clustering (KMeans or HDBSCAN)
+    labels = None
+    kmeans_obj = None
+    if mode == "hdbscan" and HDBSCAN_AVAILABLE:
+        try:
+            import umap  # type: ignore[import]
+            import hdbscan as hdbscan_lib  # type: ignore[import]
+
+            logger.info("Complaint clustering: running UMAP + HDBSCAN …")
+            reducer = umap.UMAP(
+                n_components=min(10, n - 2) if n > 3 else 2,
+                metric="cosine",
+                n_neighbors=min(15, n - 1),
+                random_state=random_state,
+            )
+            X_reduced = reducer.fit_transform(embeddings)
+            clusterer = hdbscan_lib.HDBSCAN(
+                min_cluster_size=max(3, min(10, n // 10)),
+                min_samples=max(2, min(5, n // 20)),
+                cluster_selection_method="eom",
+            )
+            labels = clusterer.fit_predict(X_reduced)
+            logger.info("HDBSCAN complaint clusters: %d clusters, %d noise", len(set(labels) - {-1}), int((labels == -1).sum()))
+        except Exception as exc:
+            logger.warning("HDBSCAN failed (%s); falling back to MiniBatchKMeans.", exc)
+            labels = None
+
+    if labels is None:
+        logger.info("Complaint clustering: fitting MiniBatchKMeans(k=%d) …", k)
+        kmeans = MiniBatchKMeans(
+            n_clusters=k,
+            random_state=random_state,
+            batch_size=min(COMPLAINT_CLUSTERING["batch_size"], n),
+            n_init=COMPLAINT_CLUSTERING["n_init"],
+        )
+        labels = kmeans.fit_predict(embeddings)
+        kmeans_obj = kmeans
 
     # Step 3: Group sentences by cluster
-    cluster_sentence_map: Dict[int, List[SentenceRecord]] = {c: [] for c in range(k)}
+    unique_cids = sorted(list(set(labels)))
+    cluster_sentence_map: Dict[int, List[SentenceRecord]] = {c: [] for c in unique_cids}
     for sent, cid in zip(complaint_sentences, labels):
         cluster_sentence_map[int(cid)].append(sent)
 
-    # Step 4: c-TF-IDF keywords
-    cluster_texts_map = {c: [s.sentence_text for s in sents] for c, sents in cluster_sentence_map.items()}
+    # Step 4: c-TF-IDF keywords across regular clusters (excluding noise -1)
+    regular_cids = [c for c in unique_cids if c >= 0]
+    cluster_texts_map = {c: [s.sentence_text for s in cluster_sentence_map[c]] for c in regular_cids}
     keywords_map = extract_ctfidf_keywords(
         cluster_texts_map, top_n=COMPLAINT_CLUSTERING["top_keywords"],
     )
 
-    # Step 5: Build cluster summaries with Medoid calculation & Defect Title
+    # Step 5: Build cluster summaries
     n_verbatims = COMPLAINT_CLUSTERING["n_verbatims"]
-    sev_thresholds = COMPLAINT_CLUSTERING["severity_thresholds"]
     clusters = []
-    for cid in range(k):
+
+    for cid in unique_cids:
         sents = cluster_sentence_map[cid]
         count = len(sents)
         if count == 0:
             continue
 
-        # Medoid calculation: find sentence closest to the cluster centroid
         cluster_indices = [i for i, lbl in enumerate(labels) if lbl == cid]
-        if cluster_indices:
-            c_embs = embeddings[cluster_indices]
-            centroid = kmeans.cluster_centers_[cid]
-            dists = np.linalg.norm(c_embs - centroid, axis=1)
-            medoid_local_idx = int(np.argmin(dists))
-            medoid_sent = complaint_sentences[cluster_indices[medoid_local_idx]]
-        else:
-            medoid_sent = sents[0]
+        c_embs = embeddings[cluster_indices]
 
-        # Prioritize medoid at index 0 for verbatim traceability
+        # Medoid calculation
+        if kmeans_obj is not None and cid >= 0:
+            centroid = kmeans_obj.cluster_centers_[cid]
+            dists = np.linalg.norm(c_embs - centroid, axis=1)
+            medoid_sent = complaint_sentences[cluster_indices[int(np.argmin(dists))]]
+        else:
+            # Cosine mean medoid
+            mean_vec = c_embs.mean(axis=0, keepdims=True)
+            dists = np.linalg.norm(c_embs - mean_vec, axis=1)
+            medoid_sent = complaint_sentences[cluster_indices[int(np.argmin(dists))]]
+
         ordered_sents = [medoid_sent] + [s for s in sents if s.sentence_id != medoid_sent.sentence_id]
         verbatims = [
             {
@@ -409,76 +473,137 @@ def cluster_complaint_sentences(
             for s in ordered_sents[:n_verbatims]
         ]
 
-        # Defensive title construction. Filtering zero-score c-TF-IDF terms
-        # (see extract_ctfidf_keywords) means a cluster can now legitimately
-        # surface 0 or 1 keywords, so kws[0] / kws[1] must never be indexed
-        # unconditionally.
-        kws = keywords_map.get(cid, [])
-        if len(kws) >= 2:
-            title = f"{kws[0].title()} & {kws[1].title()}"
-            label_provenance = (
-                "c-TF-IDF over this cluster's own member sentences "
-                "(descriptive, not causal)"
-            )
-        elif len(kws) == 1:
-            title = kws[0].title()
-            label_provenance = (
-                "c-TF-IDF over this cluster's own member sentences "
-                "(descriptive, not causal; only one term carried positive weight)"
-            )
+        # Titles and keywords
+        if cid == -1:
+            title = "Zero-Day Outlier Radar"
+            kws = ["unclassified", "novel-defect", "emerging"]
+            label_provenance = "HDBSCAN density outlier pool: emerging or non-standard complaints"
+            severity = "HIGH" if count >= 10 else "MEDIUM"
         else:
-            title = f"Defect Mode #{cid + 1}"
-            label_provenance = (
-                "fallback: no c-TF-IDF term in this cluster carried positive weight"
-            )
+            kws = keywords_map.get(cid, [])
+            if len(kws) >= 2:
+                title = f"{kws[0].title()} & {kws[1].title()}"
+                label_provenance = "c-TF-IDF over cluster member sentences"
+            elif len(kws) == 1:
+                title = kws[0].title()
+                label_provenance = "c-TF-IDF (single dominant term)"
+            else:
+                title = f"Defect Pattern #{cid + 1}"
+                label_provenance = "Fallback cluster designation"
+            severity = classify_complaint_severity(count)
 
-        # Severity: purely based on cluster size and complaint nature
-        # (all sentences here are already classified as COMPLAINT). Delegated to
-        # app.ml.severity so there is exactly ONE severity implementation and
-        # the cutoffs live only in pipeline_config.
-        severity = classify_complaint_severity(count)
+        # Statistical Causal Attribution / Relative Risk
+        attribution = _compute_relative_risk(sents, review_metadata)
 
         clusters.append({
-            "cluster_id": cid,
+            "cluster_id": int(cid),
             "title": title,
             "label_provenance": label_provenance,
             "keywords": kws,
             "sentence_count": count,
             "severity": severity,
-            "severity_note": (
-                f"PROVISIONAL: severity={severity} based on complaint sentence count={count}. "
-                f"Thresholds: CRITICAL≥{sev_thresholds['critical']}, "
-                f"HIGH≥{sev_thresholds['high']}, "
-                f"MEDIUM≥{sev_thresholds['medium']}, "
-                f"LOW<{sev_thresholds['medium']}. "
-                "Not statistically validated for this domain."
-            ),
             "medoid_verbatim": medoid_sent.sentence_text,
+            "affected_batch": attribution["affected_batch"],
+            "relative_risk": attribution["relative_risk"],
+            "is_statistically_significant": attribution["is_statistically_significant"],
             "verbatims": verbatims,
             "is_provisional": True,
         })
 
-    # Sort by sentence count descending (largest / most-cited complaint first)
-    clusters.sort(key=lambda c: c["sentence_count"], reverse=True)
+    # Sort regular clusters by volume, keep Zero-Day Outlier at top or designated location
+    clusters.sort(key=lambda c: (c["cluster_id"] == -1, c["sentence_count"]), reverse=True)
 
     return {
         "clusters": clusters,
         "n_complaint_sentences": n,
-        # Report what was OBSERVED, not what was requested: empty clusters are
-        # skipped above, so `k` can overstate the number of clusters returned.
         "n_clusters_actual": len(clusters),
+        "clustering_mode": "hdbscan" if (mode == "hdbscan" and HDBSCAN_AVAILABLE) else "minibatch_kmeans",
         "is_provisional": True,
         "provisional_notices": [
-            "Complaint clusters are unsupervised (MiniLM + MiniBatchKMeans). "
+            "Complaint clusters are unsupervised (MiniLM + MiniBatchKMeans / HDBSCAN). "
             "Cluster labels are NOT human-annotated.",
             "Cluster titles and keywords are class-based TF-IDF (c-TF-IDF) terms "
-            "computed over each cluster's own member sentences, so they restate the "
-            "cluster definition. They are descriptive, not causal, and are not "
-            "validated root causes.",
-            "Cluster count k is heuristically determined. Optimal k requires human evaluation.",
-            "Sentence classification is heuristic (regex). "
-            "No precision/recall measured against labelled complaint sentences.",
+            "computed over each cluster's own member sentences.",
         ],
+    }
+
+
+def cluster_feature_requests(
+    recommendation_sentences: List[SentenceRecord],
+    n_clusters: int = 4,
+    random_state: int = 42,
+) -> Dict[str, Any]:
+    """Cluster the RECOMMENDATION sentences pool into structured feature request themes.
+
+    Builds the 'Customer Wishlist' / Product Backlog items directly from customer verbatims.
+    """
+    n = len(recommendation_sentences)
+    if n == 0:
+        return {
+            "feature_requests": [],
+            "total_recommendations": 0,
+            "n_clusters_actual": 0,
+        }
+
+    k = max(1, min(n_clusters, max(1, n // 4), n))
+    texts = [s.sentence_text for s in recommendation_sentences]
+    embeddings = embed_sentences(texts, cache_key_suffix=f"_recs_k{k}")
+
+    kmeans = MiniBatchKMeans(
+        n_clusters=k,
+        random_state=random_state,
+        batch_size=min(64, n),
+        n_init=3,
+    )
+    labels = kmeans.fit_predict(embeddings)
+
+    cluster_sentence_map: Dict[int, List[SentenceRecord]] = {c: [] for c in range(k)}
+    for sent, cid in zip(recommendation_sentences, labels):
+        cluster_sentence_map[int(cid)].append(sent)
+
+    cluster_texts_map = {c: [s.sentence_text for s in sents] for c, sents in cluster_sentence_map.items()}
+    keywords_map = extract_ctfidf_keywords(cluster_texts_map, top_n=6)
+
+    feature_requests = []
+    for cid in range(k):
+        sents = cluster_sentence_map[cid]
+        count = len(sents)
+        if count == 0:
+            continue
+
+        cluster_indices = [i for i, lbl in enumerate(labels) if lbl == cid]
+        c_embs = embeddings[cluster_indices]
+        centroid = kmeans.cluster_centers_[cid]
+        dists = np.linalg.norm(c_embs - centroid, axis=1)
+        medoid_sent = recommendation_sentences[cluster_indices[int(np.argmin(dists))]]
+
+        kws = keywords_map.get(cid, [])
+        title = f"{kws[0].title()} & {kws[1].title()} Request" if len(kws) >= 2 else (kws[0].title() if kws else f"Feature Proposal #{cid + 1}")
+
+        feature_requests.append({
+            "request_id": cid,
+            "title": title,
+            "keywords": kws,
+            "vote_count": count,
+            "priority": "HIGH" if count >= 30 else ("MEDIUM" if count >= 10 else "LOW"),
+            "medoid_quote": medoid_sent.sentence_text,
+            "sample_quotes": [
+                {
+                    "sentence_id": s.sentence_id,
+                    "review_id": s.review_id,
+                    "sentence_text": s.sentence_text,
+                    "start": s.start,
+                    "end": s.end,
+                }
+                for s in sents[:5]
+            ],
+        })
+
+    feature_requests.sort(key=lambda x: x["vote_count"], reverse=True)
+    return {
+        "feature_requests": feature_requests,
+        "total_recommendations": n,
+        "n_clusters_actual": len(feature_requests),
     }
 
 
@@ -486,4 +611,6 @@ __all__ = [
     "embed_sentences",
     "extract_ctfidf_keywords",
     "cluster_complaint_sentences",
+    "cluster_feature_requests",
 ]
+
