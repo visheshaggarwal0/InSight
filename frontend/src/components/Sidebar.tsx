@@ -9,6 +9,8 @@ import {
   GitCompare,
   Settings,
   Sparkles,
+  ShieldAlert,
+  Lightbulb,
   X
 } from 'lucide-react';
 
@@ -24,6 +26,7 @@ interface NavItem {
   id: string;
   label: string;
   icon: typeof LayoutDashboard;
+  badge?: string;
   /**
    * Present for entries that open something instead of switching tabs. Those
    * must never carry `aria-current`, which means "you are on this page".
@@ -45,6 +48,8 @@ export function Sidebar({
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'complaints', label: 'Complaint Radar', icon: ShieldAlert, badge: 'P0-P3' },
+    { id: 'features', label: 'Feature Requests', icon: Lightbulb, badge: 'New' },
     { id: 'reviews', label: 'Reviews', icon: MessageSquare },
     { id: 'themes', label: 'Themes', icon: Layers },
     { id: 'sentiment', label: 'Sentiment', icon: Smile },
@@ -128,7 +133,19 @@ export function Sidebar({
                   strokeWidth={isActive ? 2.2 : 1.8}
                   style={{ color: isActive ? '#047857' : '#6B7280', flexShrink: 0 }}
                 />
-                <span>{item.label}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.badge && (
+                  <span style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: '999px',
+                    backgroundColor: item.id === 'complaints' ? '#FEE2E2' : '#E0E7FF',
+                    color: item.id === 'complaints' ? '#B91C1C' : '#4338CA',
+                  }}>
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}

@@ -7,6 +7,7 @@ interface ExampleReviewsListProps {
   themes: ThemeCluster[];
   selectedClusterId: number | null;
   onViewAll: () => void;
+  onViewSilentDefects?: () => void;
 }
 
 interface RenderReview {
@@ -37,7 +38,7 @@ function toRenderReview(v: SampleVerbatim, themeTitle: string, fallbackId: strin
   };
 }
 
-function ComponentExampleReviewsList({ themes, selectedClusterId, onViewAll }: ExampleReviewsListProps) {
+function ComponentExampleReviewsList({ themes, selectedClusterId, onViewAll, onViewSilentDefects }: ExampleReviewsListProps) {
   const selected = themes.find((t) => t.cluster_id === selectedClusterId);
   const displayReviews: RenderReview[] = (() => {
     if (selected && (selected.sample_verbatims?.length ?? 0) > 0) {
@@ -123,6 +124,29 @@ function ComponentExampleReviewsList({ themes, selectedClusterId, onViewAll }: E
             <Shield size={12} style={{ color: '#10B981' }} />
             <span>Server Redacted</span>
           </span>
+
+          {onViewSilentDefects && (
+            <button
+              type="button"
+              onClick={onViewSilentDefects}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 10px',
+                borderRadius: '999px',
+                border: '1px solid #FCD34D',
+                backgroundColor: '#FFFBEB',
+                color: '#B45309',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="Inspect 'Trojan Horse' 4★ and 5★ reviews that contain hidden defects or contrastive complaint clauses"
+            >
+              <span>⚡ Silent Defects</span>
+            </button>
+          )}
 
           <button
             onClick={onViewAll}

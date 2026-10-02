@@ -17,6 +17,8 @@ import { TicketModal } from './components/TicketModal';
 import { DriftTimeline } from './components/DriftTimeline';
 import { ThemeCard } from './components/ThemeCard';
 import { AuthModal } from './components/AuthModal';
+import { ComplaintClusterDashboard } from './components/ComplaintClusterDashboard';
+import { FeatureRequestsView } from './components/FeatureRequestsView';
 import { Skeleton } from './components/EmptyState';
 import { validateStoredSession, apiFetch } from './lib/auth-client';
 import type {
@@ -25,12 +27,14 @@ import type {
   ThemeCluster,
   DriftData,
   ModelGovernanceData,
-  GeneratedTicket
+  GeneratedTicket,
+  ComplaintClusterItem,
+  FeatureRequestItem
 } from './types/telemetry';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-type EndpointKey = 'datasets' | 'overview' | 'themes' | 'drift' | 'governance';
+type EndpointKey = 'datasets' | 'overview' | 'themes' | 'drift' | 'governance' | 'complaints' | 'features';
 type EndpointErrors = Partial<Record<EndpointKey, string>>;
 
 const ENDPOINTS: Array<[EndpointKey, string]> = [
@@ -38,7 +42,9 @@ const ENDPOINTS: Array<[EndpointKey, string]> = [
   ['overview', '/overview'],
   ['themes', '/themes'],
   ['drift', '/drift'],
-  ['governance', '/governance']
+  ['governance', '/governance'],
+  ['complaints', '/complaint-clusters'],
+  ['features', '/feature-requests']
 ];
 
 async function readErrorDetail(res: Response): Promise<string> {
@@ -58,6 +64,8 @@ export function App() {
   const [themes, setThemes] = useState<ThemeCluster[]>([]);
   const [driftData, setDriftData] = useState<DriftData | null>(null);
   const [governanceData, setGovernanceData] = useState<ModelGovernanceData | null>(null);
+  const [complaintClusters, setComplaintClusters] = useState<ComplaintClusterItem[]>([]);
+  const [featureRequests, setFeatureRequests] = useState<FeatureRequestItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errors, setErrors] = useState<EndpointErrors>({});
   const [actionError, setActionError] = useState<string | null>(null);
@@ -71,6 +79,8 @@ export function App() {
   const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
   const [selectedClusterTitle, setSelectedClusterTitle] = useState<string | null>(null);
   const [isVerbatimDrawerOpen, setIsVerbatimDrawerOpen] = useState<boolean>(false);
+  const [drawerIsComplaint, setDrawerIsComplaint] = useState<boolean>(false);
+  const [drawerIsSilentDefects, setDrawerIsSilentDefects] = useState<boolean>(false);
   const [isGovernanceOpen, setIsGovernanceOpen] = useState<boolean>(false);
   const [activeTicket, setActiveTicket] = useState<GeneratedTicket | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState<boolean>(false);
@@ -123,7 +133,7 @@ export function App() {
 
     if (generation !== generationRef.current) return;
 
-    const [ds, ov, th, dr, gov] = parsed;
+    const [ds, ov, th, dr, gov, comp, feat] = parsed;
 
     // Never render a partially-updated mix of domains: clear what failed.
     if (nextErrors.datasets) {
@@ -138,6 +148,16 @@ export function App() {
     setThemes(nextErrors.themes || !Array.isArray(th?.themes) ? [] : (th.themes as ThemeCluster[]));
     setDriftData(nextErrors.drift ? null : ((dr as DriftData) ?? null));
     setGovernanceData(nextErrors.governance ? null : ((gov as ModelGovernanceData) ?? null));
+    setComplaintClusters(
+      nextErrors.complaints || !Array.isArray(comp?.complaint_clusters)
+        ? []
+        : (comp.complaint_clusters as ComplaintClusterItem[])
+    );
+    setFeatureRequests(
+      nextErrors.features || !Array.isArray(feat?.feature_requests)
+        ? []
+        : (feat.feature_requests as FeatureRequestItem[])
+    );
 
     setErrors(nextErrors);
     setIsLoading(false);
@@ -206,12 +226,34 @@ export function App() {
     setSelectedClusterId(clusterId);
     setSelectedClusterTitle(title);
     setSearchQuery('');
+    setDrawerIsComplaint(false);
+    setDrawerIsSilentDefects(false);
+    setIsVerbatimDrawerOpen(true);
+  }, []);
+
+  const handleInspectComplaintVerbatims = useCallback((clusterId: number, title: string) => {
+    setSelectedClusterId(clusterId);
+    setSelectedClusterTitle(`Complaint Cluster #${clusterId}: ${title}`);
+    setSearchQuery('');
+    setDrawerIsComplaint(true);
+    setDrawerIsSilentDefects(false);
+    setIsVerbatimDrawerOpen(true);
+  }, []);
+
+  const handleInspectSilentDefects = useCallback(() => {
+    setSelectedClusterId(null);
+    setSelectedClusterTitle('⚡ Silent Defects (Hidden Faults in 4★ & 5★ Reviews)');
+    setSearchQuery('');
+    setDrawerIsComplaint(false);
+    setDrawerIsSilentDefects(true);
     setIsVerbatimDrawerOpen(true);
   }, []);
 
   const handleInspectAllVerbatims = useCallback(() => {
     setSelectedClusterId(null);
     setSearchQuery('');
+    setDrawerIsComplaint(false);
+    setDrawerIsSilentDefects(false);
     const total = overview?.total_reviews;
     setSelectedClusterTitle(
       typeof total === 'number' && Number.isFinite(total)
@@ -224,6 +266,8 @@ export function App() {
   const handleSelectKeyword = useCallback((word: string) => {
     setSearchQuery(word);
     setSelectedClusterId(null);
+    setDrawerIsComplaint(false);
+    setDrawerIsSilentDefects(false);
     setSelectedClusterTitle(`Quotes containing "${word}"`);
     setIsVerbatimDrawerOpen(true);
   }, []);
@@ -245,6 +289,29 @@ export function App() {
       setIsTicketModalOpen(true);
     } catch (err) {
       setActionError(`Ticket generation failed for cluster #${clusterId}: ${(err as Error).message}`);
+    }
+  }, []);
+
+  const handleDispatchIncidentTicket = useCallback(async (clusterId: number, severityOverride?: string) => {
+    setActionError(null);
+    try {
+      const res = await apiFetch('/ticket/generate-incident', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cluster_id: clusterId,
+          ...(severityOverride ? { severity_override: severityOverride } : {})
+        })
+      });
+      if (!res.ok) {
+        setActionError(`Incident ticket dispatch failed for cluster #${clusterId}: ${await readErrorDetail(res)}`);
+        return;
+      }
+      const t = (await res.json()) as GeneratedTicket;
+      setActiveTicket(t);
+      setIsTicketModalOpen(true);
+    } catch (err) {
+      setActionError(`Incident ticket dispatch failed for cluster #${clusterId}: ${(err as Error).message}`);
     }
   }, []);
 
@@ -441,6 +508,7 @@ export function App() {
                   themes={themes}
                   selectedClusterId={selectedClusterId}
                   onViewAll={handleInspectAllVerbatims}
+                  onViewSilentDefects={handleInspectSilentDefects}
                 />
               </div>
 
@@ -489,6 +557,22 @@ export function App() {
             </>
           )}
 
+          {currentTab === 'complaints' && (
+            <ComplaintClusterDashboard
+              clusters={complaintClusters}
+              isLoading={isLoading}
+              onInspectVerbatims={handleInspectComplaintVerbatims}
+              onDispatchTicket={(id) => void handleDispatchIncidentTicket(id)}
+            />
+          )}
+
+          {currentTab === 'features' && (
+            <FeatureRequestsView
+              featureRequests={featureRequests}
+              isLoading={isLoading}
+            />
+          )}
+
           {currentTab === 'reviews' && (
             <div style={{ paddingTop: '32px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
@@ -500,17 +584,38 @@ export function App() {
                     Complete audit trail with server-side PII masking and calibrated sentiment classification.
                   </p>
                 </div>
-                <button
-                  onClick={handleInspectAllVerbatims}
-                  className="btn-primary"
-                >
-                  Open Verbatim Drawer
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={handleInspectSilentDefects}
+                    className="btn-outline"
+                    style={{
+                      borderColor: '#FCD34D',
+                      backgroundColor: '#FFFBEB',
+                      color: '#B45309',
+                      fontWeight: 600,
+                      fontSize: '0.82rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>⚡ Trojan Horse Defects (4★-5★)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleInspectAllVerbatims}
+                    className="btn-primary"
+                  >
+                    Open Verbatim Drawer
+                  </button>
+                </div>
               </div>
               <ExampleReviewsList
                 themes={themes}
                 selectedClusterId={null}
                 onViewAll={handleInspectAllVerbatims}
+                onViewSilentDefects={handleInspectSilentDefects}
               />
             </div>
           )}
@@ -662,6 +767,8 @@ export function App() {
         clusterId={selectedClusterId}
         clusterTitle={selectedClusterTitle}
         search={searchQuery}
+        isComplaintCluster={drawerIsComplaint}
+        isSilentDefects={drawerIsSilentDefects}
       />
 
       {/* Model Governance Modal */}

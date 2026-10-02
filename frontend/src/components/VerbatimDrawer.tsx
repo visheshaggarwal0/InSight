@@ -13,6 +13,8 @@ interface Props {
   clusterTitle?: string | null;
   /** Externally-driven search term (e.g. a keyword-cloud click). */
   search?: string;
+  isComplaintCluster?: boolean;
+  isSilentDefects?: boolean;
 }
 
 export const VerbatimDrawer: React.FC<Props> = ({
@@ -20,7 +22,9 @@ export const VerbatimDrawer: React.FC<Props> = ({
   onClose,
   clusterId,
   clusterTitle,
-  search: externalSearch
+  search: externalSearch,
+  isComplaintCluster = false,
+  isSilentDefects = false
 }) => {
   const [reviews, setReviews] = useState<VerbatimItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -39,7 +43,9 @@ export const VerbatimDrawer: React.FC<Props> = ({
   // Reset all paging/filter state when the drawer is re-opened for a different scope.
   // Done during render (React's derived-state pattern) so it does not cascade an extra
   // render pass, and the fetch effect below only sees the settled state.
-  const scopeKey = isOpen ? `${clusterId ?? 'all'}|${externalSearch ?? ''}` : 'closed';
+  const scopeKey = isOpen
+    ? `${isSilentDefects ? 'silent' : isComplaintCluster ? 'complaint' : 'verbatim'}|${clusterId ?? 'all'}|${externalSearch ?? ''}`
+    : 'closed';
   const [lastScopeKey, setLastScopeKey] = useState<string>('closed');
   if (scopeKey !== lastScopeKey) {
     setLastScopeKey(scopeKey);
@@ -61,6 +67,95 @@ export const VerbatimDrawer: React.FC<Props> = ({
       setLoading(true);
       setError(null);
       try {
+        if (isSilentDefects) {
+          const res = await fetch(`${API_BASE}/reviews/silent-defects?limit=100`, {
+            signal: controller.signal
+          });
+          if (!res.ok) {
+            setError(`Silent defects query failed (HTTP ${res.status}).`);
+            return;
+          }
+          const data = await res.json();
+          if (generation !== generationRef.current) return;
+          const items: VerbatimItem[] = ((data.silent_defects || []) as Array<{
+            id?: string;
+            display_text?: string;
+            rating?: number;
+            sentiment_pred?: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE';
+            batch_or_version?: string;
+            product_name?: string;
+            sku_or_module?: string;
+            highlight_span?: { text: string; start: number; end: number };
+          }>).map((s) => ({
+            id: s.id || 'REV-DEFECT',
+            domain: 'd2c',
+            raw_text: s.display_text || '',
+            redacted_text: s.display_text || '',
+            display_text: s.display_text || '',
+            rating: s.rating ?? 4,
+            sentiment_pred: s.sentiment_pred || 'POSITIVE',
+            sentiment_confidence: 0.95,
+            cluster_id: 0,
+            theme_title: 'Silent Defect (Trojan Horse)',
+            channel: 'Trojan Horse 4-5★ Review',
+            batch_or_version: s.batch_or_version || 'Production',
+            product_name: s.product_name || 'Verified Product',
+            sku_or_module: s.sku_or_module || 'Standard SKU',
+            highlight_span: s.highlight_span?.text ? s.highlight_span : undefined
+          }));
+          setReviews(items);
+          setTotal(typeof data.total_found === 'number' ? data.total_found : items.length);
+          setTotalPages(1);
+          return;
+        }
+
+        if (isComplaintCluster && clusterId !== null && clusterId !== undefined) {
+          const res = await fetch(`${API_BASE}/complaint-clusters/${clusterId}/verbatims`, {
+            signal: controller.signal
+          });
+          if (!res.ok) {
+            setError(`Complaint verbatims query failed (HTTP ${res.status}).`);
+            return;
+          }
+          const data = await res.json();
+          if (generation !== generationRef.current) return;
+          const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
+            sentence_id?: string;
+            review_id?: string;
+            sentence_text?: string;
+            start?: number;
+            end?: number;
+            confidence?: number;
+          }>).map((v) => {
+            const txt = v.sentence_text || '';
+            return {
+              id: v.sentence_id || v.review_id || 'SENT-COMPLAINT',
+              domain: 'd2c',
+              raw_text: txt,
+              redacted_text: txt,
+              display_text: txt,
+              rating: 1,
+              sentiment_pred: 'NEGATIVE' as const,
+              sentiment_confidence: v.confidence ?? 0.95,
+              cluster_id: clusterId ?? 0,
+              theme_title: (data.title as string) || 'Complaint Root Cause',
+              channel: 'Sentence Deconstructor',
+              batch_or_version: (data.affected_batch as string) || 'Extracted Sentence',
+              product_name: (data.title as string) || 'Complaint Root Cause',
+              sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
+              highlight_span: {
+                text: txt,
+                start: 0,
+                end: txt.length
+              }
+            };
+          });
+          setReviews(items);
+          setTotal(items.length);
+          setTotalPages(1);
+          return;
+        }
+
         const params = new URLSearchParams({
           page: page.toString(),
           page_size: PAGE_SIZE.toString(),
@@ -98,7 +193,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
     };
 
     void load();
-  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search]);
+  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search, isComplaintCluster, isSilentDefects]);
 
   // Unmount cleanup: abort any in-flight request so no response lands after teardown.
   useEffect(() => {

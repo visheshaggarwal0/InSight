@@ -211,4 +211,51 @@ export interface GeneratedTicket {
   title: string;
   severity: string;
   ticket_markdown: string;
+  incident_volume?: number;
+  affected_batch?: string;
+  relative_risk?: number;
 }
+
+export interface ComplaintVerbatim {
+  sentence_id: string;
+  review_id: string;
+  source_row_index: number;
+  sentence_text: string;
+  start: number;
+  end: number;
+  confidence: number;
+}
+
+export interface ComplaintClusterItem {
+  cluster_id: number;
+  title: string;
+  label_provenance: string;
+  keywords: string[];
+  sentence_count: number;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  medoid_verbatim: string;
+  affected_batch?: string | null;
+  relative_risk?: number;
+  is_statistically_significant?: boolean;
+  verbatims?: ComplaintVerbatim[];
+  is_provisional?: boolean;
+}
+
+export interface FeatureRequestQuote {
+  sentence_id: string;
+  review_id: string;
+  sentence_text: string;
+  start: number;
+  end: number;
+}
+
+export interface FeatureRequestItem {
+  request_id: number;
+  title: string;
+  keywords: string[];
+  vote_count: number;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  medoid_quote: string;
+  sample_quotes: FeatureRequestQuote[];
+}
+
