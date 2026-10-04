@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "node start.js",
-    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:frontend": "npm --prefix frontend run dev:vite",
     "dev:backend": "python -m uvicorn app.main:app --app-dir backend --reload-dir backend --host 127.0.0.1 --port 8000 --reload",
     "build": "npm --prefix frontend run build"
   },

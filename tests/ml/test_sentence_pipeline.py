@@ -20,16 +20,16 @@ from pathlib import Path
 
 # ── Path setup ────────────────────────────────────────────────────────────────
 _TESTS = Path(__file__).resolve().parent
-_ML = _TESTS.parent
-_ROOT = _ML.parent
+_ROOT = _TESTS.parent.parent
+_BACKEND = _ROOT / "backend"
 
-for p in [str(_ROOT), str(_ML)]:
+for p in [str(_ROOT), str(_BACKEND)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
 import pandas as pd
 
-from InSight_ML.sentence_pipeline import (
+from app.ml.sentence_pipeline import (
     deconstruct_sentences,
     classify_and_route_review,
     classify_and_route_corpus,
@@ -37,9 +37,11 @@ from InSight_ML.sentence_pipeline import (
     RoutedPools,
     LABEL_COMPLAINT,
     LABEL_RECOMMENDATION,
+    LABEL_PRAISE,
+    LABEL_NOISE,
     LABEL_PRAISE_NOISE,
 )
-from InSight_ML.pipeline_config import DATASETS
+from app.ml.pipeline_config import DATASETS
 
 
 # =============================================================================
@@ -189,17 +191,15 @@ class TestSentenceClassifier(unittest.TestCase):
         ]
         for sent in praise_sentences:
             labels = self._classify(sent)
-            # For a purely positive sentence, PRAISE/NOISE should appear
-            # (it's acceptable if COMPLAINT also fires on discourse markers,
-            # but PRAISE/NOISE must be present somewhere)
-            self.assertIn(
-                LABEL_PRAISE_NOISE, labels,
-                f"Expected PRAISE/NOISE in labels for: {repr(sent)}"
+            # For a purely positive sentence, PRAISE should appear
+            self.assertTrue(
+                any(lbl in (LABEL_PRAISE, LABEL_PRAISE_NOISE) for lbl in labels),
+                f"Expected PRAISE in labels for: {repr(sent)}"
             )
 
     def test_all_labels_are_valid(self):
         """Every sentence record must have a valid label."""
-        valid_labels = {LABEL_COMPLAINT, LABEL_RECOMMENDATION, LABEL_PRAISE_NOISE}
+        valid_labels = {LABEL_COMPLAINT, LABEL_RECOMMENDATION, LABEL_PRAISE, LABEL_NOISE, LABEL_PRAISE_NOISE}
         for text in [_REVIEW_COMPLAINT, _REVIEW_RECOMMENDATION, _REVIEW_PRAISE, _REVIEW_MIXED]:
             all_sents, _ = classify_and_route_review("REV-LBL", 0, text)
             for rec in all_sents:
@@ -343,7 +343,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_embedding_shape(self):
         """MiniLM embeddings of complaint sentences must be (N, 384)."""
-        from InSight_ML.complaint_clustering import embed_sentences
+        from app.ml.complaint_clustering import embed_sentences
         texts = [s.sentence_text for s in self.complaint_pool]
         if not texts:
             self.skipTest("No complaint sentences to embed")
@@ -355,7 +355,7 @@ class TestComplaintClustering(unittest.TestCase):
     def test_embeddings_normalized(self):
         """MiniLM output embeddings must be L2-normalized (norm ≈ 1.0)."""
         import numpy as np
-        from InSight_ML.complaint_clustering import embed_sentences
+        from app.ml.complaint_clustering import embed_sentences
         texts = [s.sentence_text for s in self.complaint_pool[:4]]
         if not texts:
             self.skipTest("No complaint sentences to embed")
@@ -367,7 +367,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_cluster_result_structure(self):
         """cluster_complaint_sentences must return the expected dict keys."""
-        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        from app.ml.complaint_clustering import cluster_complaint_sentences
         result = cluster_complaint_sentences(self.complaint_pool, n_clusters=3)
 
         required_top_keys = {
@@ -383,7 +383,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_cluster_verbatims_have_traceability(self):
         """Each verbatim in cluster output must include traceability fields."""
-        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        from app.ml.complaint_clustering import cluster_complaint_sentences
         result = cluster_complaint_sentences(self.complaint_pool, n_clusters=3)
         required_verbatim_keys = {
             "sentence_id", "review_id", "source_row_index",
@@ -396,7 +396,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_ctfidf_keywords_returned(self):
         """Every cluster must have at least 1 c-TF-IDF keyword."""
-        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        from app.ml.complaint_clustering import cluster_complaint_sentences
         result = cluster_complaint_sentences(self.complaint_pool, n_clusters=3)
         for cluster in result["clusters"]:
             self.assertIsInstance(cluster["keywords"], list)
@@ -405,7 +405,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_empty_pool_returns_empty_result(self):
         """Empty complaint pool must return an empty result without raising."""
-        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        from app.ml.complaint_clustering import cluster_complaint_sentences
         result = cluster_complaint_sentences([], n_clusters=6)
         self.assertEqual(result["clusters"], [])
         self.assertEqual(result["n_complaint_sentences"], 0)
@@ -413,7 +413,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_cluster_severity_values(self):
         """All cluster severity values must be one of LOW/MEDIUM/HIGH/CRITICAL."""
-        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        from app.ml.complaint_clustering import cluster_complaint_sentences
         result = cluster_complaint_sentences(self.complaint_pool, n_clusters=3)
         valid = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
         for cluster in result["clusters"]:
@@ -422,7 +422,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_verbatim_offsets_valid(self):
         """Verbatim start/end offsets must be valid against sentence_text."""
-        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        from app.ml.complaint_clustering import cluster_complaint_sentences
         result = cluster_complaint_sentences(self.complaint_pool, n_clusters=3)
         for cluster in result["clusters"]:
             for verbatim in cluster["verbatims"]:
@@ -438,7 +438,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_ctfidf_keyword_extraction_standalone(self):
         """extract_ctfidf_keywords must return a dict with cluster_id keys."""
-        from InSight_ML.complaint_clustering import extract_ctfidf_keywords
+        from app.ml.complaint_clustering import extract_ctfidf_keywords
         cluster_texts = {
             0: ["pump broke leaked everywhere", "dispenser jammed useless"],
             1: ["burning redness rash skin", "dermatitis allergic reaction"],
@@ -451,7 +451,7 @@ class TestComplaintClustering(unittest.TestCase):
 
     def test_cluster_medoid_and_title(self):
         """Every cluster must have a descriptive defect title and medoid_verbatim."""
-        from InSight_ML.complaint_clustering import cluster_complaint_sentences
+        from app.ml.complaint_clustering import cluster_complaint_sentences
         result = cluster_complaint_sentences(self.complaint_pool, n_clusters=3)
         for cluster in result["clusters"]:
             self.assertIn("title", cluster)
@@ -462,6 +462,43 @@ class TestComplaintClustering(unittest.TestCase):
             self.assertGreater(len(cluster["medoid_verbatim"].strip()), 0)
             # The medoid must be the very first verbatim
             self.assertEqual(cluster["verbatims"][0]["sentence_text"], cluster["medoid_verbatim"])
+
+    def test_praise_clustering_structure(self):
+        """cluster_praise_sentences must return strength drivers, delight metrics, and traceable verbatims."""
+        from app.ml.complaint_clustering import cluster_praise_sentences
+        # Create synthetic praise sentences
+        praise_reviews = [
+            ("REV-PR-001", 1, "This is my holy grail moisturizer, incredibly hydrating and gentle."),
+            ("REV-PR-002", 2, "I love how it cleared my skin and gave me an amazing glowing texture."),
+            ("REV-PR-003", 3, "Absorbs instantly without any grease, absolutely fantastic formula."),
+            ("REV-PR-004", 4, "My favorite skincare purchase ever, leaves skin so smooth and soft."),
+            ("REV-PR-005", 5, "Works wonders for dry skin, truly the best cream I have used."),
+        ]
+        praise_sents = []
+        for rev_id, src_idx, text in praise_reviews:
+            recs, pools = classify_and_route_review(rev_id, src_idx, text)
+            praise_sents.extend(pools.praise)
+
+        result = cluster_praise_sentences(praise_sents, n_clusters=2)
+        self.assertIn("praise_clusters", result)
+        self.assertIn("clusters", result)
+        self.assertGreaterEqual(result["n_clusters_actual"], 1)
+
+        for cluster in result["clusters"]:
+            self.assertIn("title", cluster)
+            self.assertIn("strength_drivers", cluster)
+            self.assertIn("delight_score", cluster)
+            self.assertIn("medoid_verbatim", cluster)
+            self.assertIn("verbatims", cluster)
+            self.assertGreater(len(cluster["verbatims"]), 0)
+            self.assertIn("start", cluster["verbatims"][0])
+            self.assertIn("end", cluster["verbatims"][0])
+
+        # Empty pool edge case
+        empty_res = cluster_praise_sentences([])
+        self.assertEqual(empty_res["n_clusters_actual"], 0)
+        self.assertEqual(empty_res["clusters"], [])
+
 
 
 # =============================================================================
@@ -494,7 +531,7 @@ class TestSentencePipelineOnRealData(unittest.TestCase):
 
     def test_all_sentences_have_valid_labels(self):
         """All sentences from real reviews must have a valid label."""
-        valid = {LABEL_COMPLAINT, LABEL_RECOMMENDATION, LABEL_PRAISE_NOISE}
+        valid = {LABEL_COMPLAINT, LABEL_RECOMMENDATION, LABEL_PRAISE, LABEL_NOISE, LABEL_PRAISE_NOISE}
         all_sents, _ = classify_and_route_corpus(
             self.review_ids, self.source_indices, self.sample
         )

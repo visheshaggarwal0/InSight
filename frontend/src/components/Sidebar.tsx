@@ -49,6 +49,7 @@ export function Sidebar({
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'complaints', label: 'Complaint Radar', icon: ShieldAlert, badge: 'P0-P3' },
+    { id: 'strengths', label: 'Product Strengths', icon: Sparkles, badge: 'Delight' },
     { id: 'features', label: 'Feature Requests', icon: Lightbulb, badge: 'New' },
     { id: 'reviews', label: 'Reviews', icon: MessageSquare },
     { id: 'themes', label: 'Themes', icon: Layers },

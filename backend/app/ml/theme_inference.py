@@ -25,10 +25,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-try:
-    from app.ml.pipeline_config import THEME
-except ImportError:  # pragma: no cover - InSight_ML shim import path
-    from InSight_ML.pipeline_config import THEME
+from app.ml.pipeline_config import THEME
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +190,7 @@ class ThemeInferenceEngine:
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
             os.getcwd(),
         ]
-        self.base_dir = next((c for c in candidates if c and (os.path.exists(os.path.join(c, "outputs")) or os.path.exists(os.path.join(c, "InSight_ML")))), candidates[1])
+        self.base_dir = next((c for c in candidates if c and (os.path.exists(os.path.join(c, "outputs")) or os.path.exists(os.path.join(c, "data")))), candidates[1])
 
     def _resolve_path(self, relative_path: str) -> str:
         """Resolves file path against project root candidates."""

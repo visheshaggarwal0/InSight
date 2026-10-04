@@ -25,6 +25,8 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
   const totalCitations = clusters.reduce((acc, c) => acc + c.sentence_count, 0);
   const criticalCount = clusters.filter((c) => c.severity === 'CRITICAL').length;
   const outlierCluster = clusters.find((c) => c.cluster_id === -1);
+  const maxCitations = Math.max(...clusters.map((c) => c.sentence_count), 1);
+  const sortedClusters = [...filteredClusters].sort((a, b) => b.sentence_count - a.sentence_count);
 
   return (
     <div style={{ paddingTop: '32px' }}>
@@ -47,11 +49,11 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
               <ShieldAlert size={12} /> SENTENCE-LEVEL DEEP DEFECT RADAR
             </span>
             <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
-              &bull; 384-d MiniLM + c-TF-IDF Root Causes
+              &bull; 384-d MiniLM + c-TF-IDF Complaint Drivers
             </span>
           </div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
-            Complaint Cluster Intelligence &amp; Causal Attribution
+            Complaint Cluster Intelligence &amp; Driver Analysis
           </h2>
           <p style={{ fontSize: '0.88rem', color: '#4B5563', marginTop: '4px', maxWidth: '820px' }}>
             Unsupervised clause-level complaint clustering. Bypasses the &ldquo;Whole-Document Fallacy&rdquo; by extracting defect propositions directly from raw verbatims regardless of positive star ratings.
@@ -138,10 +140,13 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
-          {filteredClusters.map((cluster) => {
+          {sortedClusters.map((cluster, index) => {
             const isZeroDay = cluster.cluster_id === -1;
             const isCrit = cluster.severity === 'CRITICAL';
             const isHigh = cluster.severity === 'HIGH';
+            const rank = index + 1;
+            const ratio = cluster.sentence_count / maxCitations;
+            const isTopRank = index === 0;
 
             return (
               <div
@@ -153,24 +158,41 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   borderRadius: '12px',
-                  backgroundColor: isZeroDay ? '#FFFDF8' : '#FFFFFF',
-                  border: isZeroDay ? '1px solid #FCD34D' : '1px solid #E5E7EB',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+                  backgroundColor: isZeroDay ? '#FFFDF8' : isTopRank ? '#FEF2F2' : '#FFFFFF',
+                  border: isZeroDay
+                    ? '1.5px solid #FCD34D'
+                    : isTopRank
+                    ? '1.5px solid #FCA5A5'
+                    : '1px solid #E5E7EB',
+                  boxShadow: isTopRank ? '0 4px 12px rgba(220, 38, 38, 0.08)' : '0 1px 3px rgba(0,0,0,0.03)',
                   borderLeft: isZeroDay
-                    ? '4px solid #F59E0B'
+                    ? '5px solid #F59E0B'
                     : isCrit
-                    ? '4px solid #DC2626'
+                    ? '5px solid #DC2626'
                     : isHigh
-                    ? '4px solid #EA580C'
-                    : '4px solid #3B82F6',
+                    ? '5px solid #EA580C'
+                    : '5px solid #3B82F6',
+                  opacity: isTopRank ? 1.0 : Math.max(0.85, 0.8 + 0.2 * ratio),
                   gap: '14px',
-                  position: 'relative'
+                  position: 'relative',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                 }}
               >
                 <div>
-                  {/* Top Bar: Cluster ID & Severity Badge */}
+                  {/* Top Bar: Rank, Cluster ID & Severity Badge */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        borderRadius: '4px',
+                        backgroundColor: isTopRank ? '#991B1B' : '#F3F4F6',
+                        color: isTopRank ? '#FFFFFF' : '#374151',
+                        fontFamily: "'JetBrains Mono', monospace"
+                      }}>
+                        #{rank} {isTopRank ? 'TOP DEFECT' : ''}
+                      </span>
                       <span style={{
                         fontSize: '0.68rem',
                         fontWeight: 700,
@@ -193,9 +215,6 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                       }}>
                         {isZeroDay ? 'ZERO-DAY RADAR' : cluster.severity}
                       </span>
-                      <span style={{ fontSize: '0.72rem', color: '#6B7280', fontFamily: "'JetBrains Mono', monospace" }}>
-                        {isZeroDay ? 'Noise / Outlier Pool' : `Pattern #${cluster.cluster_id}`}
-                      </span>
                     </div>
 
                     <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#111827', fontFamily: "'JetBrains Mono', monospace" }}>
@@ -203,9 +222,21 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                     </span>
                   </div>
 
+                  {/* Volume Relative Bar */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <div style={{ width: '100%', height: '4px', backgroundColor: '#F3F4F6', borderRadius: '999px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${Math.round(ratio * 100)}%`,
+                        height: '100%',
+                        backgroundColor: isCrit ? '#DC2626' : isHigh ? '#EA580C' : '#3B82F6',
+                        borderRadius: '999px'
+                      }} />
+                    </div>
+                  </div>
+
                   {/* Title */}
                   <h3 style={{
-                    fontSize: '1.2rem',
+                    fontSize: isTopRank ? '1.25rem' : '1.15rem',
                     fontWeight: 700,
                     color: '#111827',
                     margin: '0 0 8px 0',
@@ -237,9 +268,9 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                     </div>
                   )}
 
-                  {/* c-TF-IDF Root Cause Keywords */}
+                  {/* c-TF-IDF Complaint Drivers */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '14px' }}>
-                    {cluster.keywords.slice(0, 6).map((kw, i) => (
+                    {(cluster.complaint_drivers || cluster.keywords || []).slice(0, 6).map((kw, i) => (
                       <span
                         key={i}
                         style={{

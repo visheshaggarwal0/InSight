@@ -73,8 +73,28 @@ def corpus_negative_fraction(reviews) -> float:
     return negative / len(reviews)
 
 
-def classify_complaint_severity(count: int) -> str:
-    """Severity tier for a sentence-level complaint cluster, by absolute volume."""
+def classify_complaint_severity(count: int, total_complaints: int = 0) -> str:
+    """
+    Severity tier for a sentence-level complaint cluster.
+    
+    Uses relative percentage share of the total complaint pool:
+      - Share >= 20.0% (and count >= 3) -> CRITICAL (P0)
+      - Share >= 14.0% (and count >= 2) -> HIGH (P1)
+      - Share >= 8.0%                   -> MEDIUM (P2)
+      - Else                            -> LOW (P3)
+      
+    Falls back to absolute volume rules only when total_complaints is unknown.
+    """
+    if total_complaints and total_complaints > 0:
+        share = count / total_complaints
+        if share >= 0.20 and count >= 3:
+            return "CRITICAL"
+        if share >= 0.14 and count >= 2:
+            return "HIGH"
+        if share >= 0.08:
+            return "MEDIUM"
+        return "LOW"
+
     from app.ml.pipeline_config import COMPLAINT_CLUSTERING
 
     thresholds = COMPLAINT_CLUSTERING["severity_thresholds"]

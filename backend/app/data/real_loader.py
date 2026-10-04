@@ -51,16 +51,13 @@ class RealDataLoader:
             os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
             os.getcwd(),
         ]
-        self.base_dir = next((c for c in candidates if c and (os.path.exists(os.path.join(c, "data")) or os.path.exists(os.path.join(c, "InSight_ML")))), candidates[1])
+        self.base_dir = next((c for c in candidates if c and (os.path.exists(os.path.join(c, "data")) or os.path.exists(os.path.join(c, "outputs")))), candidates[1])
 
     def resolve_path(self, relative_path: str) -> str:
         """Resolves relative file paths against candidate project root locations."""
-        alt_rel = relative_path.replace("InSight_ML/", "") if relative_path.startswith("InSight_ML/") else f"InSight_ML/{relative_path}"
         candidates = [
             os.path.join(self.base_dir, relative_path),
-            os.path.join(self.base_dir, alt_rel),
             os.path.join(os.getcwd(), relative_path),
-            os.path.join(os.getcwd(), alt_rel),
             os.path.join("..", relative_path),
             relative_path
         ]
@@ -350,9 +347,10 @@ class RealDataLoader:
         cohort_order = sorted({r["batch_or_version"] for r in dated_reviews})
         drift_results = drift_detector.analyze_drift_ordered(dated_reviews, cohort_order)
 
-        # 10. Load sentence-level complaint clusters & feature requests if available
+        # 10. Load sentence-level complaint clusters, feature requests, & praise clusters if available
         complaint_clusters = []
         feature_requests = []
+        praise_clusters = []
         try:
             cc_path = self.resolve_path("outputs/pipeline_runs/complaint_clusters_latest.json")
             if os.path.exists(cc_path):
@@ -371,12 +369,38 @@ class RealDataLoader:
         except Exception as exc:
             logger.info("Feature requests artifact not loaded: %s", exc)
 
+        try:
+            pc_path = self.resolve_path("outputs/pipeline_runs/praise_clusters_latest.json")
+            if os.path.exists(pc_path):
+                with open(pc_path, "r", encoding="utf-8") as f:
+                    pc_data = json.load(f)
+                    praise_clusters = pc_data.get("praise_clusters", pc_data.get("clusters", []))
+        except Exception as exc:
+            logger.info("Praise clusters artifact not loaded: %s", exc)
+
+        try:
+            rl_path = self.resolve_path("outputs/pipeline_runs/reviews_latest.json")
+            if os.path.exists(rl_path):
+                with open(rl_path, "r", encoding="utf-8") as f:
+                    rl_data = json.load(f)
+                    sents_map = {r["id"]: r.get("sentences", []) for r in rl_data if "id" in r and "sentences" in r}
+                    for r in reviews:
+                        if r["id"] in sents_map:
+                            r["sentences"] = sents_map[r["id"]]
+        except Exception as exc:
+            logger.info("Reviews sentences artifact not loaded: %s", exc)
+
+        for r in reviews:
+            if "sentences" not in r:
+                r["sentences"] = []
+
         return {
             "reviews": reviews,
             "themes": themes,
             "drift_results": drift_results,
             "complaint_clusters": complaint_clusters,
             "feature_requests": feature_requests,
+            "praise_clusters": praise_clusters,
             "row_count": total_rows,
             "reviews_without_cohort": len(reviews) - len(dated_reviews),
             "label_source": "weak_sentiment" if weak_labels else None,

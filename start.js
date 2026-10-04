@@ -43,10 +43,9 @@ const backend = spawn(pythonCmd, [
 let frontend = null;
 const timer = setTimeout(() => {
   console.log('\n\x1b[34m%s\x1b[0m', '[2/2] Launching Vite frontend on http://localhost:5173 ...');
-  // Pass command string to shell: true on Windows to avoid Node 22/24 DEP0190 warning
   frontend = isWin
-    ? spawn('npm run dev', { cwd: path.join(__dirname, 'frontend'), stdio: 'inherit', shell: true })
-    : spawn('npm', ['run', 'dev'], { cwd: path.join(__dirname, 'frontend'), stdio: 'inherit', shell: false });
+    ? spawn('npx vite', { cwd: path.join(__dirname, 'frontend'), stdio: 'inherit', shell: true })
+    : spawn('npx', ['vite'], { cwd: path.join(__dirname, 'frontend'), stdio: 'inherit', shell: false });
 
   frontend.on('error', (err) => {
     console.error('\x1b[31m%s\x1b[0m', '[Frontend Error]:', err.message);

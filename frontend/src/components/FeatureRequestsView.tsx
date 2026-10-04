@@ -18,9 +18,9 @@ export const FeatureRequestsView = memo(function FeatureRequestsView({
     if (priorityFilter !== 'ALL' && item.priority !== priorityFilter) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
-      const matchTitle = item.title.toLowerCase().includes(q);
-      const matchQuote = item.medoid_quote.toLowerCase().includes(q);
-      const matchKws = item.keywords.some((kw) => kw.toLowerCase().includes(q));
+      const matchTitle = (item.title || '').toLowerCase().includes(q);
+      const matchQuote = (item.medoid_quote || '').toLowerCase().includes(q);
+      const matchKws = (item.feature_themes || item.keywords || []).some((kw) => (kw || '').toLowerCase().includes(q));
       return matchTitle || matchQuote || matchKws;
     }
     return true;
@@ -138,50 +138,89 @@ export const FeatureRequestsView = memo(function FeatureRequestsView({
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
-          {filtered.map((item) => (
-            <div
-              key={item.request_id}
-              className="dashboard-card"
-              style={{
-                padding: '22px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                borderRadius: '12px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E5E7EB',
-                borderLeft: item.priority === 'HIGH' ? '4px solid #4F46E5' : '4px solid #93C5FD',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
-                gap: '14px'
-              }}
-            >
-              <div>
-                {/* Meta */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    backgroundColor: item.priority === 'HIGH' ? '#EEF2FF' : '#EFF6FF',
-                    color: item.priority === 'HIGH' ? '#4338CA' : '#1D4ED8'
-                  }}>
-                    {item.priority} PRIORITY
-                  </span>
+          {[...filtered]
+            .sort((a, b) => b.vote_count - a.vote_count)
+            .map((item, index) => {
+              const rank = index + 1;
+              const maxVotes = Math.max(...featureRequests.map((f) => f.vote_count), 1);
+              const ratio = item.vote_count / maxVotes;
+              const isTopRank = index === 0;
 
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    color: '#111827',
-                    fontFamily: "'JetBrains Mono', monospace"
-                  }}>
-                    <ThumbsUp size={12} style={{ color: '#4338CA' }} />
-                    {item.vote_count} customer votes
-                  </span>
-                </div>
+              return (
+                <div
+                  key={item.request_id}
+                  className="dashboard-card"
+                  style={{
+                    padding: '22px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    borderRadius: '12px',
+                    backgroundColor: isTopRank ? '#F5F3FF' : '#FFFFFF',
+                    border: isTopRank ? '1.5px solid #C4B5FD' : '1px solid #E5E7EB',
+                    borderLeft: isTopRank
+                      ? '5px solid #6D28D9'
+                      : item.priority === 'HIGH'
+                      ? '4px solid #4F46E5'
+                      : '4px solid #93C5FD',
+                    boxShadow: isTopRank ? '0 4px 12px rgba(109, 40, 217, 0.08)' : '0 1px 3px rgba(0,0,0,0.03)',
+                    opacity: isTopRank ? 1.0 : Math.max(0.85, 0.8 + 0.2 * ratio),
+                    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                    gap: '14px'
+                  }}
+                >
+                  <div>
+                    {/* Meta */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 800,
+                          padding: '2px 7px',
+                          borderRadius: '4px',
+                          backgroundColor: isTopRank ? '#5B21B6' : '#F3F4F6',
+                          color: isTopRank ? '#FFFFFF' : '#374151',
+                          fontFamily: "'JetBrains Mono', monospace"
+                        }}>
+                          #{rank} {isTopRank ? 'TOP WISHLIST' : ''}
+                        </span>
+                        <span style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          backgroundColor: item.priority === 'HIGH' ? '#EEF2FF' : '#EFF6FF',
+                          color: item.priority === 'HIGH' ? '#4338CA' : '#1D4ED8'
+                        }}>
+                          {item.priority} PRIORITY
+                        </span>
+                      </div>
+
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        color: '#111827',
+                        fontFamily: "'JetBrains Mono', monospace"
+                      }}>
+                        <ThumbsUp size={12} style={{ color: '#4338CA' }} />
+                        {item.vote_count} customer votes
+                      </span>
+                    </div>
+
+                    {/* Relative Vote Share Bar */}
+                    <div style={{ marginBottom: '10px' }}>
+                      <div style={{ width: '100%', height: '4px', backgroundColor: '#F3F4F6', borderRadius: '999px', overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${Math.round(ratio * 100)}%`,
+                          height: '100%',
+                          backgroundColor: isTopRank ? '#6D28D9' : '#4F46E5',
+                          borderRadius: '999px'
+                        }} />
+                      </div>
+                    </div>
 
                 {/* Title */}
                 <h3 style={{
@@ -194,9 +233,9 @@ export const FeatureRequestsView = memo(function FeatureRequestsView({
                   {item.title}
                 </h3>
 
-                {/* Keywords */}
+                {/* Keywords / Feature Themes */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '14px' }}>
-                  {item.keywords.map((kw, i) => (
+                  {(item.feature_themes || item.keywords || []).map((kw, i) => (
                     <span
                       key={i}
                       style={{
@@ -246,7 +285,8 @@ export const FeatureRequestsView = memo(function FeatureRequestsView({
                 <span style={{ fontWeight: 600, color: '#4338CA' }}>PRD Candidate #{item.request_id + 1}</span>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

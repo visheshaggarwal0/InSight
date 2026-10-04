@@ -40,14 +40,14 @@ for p in [str(_ROOT), str(_ML_DIR), str(_BACKEND)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from InSight_ML.complaint_extraction import extract_complaint_span
-from InSight_ML.validation import (
+from app.ml.complaint_extraction import extract_complaint_span
+from app.ml.validation import (
     validate_cosmetics_df,
     validate_custom_csv,
     verify_complaint_spans,
     Issue,
 )
-from InSight_ML.pipeline_config import (
+from app.ml.pipeline_config import (
     ARTIFACTS, DATASETS, SEVERITY, PSI, PROVISIONAL_THEME_NAMES,
 )
 
@@ -572,7 +572,7 @@ class TestEndToEndPipeline(unittest.TestCase):
         import tempfile
         cls.output_dir = Path(tempfile.mkdtemp(prefix="insight_test_"))
 
-        from InSight_ML.run_pipeline import run_pipeline
+        from scripts.run_pipeline import run_pipeline
         import logging
         logging.getLogger("insight.pipeline").setLevel(logging.WARNING)
         logging.getLogger("sentence_transformers").setLevel(logging.ERROR)

@@ -86,6 +86,7 @@ export interface OverviewMetrics {
   sentiment_trend?: SentimentTrendPoint[];
   keyword_cloud?: KeywordCloudItem[];
   recent_insights?: DynamicInsightItem[];
+  intent_breakdown?: IntentBreakdown;
 }
 
 export interface SampleVerbatim {
@@ -231,6 +232,7 @@ export interface ComplaintClusterItem {
   title: string;
   label_provenance: string;
   keywords: string[];
+  complaint_drivers?: string[];
   sentence_count: number;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   medoid_verbatim: string;
@@ -253,9 +255,45 @@ export interface FeatureRequestItem {
   request_id: number;
   title: string;
   keywords: string[];
+  feature_themes?: string[];
   vote_count: number;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   medoid_quote: string;
   sample_quotes: FeatureRequestQuote[];
 }
+
+export interface PraiseVerbatim {
+  sentence_id: string;
+  review_id: string;
+  source_row_index: number;
+  sentence_text: string;
+  start: number;
+  end: number;
+  confidence: number;
+}
+
+export interface PraiseClusterItem {
+  cluster_id: number;
+  title: string;
+  strength_drivers: string[];
+  keywords: string[];
+  sentence_count?: number;
+  praise_count: number;
+  delight_score: number;
+  delight_tier: 'EXCEPTIONAL' | 'STRONG' | 'NOTABLE';
+  medoid_verbatim: string;
+  verbatims?: PraiseVerbatim[];
+  is_provisional?: boolean;
+}
+
+export interface IntentBreakdown {
+  total_sentences: number;
+  complaints: number;
+  praise: number;
+  recommendations: number;
+  noise: number;
+  actionable_count: number;
+  actionable_rate_pct: number;
+}
+
 

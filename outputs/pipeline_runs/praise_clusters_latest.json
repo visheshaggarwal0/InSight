@@ -1,0 +1,1188 @@
+{
+  "clusters": [
+    {
+      "cluster_id": 1,
+      "title": "Dry Patches & Dark Spots",
+      "strength_drivers": [
+        "dry patches",
+        "dark spots",
+        "pimple",
+        "helping",
+        "blemishes",
+        "pimples"
+      ],
+      "keywords": [
+        "dry patches",
+        "dark spots",
+        "pimple",
+        "helping",
+        "blemishes",
+        "pimples"
+      ],
+      "sentence_count": 4707,
+      "praise_count": 4707,
+      "delight_score": 89.1,
+      "delight_tier": "EXCEPTIONAL",
+      "medoid_verbatim": "This product is amazing, my skin felt so soft after using this.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-04811::S000",
+          "review_id": "REV-SEP-04811",
+          "source_row_index": 4814,
+          "sentence_text": "This product is amazing, my skin felt so soft after using this.",
+          "start": 0,
+          "end": 63,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00001::S003",
+          "review_id": "REV-SEP-00001",
+          "source_row_index": 1,
+          "sentence_text": "Additionally, it doesn\u2019t cause breakouts and it has salicylic acid, but it isn\u2019t drying!",
+          "start": 152,
+          "end": 240,
+          "confidence": 0.85
+        },
+        {
+          "sentence_id": "REV-SEP-00003::S002",
+          "review_id": "REV-SEP-00003",
+          "source_row_index": 3,
+          "sentence_text": "It leaves my skin feeling soft and clean.",
+          "start": 134,
+          "end": 175,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00005::S003",
+          "review_id": "REV-SEP-00005",
+          "source_row_index": 5,
+          "sentence_text": "If your skin is lacking moisture or you need that extra glow, then this will do it for you.",
+          "start": 204,
+          "end": 295,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00005::S004",
+          "review_id": "REV-SEP-00005",
+          "source_row_index": 5,
+          "sentence_text": "My skin felt so smooth and luminated  after using this.",
+          "start": 296,
+          "end": 351,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00008::S004",
+          "review_id": "REV-SEP-00008",
+          "source_row_index": 8,
+          "sentence_text": "Although some large pores won\u2019t magically shrink, the product is very effective at exfoliating and removing any trapped dirt inside the pores.",
+          "start": 322,
+          "end": 464,
+          "confidence": 0.85
+        },
+        {
+          "sentence_id": "REV-SEP-00014::S001",
+          "review_id": "REV-SEP-00014",
+          "source_row_index": 14,
+          "sentence_text": "I hadn\u2019t tanned in over 3 weeks and thought my last tan was gone already, but following the instructions on the bottle, I was amazed to see a lot of color come off of me in the shower.",
+          "start": 100,
+          "end": 284,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00016::S002",
+          "review_id": "REV-SEP-00016",
+          "source_row_index": 16,
+          "sentence_text": "I use at night and it leaves my skin soft and [REDACTED_ORDER_ID].",
+          "start": 79,
+          "end": 145,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00017::S000",
+          "review_id": "REV-SEP-00017",
+          "source_row_index": 17,
+          "sentence_text": "I\u2019m addicted on buying sunscreen because of my pregnancy dark spots and this sunscreen it\u2019s just WOW , the Glow and the tint are just a perfect combination",
+          "start": 0,
+          "end": 155,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00019::S004",
+          "review_id": "REV-SEP-00019",
+          "source_row_index": 19,
+          "sentence_text": "Every time I have used this night before, I have woken up with very hydrated, soft and calm skin.",
+          "start": 328,
+          "end": 425,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 2,
+      "title": "Gifted Glow & Definitely Worth",
+      "strength_drivers": [
+        "gifted glow",
+        "definitely worth",
+        "wanting",
+        "amazing packaging",
+        "plastic",
+        "absolutely sunscreen"
+      ],
+      "keywords": [
+        "gifted glow",
+        "definitely worth",
+        "wanting",
+        "amazing packaging",
+        "plastic",
+        "absolutely sunscreen"
+      ],
+      "sentence_count": 2808,
+      "praise_count": 2808,
+      "delight_score": 89.9,
+      "delight_tier": "STRONG",
+      "medoid_verbatim": "I love this products overall I love the brand!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-02950::S000",
+          "review_id": "REV-SEP-02950",
+          "source_row_index": 2951,
+          "sentence_text": "I love this products overall I love the brand!",
+          "start": 0,
+          "end": 46,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00000::S000",
+          "review_id": "REV-SEP-00000",
+          "source_row_index": 0,
+          "sentence_text": "I love how this feels on my face!",
+          "start": 0,
+          "end": 33,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00002::S002",
+          "review_id": "REV-SEP-00002",
+          "source_row_index": 2,
+          "sentence_text": "The environmental shield is an added bonus, perfect if you live in urban areas.",
+          "start": 108,
+          "end": 187,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00003::S000",
+          "review_id": "REV-SEP-00003",
+          "source_row_index": 3,
+          "sentence_text": "I love products that have multi-functions.",
+          "start": 0,
+          "end": 42,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00005::S005",
+          "review_id": "REV-SEP-00005",
+          "source_row_index": 5,
+          "sentence_text": "I would highly recommend.",
+          "start": 352,
+          "end": 377,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00011::S000",
+          "review_id": "REV-SEP-00011",
+          "source_row_index": 11,
+          "sentence_text": "Nice and smooth formula.",
+          "start": 22,
+          "end": 46,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00012::S001",
+          "review_id": "REV-SEP-00012",
+          "source_row_index": 12,
+          "sentence_text": "I think I finally found one I love.",
+          "start": 114,
+          "end": 149,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00020::S002",
+          "review_id": "REV-SEP-00020",
+          "source_row_index": 20,
+          "sentence_text": "Fell in love with it when I got a sample, have since purchased and used up the full size.",
+          "start": 121,
+          "end": 210,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00022::S001",
+          "review_id": "REV-SEP-00022",
+          "source_row_index": 22,
+          "sentence_text": "Turns out I love it, it immediately replaced my other daily cleanser.",
+          "start": 67,
+          "end": 136,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00025::S000",
+          "review_id": "REV-SEP-00025",
+          "source_row_index": 25,
+          "sentence_text": "I received this product for free from Influenster but I love it !",
+          "start": 0,
+          "end": 65,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 0,
+      "title": "Hydrating Smells & Overpowering",
+      "strength_drivers": [
+        "hydrating smells",
+        "overpowering",
+        "citrus scent",
+        "smell texture",
+        "smells wonderful",
+        "doesn smell"
+      ],
+      "keywords": [
+        "hydrating smells",
+        "overpowering",
+        "citrus scent",
+        "smell texture",
+        "smells wonderful",
+        "doesn smell"
+      ],
+      "sentence_count": 2075,
+      "praise_count": 2075,
+      "delight_score": 89.7,
+      "delight_tier": "STRONG",
+      "medoid_verbatim": "It\u2019s quite moisturizing and smells great!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-08109::S001",
+          "review_id": "REV-SEP-08109",
+          "source_row_index": 8118,
+          "sentence_text": "It\u2019s quite moisturizing and smells great!",
+          "start": 33,
+          "end": 74,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00000::S001",
+          "review_id": "REV-SEP-00000",
+          "source_row_index": 0,
+          "sentence_text": "It\u2019s incredibly hydrating.",
+          "start": 34,
+          "end": 60,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00001::S002",
+          "review_id": "REV-SEP-00001",
+          "source_row_index": 1,
+          "sentence_text": "It smells really nice, has a nice feel and my skin feels so soft for hours.",
+          "start": 76,
+          "end": 151,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00006::S002",
+          "review_id": "REV-SEP-00006",
+          "source_row_index": 6,
+          "sentence_text": "Plus it smells amazing!!!",
+          "start": 90,
+          "end": 115,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00018::S002",
+          "review_id": "REV-SEP-00018",
+          "source_row_index": 18,
+          "sentence_text": "I love the scent, it feels gentle but effective,  never irritating.",
+          "start": 68,
+          "end": 135,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00025::S002",
+          "review_id": "REV-SEP-00025",
+          "source_row_index": 25,
+          "sentence_text": "I love that it turns matte and it smells amazing.",
+          "start": 117,
+          "end": 166,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00028::S004",
+          "review_id": "REV-SEP-00028",
+          "source_row_index": 28,
+          "sentence_text": "No smell and isn\u2019t irritating, but this wears more like a traditional beach sunscreen.",
+          "start": 150,
+          "end": 236,
+          "confidence": 0.85
+        },
+        {
+          "sentence_id": "REV-SEP-00032::S000",
+          "review_id": "REV-SEP-00032",
+          "source_row_index": 32,
+          "sentence_text": "Really good moisturizer!",
+          "start": 0,
+          "end": 24,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00034::S002",
+          "review_id": "REV-SEP-00034",
+          "source_row_index": 34,
+          "sentence_text": "It lasts forever and your lips look shiny and perfect.",
+          "start": 101,
+          "end": 155,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00035::S001",
+          "review_id": "REV-SEP-00035",
+          "source_row_index": 35,
+          "sentence_text": "Because I absolutely love it it\u2019s hydrating does it make your skin oily absorbs quickly",
+          "start": 63,
+          "end": 150,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 4,
+      "title": "Stuff Stuff & Stuff Highly",
+      "strength_drivers": [
+        "stuff stuff",
+        "stuff highly",
+        "recommend absolutely",
+        "mask stuff",
+        "awesome absolutely",
+        "obsessed absolutely"
+      ],
+      "keywords": [
+        "stuff stuff",
+        "stuff highly",
+        "recommend absolutely",
+        "mask stuff",
+        "awesome absolutely",
+        "obsessed absolutely"
+      ],
+      "sentence_count": 927,
+      "praise_count": 927,
+      "delight_score": 90.0,
+      "delight_tier": "NOTABLE",
+      "medoid_verbatim": "I love this product!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00001::S000",
+          "review_id": "REV-SEP-00001",
+          "source_row_index": 1,
+          "sentence_text": "I love this product!",
+          "start": 0,
+          "end": 20,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00006::S000",
+          "review_id": "REV-SEP-00006",
+          "source_row_index": 6,
+          "sentence_text": "I\u2019m in love with this product!",
+          "start": 0,
+          "end": 30,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00015::S000",
+          "review_id": "REV-SEP-00015",
+          "source_row_index": 15,
+          "sentence_text": "Absolutely love this product.",
+          "start": 0,
+          "end": 29,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00027::S000",
+          "review_id": "REV-SEP-00027",
+          "source_row_index": 27,
+          "sentence_text": "This product is awesome!",
+          "start": 0,
+          "end": 24,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00041::S000",
+          "review_id": "REV-SEP-00041",
+          "source_row_index": 41,
+          "sentence_text": "This stuff is amazing!",
+          "start": 5,
+          "end": 27,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00041::S001",
+          "review_id": "REV-SEP-00041",
+          "source_row_index": 41,
+          "sentence_text": "I love the color!",
+          "start": 28,
+          "end": 45,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00044::S000",
+          "review_id": "REV-SEP-00044",
+          "source_row_index": 44,
+          "sentence_text": "LOVE this product!",
+          "start": 0,
+          "end": 18,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00067::S000",
+          "review_id": "REV-SEP-00067",
+          "source_row_index": 67,
+          "sentence_text": "I LOVE THIS PRODUCT!",
+          "start": 0,
+          "end": 20,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00067::S001",
+          "review_id": "REV-SEP-00067",
+          "source_row_index": 67,
+          "sentence_text": "Love love love!",
+          "start": 21,
+          "end": 36,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00074::S000",
+          "review_id": "REV-SEP-00074",
+          "source_row_index": 74,
+          "sentence_text": "I love this mask!",
+          "start": 0,
+          "end": 17,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 3,
+      "title": "Redacted_Name Favorite & Redacted_Order_Id Redacted_Name",
+      "strength_drivers": [
+        "redacted_name favorite",
+        "redacted_order_id redacted_name",
+        "redacted_name glow",
+        "redacted_name hydrating",
+        "redacted_name best",
+        "glow redacted_name"
+      ],
+      "keywords": [
+        "redacted_name favorite",
+        "redacted_order_id redacted_name",
+        "redacted_name glow",
+        "redacted_name hydrating",
+        "redacted_name best",
+        "glow redacted_name"
+      ],
+      "sentence_count": 488,
+      "praise_count": 488,
+      "delight_score": 89.7,
+      "delight_tier": "NOTABLE",
+      "medoid_verbatim": "I am [REDACTED_NAME] love with what this does for my skin!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-09117::S001",
+          "review_id": "REV-SEP-09117",
+          "source_row_index": 9127,
+          "sentence_text": "I am [REDACTED_NAME] love with what this does for my skin!",
+          "start": 65,
+          "end": 123,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00019::S001",
+          "review_id": "REV-SEP-00019",
+          "source_row_index": 19,
+          "sentence_text": "I am [REDACTED_NAME] love This product, it\u2019s hydrating galore and non irritating.",
+          "start": 57,
+          "end": 138,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00034::S000",
+          "review_id": "REV-SEP-00034",
+          "source_row_index": 34,
+          "sentence_text": "This is [REDACTED_NAME] amazing lip mask.",
+          "start": 0,
+          "end": 41,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00037::S002",
+          "review_id": "REV-SEP-00037",
+          "source_row_index": 37,
+          "sentence_text": "Left my skin feeling very soft and [REDACTED_ORDER_ID] after use.",
+          "start": 88,
+          "end": 153,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00060::S000",
+          "review_id": "REV-SEP-00060",
+          "source_row_index": 60,
+          "sentence_text": "I know this is [REDACTED_NAME] gentle, and it is just that.",
+          "start": 0,
+          "end": 59,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00070::S000",
+          "review_id": "REV-SEP-00070",
+          "source_row_index": 70,
+          "sentence_text": "This is [REDACTED_NAME] staple to my skincare routine especially right now In the winter because my skin gets dry and dull but this moisturizer gives it life.",
+          "start": 0,
+          "end": 158,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00076::S000",
+          "review_id": "REV-SEP-00076",
+          "source_row_index": 76,
+          "sentence_text": "I love cleansing oils and this is [REDACTED_NAME] the best I\u2019ve ever used!",
+          "start": 0,
+          "end": 74,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00079::S003",
+          "review_id": "REV-SEP-00079",
+          "source_row_index": 79,
+          "sentence_text": "Out of all of the Dennis Gross line, this is [REDACTED_NAME] product I would say should be a staple, despite the price.",
+          "start": 160,
+          "end": 279,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00126::S001",
+          "review_id": "REV-SEP-00126",
+          "source_row_index": 126,
+          "sentence_text": "I have pretty sensitive/red skin and this is [REDACTED_NAME] is just amazing.",
+          "start": 55,
+          "end": 132,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00143::S000",
+          "review_id": "REV-SEP-00143",
+          "source_row_index": 143,
+          "sentence_text": "This is [REDACTED_NAME] amazing product from DE!",
+          "start": 0,
+          "end": 48,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    }
+  ],
+  "praise_clusters": [
+    {
+      "cluster_id": 1,
+      "title": "Dry Patches & Dark Spots",
+      "strength_drivers": [
+        "dry patches",
+        "dark spots",
+        "pimple",
+        "helping",
+        "blemishes",
+        "pimples"
+      ],
+      "keywords": [
+        "dry patches",
+        "dark spots",
+        "pimple",
+        "helping",
+        "blemishes",
+        "pimples"
+      ],
+      "sentence_count": 4707,
+      "praise_count": 4707,
+      "delight_score": 89.1,
+      "delight_tier": "EXCEPTIONAL",
+      "medoid_verbatim": "This product is amazing, my skin felt so soft after using this.",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-04811::S000",
+          "review_id": "REV-SEP-04811",
+          "source_row_index": 4814,
+          "sentence_text": "This product is amazing, my skin felt so soft after using this.",
+          "start": 0,
+          "end": 63,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00001::S003",
+          "review_id": "REV-SEP-00001",
+          "source_row_index": 1,
+          "sentence_text": "Additionally, it doesn\u2019t cause breakouts and it has salicylic acid, but it isn\u2019t drying!",
+          "start": 152,
+          "end": 240,
+          "confidence": 0.85
+        },
+        {
+          "sentence_id": "REV-SEP-00003::S002",
+          "review_id": "REV-SEP-00003",
+          "source_row_index": 3,
+          "sentence_text": "It leaves my skin feeling soft and clean.",
+          "start": 134,
+          "end": 175,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00005::S003",
+          "review_id": "REV-SEP-00005",
+          "source_row_index": 5,
+          "sentence_text": "If your skin is lacking moisture or you need that extra glow, then this will do it for you.",
+          "start": 204,
+          "end": 295,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00005::S004",
+          "review_id": "REV-SEP-00005",
+          "source_row_index": 5,
+          "sentence_text": "My skin felt so smooth and luminated  after using this.",
+          "start": 296,
+          "end": 351,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00008::S004",
+          "review_id": "REV-SEP-00008",
+          "source_row_index": 8,
+          "sentence_text": "Although some large pores won\u2019t magically shrink, the product is very effective at exfoliating and removing any trapped dirt inside the pores.",
+          "start": 322,
+          "end": 464,
+          "confidence": 0.85
+        },
+        {
+          "sentence_id": "REV-SEP-00014::S001",
+          "review_id": "REV-SEP-00014",
+          "source_row_index": 14,
+          "sentence_text": "I hadn\u2019t tanned in over 3 weeks and thought my last tan was gone already, but following the instructions on the bottle, I was amazed to see a lot of color come off of me in the shower.",
+          "start": 100,
+          "end": 284,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00016::S002",
+          "review_id": "REV-SEP-00016",
+          "source_row_index": 16,
+          "sentence_text": "I use at night and it leaves my skin soft and [REDACTED_ORDER_ID].",
+          "start": 79,
+          "end": 145,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00017::S000",
+          "review_id": "REV-SEP-00017",
+          "source_row_index": 17,
+          "sentence_text": "I\u2019m addicted on buying sunscreen because of my pregnancy dark spots and this sunscreen it\u2019s just WOW , the Glow and the tint are just a perfect combination",
+          "start": 0,
+          "end": 155,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00019::S004",
+          "review_id": "REV-SEP-00019",
+          "source_row_index": 19,
+          "sentence_text": "Every time I have used this night before, I have woken up with very hydrated, soft and calm skin.",
+          "start": 328,
+          "end": 425,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 2,
+      "title": "Gifted Glow & Definitely Worth",
+      "strength_drivers": [
+        "gifted glow",
+        "definitely worth",
+        "wanting",
+        "amazing packaging",
+        "plastic",
+        "absolutely sunscreen"
+      ],
+      "keywords": [
+        "gifted glow",
+        "definitely worth",
+        "wanting",
+        "amazing packaging",
+        "plastic",
+        "absolutely sunscreen"
+      ],
+      "sentence_count": 2808,
+      "praise_count": 2808,
+      "delight_score": 89.9,
+      "delight_tier": "STRONG",
+      "medoid_verbatim": "I love this products overall I love the brand!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-02950::S000",
+          "review_id": "REV-SEP-02950",
+          "source_row_index": 2951,
+          "sentence_text": "I love this products overall I love the brand!",
+          "start": 0,
+          "end": 46,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00000::S000",
+          "review_id": "REV-SEP-00000",
+          "source_row_index": 0,
+          "sentence_text": "I love how this feels on my face!",
+          "start": 0,
+          "end": 33,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00002::S002",
+          "review_id": "REV-SEP-00002",
+          "source_row_index": 2,
+          "sentence_text": "The environmental shield is an added bonus, perfect if you live in urban areas.",
+          "start": 108,
+          "end": 187,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00003::S000",
+          "review_id": "REV-SEP-00003",
+          "source_row_index": 3,
+          "sentence_text": "I love products that have multi-functions.",
+          "start": 0,
+          "end": 42,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00005::S005",
+          "review_id": "REV-SEP-00005",
+          "source_row_index": 5,
+          "sentence_text": "I would highly recommend.",
+          "start": 352,
+          "end": 377,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00011::S000",
+          "review_id": "REV-SEP-00011",
+          "source_row_index": 11,
+          "sentence_text": "Nice and smooth formula.",
+          "start": 22,
+          "end": 46,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00012::S001",
+          "review_id": "REV-SEP-00012",
+          "source_row_index": 12,
+          "sentence_text": "I think I finally found one I love.",
+          "start": 114,
+          "end": 149,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00020::S002",
+          "review_id": "REV-SEP-00020",
+          "source_row_index": 20,
+          "sentence_text": "Fell in love with it when I got a sample, have since purchased and used up the full size.",
+          "start": 121,
+          "end": 210,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00022::S001",
+          "review_id": "REV-SEP-00022",
+          "source_row_index": 22,
+          "sentence_text": "Turns out I love it, it immediately replaced my other daily cleanser.",
+          "start": 67,
+          "end": 136,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00025::S000",
+          "review_id": "REV-SEP-00025",
+          "source_row_index": 25,
+          "sentence_text": "I received this product for free from Influenster but I love it !",
+          "start": 0,
+          "end": 65,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 0,
+      "title": "Hydrating Smells & Overpowering",
+      "strength_drivers": [
+        "hydrating smells",
+        "overpowering",
+        "citrus scent",
+        "smell texture",
+        "smells wonderful",
+        "doesn smell"
+      ],
+      "keywords": [
+        "hydrating smells",
+        "overpowering",
+        "citrus scent",
+        "smell texture",
+        "smells wonderful",
+        "doesn smell"
+      ],
+      "sentence_count": 2075,
+      "praise_count": 2075,
+      "delight_score": 89.7,
+      "delight_tier": "STRONG",
+      "medoid_verbatim": "It\u2019s quite moisturizing and smells great!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-08109::S001",
+          "review_id": "REV-SEP-08109",
+          "source_row_index": 8118,
+          "sentence_text": "It\u2019s quite moisturizing and smells great!",
+          "start": 33,
+          "end": 74,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00000::S001",
+          "review_id": "REV-SEP-00000",
+          "source_row_index": 0,
+          "sentence_text": "It\u2019s incredibly hydrating.",
+          "start": 34,
+          "end": 60,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00001::S002",
+          "review_id": "REV-SEP-00001",
+          "source_row_index": 1,
+          "sentence_text": "It smells really nice, has a nice feel and my skin feels so soft for hours.",
+          "start": 76,
+          "end": 151,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00006::S002",
+          "review_id": "REV-SEP-00006",
+          "source_row_index": 6,
+          "sentence_text": "Plus it smells amazing!!!",
+          "start": 90,
+          "end": 115,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00018::S002",
+          "review_id": "REV-SEP-00018",
+          "source_row_index": 18,
+          "sentence_text": "I love the scent, it feels gentle but effective,  never irritating.",
+          "start": 68,
+          "end": 135,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00025::S002",
+          "review_id": "REV-SEP-00025",
+          "source_row_index": 25,
+          "sentence_text": "I love that it turns matte and it smells amazing.",
+          "start": 117,
+          "end": 166,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00028::S004",
+          "review_id": "REV-SEP-00028",
+          "source_row_index": 28,
+          "sentence_text": "No smell and isn\u2019t irritating, but this wears more like a traditional beach sunscreen.",
+          "start": 150,
+          "end": 236,
+          "confidence": 0.85
+        },
+        {
+          "sentence_id": "REV-SEP-00032::S000",
+          "review_id": "REV-SEP-00032",
+          "source_row_index": 32,
+          "sentence_text": "Really good moisturizer!",
+          "start": 0,
+          "end": 24,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00034::S002",
+          "review_id": "REV-SEP-00034",
+          "source_row_index": 34,
+          "sentence_text": "It lasts forever and your lips look shiny and perfect.",
+          "start": 101,
+          "end": 155,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00035::S001",
+          "review_id": "REV-SEP-00035",
+          "source_row_index": 35,
+          "sentence_text": "Because I absolutely love it it\u2019s hydrating does it make your skin oily absorbs quickly",
+          "start": 63,
+          "end": 150,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 4,
+      "title": "Stuff Stuff & Stuff Highly",
+      "strength_drivers": [
+        "stuff stuff",
+        "stuff highly",
+        "recommend absolutely",
+        "mask stuff",
+        "awesome absolutely",
+        "obsessed absolutely"
+      ],
+      "keywords": [
+        "stuff stuff",
+        "stuff highly",
+        "recommend absolutely",
+        "mask stuff",
+        "awesome absolutely",
+        "obsessed absolutely"
+      ],
+      "sentence_count": 927,
+      "praise_count": 927,
+      "delight_score": 90.0,
+      "delight_tier": "NOTABLE",
+      "medoid_verbatim": "I love this product!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-00001::S000",
+          "review_id": "REV-SEP-00001",
+          "source_row_index": 1,
+          "sentence_text": "I love this product!",
+          "start": 0,
+          "end": 20,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00006::S000",
+          "review_id": "REV-SEP-00006",
+          "source_row_index": 6,
+          "sentence_text": "I\u2019m in love with this product!",
+          "start": 0,
+          "end": 30,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00015::S000",
+          "review_id": "REV-SEP-00015",
+          "source_row_index": 15,
+          "sentence_text": "Absolutely love this product.",
+          "start": 0,
+          "end": 29,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00027::S000",
+          "review_id": "REV-SEP-00027",
+          "source_row_index": 27,
+          "sentence_text": "This product is awesome!",
+          "start": 0,
+          "end": 24,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00041::S000",
+          "review_id": "REV-SEP-00041",
+          "source_row_index": 41,
+          "sentence_text": "This stuff is amazing!",
+          "start": 5,
+          "end": 27,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00041::S001",
+          "review_id": "REV-SEP-00041",
+          "source_row_index": 41,
+          "sentence_text": "I love the color!",
+          "start": 28,
+          "end": 45,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00044::S000",
+          "review_id": "REV-SEP-00044",
+          "source_row_index": 44,
+          "sentence_text": "LOVE this product!",
+          "start": 0,
+          "end": 18,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00067::S000",
+          "review_id": "REV-SEP-00067",
+          "source_row_index": 67,
+          "sentence_text": "I LOVE THIS PRODUCT!",
+          "start": 0,
+          "end": 20,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00067::S001",
+          "review_id": "REV-SEP-00067",
+          "source_row_index": 67,
+          "sentence_text": "Love love love!",
+          "start": 21,
+          "end": 36,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00074::S000",
+          "review_id": "REV-SEP-00074",
+          "source_row_index": 74,
+          "sentence_text": "I love this mask!",
+          "start": 0,
+          "end": 17,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    },
+    {
+      "cluster_id": 3,
+      "title": "Redacted_Name Favorite & Redacted_Order_Id Redacted_Name",
+      "strength_drivers": [
+        "redacted_name favorite",
+        "redacted_order_id redacted_name",
+        "redacted_name glow",
+        "redacted_name hydrating",
+        "redacted_name best",
+        "glow redacted_name"
+      ],
+      "keywords": [
+        "redacted_name favorite",
+        "redacted_order_id redacted_name",
+        "redacted_name glow",
+        "redacted_name hydrating",
+        "redacted_name best",
+        "glow redacted_name"
+      ],
+      "sentence_count": 488,
+      "praise_count": 488,
+      "delight_score": 89.7,
+      "delight_tier": "NOTABLE",
+      "medoid_verbatim": "I am [REDACTED_NAME] love with what this does for my skin!",
+      "verbatims": [
+        {
+          "sentence_id": "REV-SEP-09117::S001",
+          "review_id": "REV-SEP-09117",
+          "source_row_index": 9127,
+          "sentence_text": "I am [REDACTED_NAME] love with what this does for my skin!",
+          "start": 65,
+          "end": 123,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00019::S001",
+          "review_id": "REV-SEP-00019",
+          "source_row_index": 19,
+          "sentence_text": "I am [REDACTED_NAME] love This product, it\u2019s hydrating galore and non irritating.",
+          "start": 57,
+          "end": 138,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00034::S000",
+          "review_id": "REV-SEP-00034",
+          "source_row_index": 34,
+          "sentence_text": "This is [REDACTED_NAME] amazing lip mask.",
+          "start": 0,
+          "end": 41,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00037::S002",
+          "review_id": "REV-SEP-00037",
+          "source_row_index": 37,
+          "sentence_text": "Left my skin feeling very soft and [REDACTED_ORDER_ID] after use.",
+          "start": 88,
+          "end": 153,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00060::S000",
+          "review_id": "REV-SEP-00060",
+          "source_row_index": 60,
+          "sentence_text": "I know this is [REDACTED_NAME] gentle, and it is just that.",
+          "start": 0,
+          "end": 59,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00070::S000",
+          "review_id": "REV-SEP-00070",
+          "source_row_index": 70,
+          "sentence_text": "This is [REDACTED_NAME] staple to my skincare routine especially right now In the winter because my skin gets dry and dull but this moisturizer gives it life.",
+          "start": 0,
+          "end": 158,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00076::S000",
+          "review_id": "REV-SEP-00076",
+          "source_row_index": 76,
+          "sentence_text": "I love cleansing oils and this is [REDACTED_NAME] the best I\u2019ve ever used!",
+          "start": 0,
+          "end": 74,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00079::S003",
+          "review_id": "REV-SEP-00079",
+          "source_row_index": 79,
+          "sentence_text": "Out of all of the Dennis Gross line, this is [REDACTED_NAME] product I would say should be a staple, despite the price.",
+          "start": 160,
+          "end": 279,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00126::S001",
+          "review_id": "REV-SEP-00126",
+          "source_row_index": 126,
+          "sentence_text": "I have pretty sensitive/red skin and this is [REDACTED_NAME] is just amazing.",
+          "start": 55,
+          "end": 132,
+          "confidence": 0.9
+        },
+        {
+          "sentence_id": "REV-SEP-00143::S000",
+          "review_id": "REV-SEP-00143",
+          "source_row_index": 143,
+          "sentence_text": "This is [REDACTED_NAME] amazing product from DE!",
+          "start": 0,
+          "end": 48,
+          "confidence": 0.9
+        }
+      ],
+      "is_provisional": true
+    }
+  ],
+  "total_praise": 11005,
+  "n_clusters_actual": 5
+}

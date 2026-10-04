@@ -15,14 +15,14 @@
       ],
       "sentence_count": 370,
       "severity": "CRITICAL",
-      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=370. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
-      "medoid_verbatim": "I was disappointed in this product because it feels greasy and I didn’t notice a difference in my skin.",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=370. Thresholds: CRITICAL\u2265200, HIGH\u226580, MEDIUM\u226520, LOW<20. Not statistically validated for this domain.",
+      "medoid_verbatim": "I was disappointed in this product because it feels greasy and I didn\u2019t notice a difference in my skin.",
       "verbatims": [
         {
           "sentence_id": "REV-SEP-02507::S002",
           "review_id": "REV-SEP-02507",
           "source_row_index": 2508,
-          "sentence_text": "I was disappointed in this product because it feels greasy and I didn’t notice a difference in my skin.",
+          "sentence_text": "I was disappointed in this product because it feels greasy and I didn\u2019t notice a difference in my skin.",
           "start": 153,
           "end": 256,
           "confidence": 0.5
@@ -31,7 +31,7 @@
           "sentence_id": "REV-SEP-00045::S002",
           "review_id": "REV-SEP-00045",
           "source_row_index": 45,
-          "sentence_text": "I really like the key ingredients in this product but unfortunately it didn’t work with my picky skin.",
+          "sentence_text": "I really like the key ingredients in this product but unfortunately it didn\u2019t work with my picky skin.",
           "start": 236,
           "end": 338,
           "confidence": 0.741
@@ -40,7 +40,7 @@
           "sentence_id": "REV-SEP-00080::S000",
           "review_id": "REV-SEP-00080",
           "source_row_index": 80,
-          "sentence_text": "I really wanted to love this cleansing balm but sadly it’s a no from me.",
+          "sentence_text": "I really wanted to love this cleansing balm but sadly it\u2019s a no from me.",
           "start": 0,
           "end": 72,
           "confidence": 0.5
@@ -49,7 +49,7 @@
           "sentence_id": "REV-SEP-00094::S002",
           "review_id": "REV-SEP-00094",
           "source_row_index": 94,
-          "sentence_text": "My skin might need SOME restoring, but it’s not horrible.",
+          "sentence_text": "My skin might need SOME restoring, but it\u2019s not horrible.",
           "start": 56,
           "end": 113,
           "confidence": 0.667
@@ -58,7 +58,7 @@
           "sentence_id": "REV-SEP-00107::S004",
           "review_id": "REV-SEP-00107",
           "source_row_index": 107,
-          "sentence_text": "the reason for 4 stars instead of 5 is that i had some slight eye stinging but it was nothing compared to other face sunscreens i’ve tried.",
+          "sentence_text": "the reason for 4 stars instead of 5 is that i had some slight eye stinging but it was nothing compared to other face sunscreens i\u2019ve tried.",
           "start": 253,
           "end": 392,
           "confidence": 0.5
@@ -80,8 +80,8 @@
         "reaction"
       ],
       "sentence_count": 307,
-      "severity": "CRITICAL",
-      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=307. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "severity": "HIGH",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=307. Thresholds: CRITICAL\u2265200, HIGH\u226580, MEDIUM\u226520, LOW<20. Not statistically validated for this domain.",
       "medoid_verbatim": "I have extremely sensitive skin and this caused me to break out and made my skin irritated.",
       "verbatims": [
         {
@@ -97,7 +97,7 @@
           "sentence_id": "REV-SEP-00030::S002",
           "review_id": "REV-SEP-00030",
           "source_row_index": 30,
-          "sentence_text": "Hated the way it felt on my skin, and worst it didn’t improve my skin.",
+          "sentence_text": "Hated the way it felt on my skin, and worst it didn\u2019t improve my skin.",
           "start": 153,
           "end": 223,
           "confidence": 0.5
@@ -115,7 +115,7 @@
           "sentence_id": "REV-SEP-00112::S003",
           "review_id": "REV-SEP-00112",
           "source_row_index": 112,
-          "sentence_text": "I’ve had allergic reactions to vit c before and could not save my skin before it became red and scaly and broken out.",
+          "sentence_text": "I\u2019ve had allergic reactions to vit c before and could not save my skin before it became red and scaly and broken out.",
           "start": 183,
           "end": 300,
           "confidence": 0.58
@@ -146,8 +146,8 @@
         "packaging"
       ],
       "sentence_count": 305,
-      "severity": "CRITICAL",
-      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=305. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "severity": "HIGH",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=305. Thresholds: CRITICAL\u2265200, HIGH\u226580, MEDIUM\u226520, LOW<20. Not statistically validated for this domain.",
       "medoid_verbatim": "Although their other products are great, this is a solid disappointment and waste of a lot of money.",
       "verbatims": [
         {
@@ -163,7 +163,7 @@
           "sentence_id": "REV-SEP-00048::S003",
           "review_id": "REV-SEP-00048",
           "source_row_index": 48,
-          "sentence_text": "I’ve tried products more than twice the price of this that did not work as well!",
+          "sentence_text": "I\u2019ve tried products more than twice the price of this that did not work as well!",
           "start": 272,
           "end": 352,
           "confidence": 0.5
@@ -181,7 +181,7 @@
           "sentence_id": "REV-SEP-00082::S001",
           "review_id": "REV-SEP-00082",
           "source_row_index": 82,
-          "sentence_text": "I’ve never bought any Peter Thomas Roth products because I was always nervous about spending that much money with no results.",
+          "sentence_text": "I\u2019ve never bought any Peter Thomas Roth products because I was always nervous about spending that much money with no results.",
           "start": 51,
           "end": 176,
           "confidence": 0.5
@@ -190,7 +190,7 @@
           "sentence_id": "REV-SEP-00097::S000",
           "review_id": "REV-SEP-00097",
           "source_row_index": 97,
-          "sentence_text": "Product might not be bad at all but it just didn’t work for me.",
+          "sentence_text": "Product might not be bad at all but it just didn\u2019t work for me.",
           "start": 0,
           "end": 63,
           "confidence": 0.5
@@ -212,8 +212,8 @@
         "clogged"
       ],
       "sentence_count": 280,
-      "severity": "CRITICAL",
-      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=280. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "severity": "HIGH",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=280. Thresholds: CRITICAL\u2265200, HIGH\u226580, MEDIUM\u226520, LOW<20. Not statistically validated for this domain.",
       "medoid_verbatim": "An employee recommended this product and I put it on my breakout areas ONLY (not whole face) and it dramatically reduced my acne over night..",
       "verbatims": [
         {
@@ -278,8 +278,8 @@
         "worst"
       ],
       "sentence_count": 214,
-      "severity": "CRITICAL",
-      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=214. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "severity": "MEDIUM",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=214. Thresholds: CRITICAL\u2265200, HIGH\u226580, MEDIUM\u226520, LOW<20. Not statistically validated for this domain.",
       "medoid_verbatim": "The worst thing about this product, however, is the smell!",
       "verbatims": [
         {
@@ -304,7 +304,7 @@
           "sentence_id": "REV-SEP-00200::S005",
           "review_id": "REV-SEP-00200",
           "source_row_index": 200,
-          "sentence_text": "I’m so disappointed.",
+          "sentence_text": "I\u2019m so disappointed.",
           "start": 480,
           "end": 500,
           "confidence": 1.0
@@ -344,8 +344,8 @@
         "helps"
       ],
       "sentence_count": 211,
-      "severity": "CRITICAL",
-      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=211. Thresholds: CRITICAL≥200, HIGH≥80, MEDIUM≥20, LOW<20. Not statistically validated for this domain.",
+      "severity": "MEDIUM",
+      "severity_note": "PROVISIONAL: severity=CRITICAL based on complaint sentence count=211. Thresholds: CRITICAL\u2265200, HIGH\u226580, MEDIUM\u226520, LOW<20. Not statistically validated for this domain.",
       "medoid_verbatim": "It has also made a considerable difference in the redness in my skin.",
       "verbatims": [
         {
@@ -361,7 +361,7 @@
           "sentence_id": "REV-SEP-00013::S002",
           "review_id": "REV-SEP-00013",
           "source_row_index": 13,
-          "sentence_text": "But EUK 134 works faster and more effectively than anything else I’ve tried in reducing redness and hyperpigmentation.",
+          "sentence_text": "But EUK 134 works faster and more effectively than anything else I\u2019ve tried in reducing redness and hyperpigmentation.",
           "start": 90,
           "end": 208,
           "confidence": 0.5

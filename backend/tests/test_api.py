@@ -154,3 +154,39 @@ def test_custom_csv_upload(client):
 
     # Restore d2c_cosmetics active domain
     client.post("/api/datasets/select", json={"domain": "d2c_cosmetics"})
+
+def test_overview_intent_breakdown(client):
+    response = client.get("/api/overview")
+    assert response.status_code == 200
+    data = response.json()
+    assert "intent_breakdown" in data
+    ib = data["intent_breakdown"]
+    assert "total_sentences" in ib
+    assert "complaints" in ib
+    assert "praise" in ib
+    assert "recommendations" in ib
+    assert "noise" in ib
+    assert "actionable_count" in ib
+    assert "actionable_rate_pct" in ib
+
+def test_complaint_and_praise_clusters_endpoints(client):
+    # Test complaint clusters
+    resp_cc = client.get("/api/complaint-clusters")
+    assert resp_cc.status_code == 200
+    cc_data = resp_cc.json()
+    assert "clusters" in cc_data
+    assert "total" in cc_data
+
+    # Test feature requests
+    resp_fr = client.get("/api/feature-requests")
+    assert resp_fr.status_code == 200
+    fr_data = resp_fr.json()
+    assert "feature_requests" in fr_data
+
+    # Test praise clusters
+    resp_pc = client.get("/api/praise-clusters")
+    assert resp_pc.status_code == 200
+    pc_data = resp_pc.json()
+    assert "clusters" in pc_data
+    assert "total" in pc_data
+

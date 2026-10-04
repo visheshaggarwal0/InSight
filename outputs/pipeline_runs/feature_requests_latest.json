@@ -116,7 +116,7 @@
         "saw improvement"
       ],
       "vote_count": 230,
-      "priority": "HIGH",
+      "priority": "MEDIUM",
       "medoid_quote": "I notice an immediate improvement with the way my skin looks after use.",
       "sample_quotes": [
         {
@@ -168,7 +168,7 @@
         "recommend"
       ],
       "vote_count": 102,
-      "priority": "HIGH",
+      "priority": "LOW",
       "medoid_quote": "I would recommend this product.",
       "sample_quotes": [
         {

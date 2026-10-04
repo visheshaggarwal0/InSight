@@ -27,12 +27,14 @@ import sys
 import time
 from pathlib import Path
 
-# Ensure project root is in sys.path
+# Ensure project root and backend are in sys.path
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
+_BACKEND = _PROJECT_ROOT / "backend"
+for _p in [str(_PROJECT_ROOT), str(_BACKEND)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-from InSight_ML.pipeline_config import (
+from app.ml.pipeline_config import (
     PROJECT_ROOT,
     ARTIFACTS,
     DATASETS,

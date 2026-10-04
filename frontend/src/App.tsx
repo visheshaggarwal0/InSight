@@ -18,6 +18,7 @@ import { DriftTimeline } from './components/DriftTimeline';
 import { ThemeCard } from './components/ThemeCard';
 import { AuthModal } from './components/AuthModal';
 import { ComplaintClusterDashboard } from './components/ComplaintClusterDashboard';
+import { ProductStrengthsView } from './components/ProductStrengthsView';
 import { FeatureRequestsView } from './components/FeatureRequestsView';
 import { Skeleton } from './components/EmptyState';
 import { validateStoredSession, apiFetch } from './lib/auth-client';
@@ -29,12 +30,13 @@ import type {
   ModelGovernanceData,
   GeneratedTicket,
   ComplaintClusterItem,
+  PraiseClusterItem,
   FeatureRequestItem
 } from './types/telemetry';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-type EndpointKey = 'datasets' | 'overview' | 'themes' | 'drift' | 'governance' | 'complaints' | 'features';
+type EndpointKey = 'datasets' | 'overview' | 'themes' | 'drift' | 'governance' | 'complaints' | 'features' | 'strengths';
 type EndpointErrors = Partial<Record<EndpointKey, string>>;
 
 const ENDPOINTS: Array<[EndpointKey, string]> = [
@@ -44,7 +46,8 @@ const ENDPOINTS: Array<[EndpointKey, string]> = [
   ['drift', '/drift'],
   ['governance', '/governance'],
   ['complaints', '/complaint-clusters'],
-  ['features', '/feature-requests']
+  ['features', '/feature-requests'],
+  ['strengths', '/praise-clusters']
 ];
 
 async function readErrorDetail(res: Response): Promise<string> {
@@ -66,6 +69,7 @@ export function App() {
   const [governanceData, setGovernanceData] = useState<ModelGovernanceData | null>(null);
   const [complaintClusters, setComplaintClusters] = useState<ComplaintClusterItem[]>([]);
   const [featureRequests, setFeatureRequests] = useState<FeatureRequestItem[]>([]);
+  const [praiseClusters, setPraiseClusters] = useState<PraiseClusterItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errors, setErrors] = useState<EndpointErrors>({});
   const [actionError, setActionError] = useState<string | null>(null);
@@ -80,6 +84,7 @@ export function App() {
   const [selectedClusterTitle, setSelectedClusterTitle] = useState<string | null>(null);
   const [isVerbatimDrawerOpen, setIsVerbatimDrawerOpen] = useState<boolean>(false);
   const [drawerIsComplaint, setDrawerIsComplaint] = useState<boolean>(false);
+  const [drawerIsPraise, setDrawerIsPraise] = useState<boolean>(false);
   const [drawerIsSilentDefects, setDrawerIsSilentDefects] = useState<boolean>(false);
   const [isGovernanceOpen, setIsGovernanceOpen] = useState<boolean>(false);
   const [activeTicket, setActiveTicket] = useState<GeneratedTicket | null>(null);
@@ -133,7 +138,7 @@ export function App() {
 
     if (generation !== generationRef.current) return;
 
-    const [ds, ov, th, dr, gov, comp, feat] = parsed;
+    const [ds, ov, th, dr, gov, comp, feat, praise] = parsed;
 
     // Never render a partially-updated mix of domains: clear what failed.
     if (nextErrors.datasets) {
@@ -148,16 +153,26 @@ export function App() {
     setThemes(nextErrors.themes || !Array.isArray(th?.themes) ? [] : (th.themes as ThemeCluster[]));
     setDriftData(nextErrors.drift ? null : ((dr as DriftData) ?? null));
     setGovernanceData(nextErrors.governance ? null : ((gov as ModelGovernanceData) ?? null));
-    setComplaintClusters(
-      nextErrors.complaints || !Array.isArray(comp?.complaint_clusters)
-        ? []
-        : (comp.complaint_clusters as ComplaintClusterItem[])
-    );
+
+    const rawComp = Array.isArray(comp?.clusters)
+      ? comp.clusters
+      : Array.isArray(comp?.complaint_clusters)
+      ? comp.complaint_clusters
+      : [];
+    setComplaintClusters(nextErrors.complaints ? [] : (rawComp as ComplaintClusterItem[]));
+
     setFeatureRequests(
       nextErrors.features || !Array.isArray(feat?.feature_requests)
         ? []
         : (feat.feature_requests as FeatureRequestItem[])
     );
+
+    const rawPraise = Array.isArray(praise?.clusters)
+      ? praise.clusters
+      : Array.isArray(praise?.praise_clusters)
+      ? praise.praise_clusters
+      : [];
+    setPraiseClusters(nextErrors.strengths ? [] : (rawPraise as PraiseClusterItem[]));
 
     setErrors(nextErrors);
     setIsLoading(false);
@@ -227,6 +242,7 @@ export function App() {
     setSelectedClusterTitle(title);
     setSearchQuery('');
     setDrawerIsComplaint(false);
+    setDrawerIsPraise(false);
     setDrawerIsSilentDefects(false);
     setIsVerbatimDrawerOpen(true);
   }, []);
@@ -236,6 +252,17 @@ export function App() {
     setSelectedClusterTitle(`Complaint Cluster #${clusterId}: ${title}`);
     setSearchQuery('');
     setDrawerIsComplaint(true);
+    setDrawerIsPraise(false);
+    setDrawerIsSilentDefects(false);
+    setIsVerbatimDrawerOpen(true);
+  }, []);
+
+  const handleInspectPraiseVerbatims = useCallback((clusterId: number, title: string) => {
+    setSelectedClusterId(clusterId);
+    setSelectedClusterTitle(`Product Strength #${clusterId}: ${title}`);
+    setSearchQuery('');
+    setDrawerIsComplaint(false);
+    setDrawerIsPraise(true);
     setDrawerIsSilentDefects(false);
     setIsVerbatimDrawerOpen(true);
   }, []);
@@ -245,6 +272,7 @@ export function App() {
     setSelectedClusterTitle('⚡ Silent Defects (Hidden Faults in 4★ & 5★ Reviews)');
     setSearchQuery('');
     setDrawerIsComplaint(false);
+    setDrawerIsPraise(false);
     setDrawerIsSilentDefects(true);
     setIsVerbatimDrawerOpen(true);
   }, []);
@@ -253,6 +281,7 @@ export function App() {
     setSelectedClusterId(null);
     setSearchQuery('');
     setDrawerIsComplaint(false);
+    setDrawerIsPraise(false);
     setDrawerIsSilentDefects(false);
     const total = overview?.total_reviews;
     setSelectedClusterTitle(
@@ -267,6 +296,7 @@ export function App() {
     setSearchQuery(word);
     setSelectedClusterId(null);
     setDrawerIsComplaint(false);
+    setDrawerIsPraise(false);
     setDrawerIsSilentDefects(false);
     setSelectedClusterTitle(`Quotes containing "${word}"`);
     setIsVerbatimDrawerOpen(true);
@@ -487,6 +517,186 @@ export function App() {
                 </section>
               )}
 
+              {/* Actionable Signal Funnel (4-Way Intent Partitioning) */}
+              {overview?.intent_breakdown && (
+                <div
+                  style={{
+                    marginBottom: '20px',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '16px',
+                    border: '1px solid #E5E7EB',
+                    padding: '16px 20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '12px',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          backgroundColor: '#F3F4F6',
+                          color: '#374151',
+                          padding: '2px 8px',
+                          borderRadius: '999px',
+                          border: '1px solid #E5E7EB',
+                        }}
+                      >
+                        ACTIONABLE SIGNAL FUNNEL
+                      </span>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#111827' }}>
+                        4-Way Sentence Intent Deconstruction
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>
+                      ⚡ {overview.intent_breakdown.actionable_rate_pct}% Actionable Customer Telemetry
+                    </div>
+                  </div>
+
+                  {/* Funnel Pools Bar */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                      gap: '12px',
+                    }}
+                  >
+                    {/* Complaints */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setCurrentTab('complaints')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') setCurrentTab('complaints');
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#FEF2F2',
+                        borderRadius: '10px',
+                        border: '1px solid #FECACA',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#991B1B', textTransform: 'uppercase' }}>
+                        🔴 Complaints
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
+                          color: '#B91C1C',
+                          fontFamily: "'JetBrains Mono', monospace",
+                        }}
+                      >
+                        {overview.intent_breakdown.complaints.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#7F1D1D' }}>Defects &amp; friction radar &rarr;</div>
+                    </div>
+
+                    {/* Praise / Product Strengths */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setCurrentTab('strengths')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') setCurrentTab('strengths');
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#ECFDF5',
+                        borderRadius: '10px',
+                        border: '1px solid #A7F3D0',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#065F46', textTransform: 'uppercase' }}>
+                        🟢 Product Strengths
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
+                          color: '#047857',
+                          fontFamily: "'JetBrains Mono', monospace",
+                        }}
+                      >
+                        {overview.intent_breakdown.praise.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#064E3B' }}>Sensory delight &amp; efficacy &rarr;</div>
+                    </div>
+
+                    {/* Recommendations / Feature Requests */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setCurrentTab('features')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') setCurrentTab('features');
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#EEF2FF',
+                        borderRadius: '10px',
+                        border: '1px solid #C7D2FE',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#3730A3', textTransform: 'uppercase' }}>
+                        🔵 Feature Requests
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
+                          color: '#4338CA',
+                          fontFamily: "'JetBrains Mono', monospace",
+                        }}
+                      >
+                        {overview.intent_breakdown.recommendations.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#312E81' }}>Customer wishlist &amp; backlog &rarr;</div>
+                    </div>
+
+                    {/* Noise / Quarantined */}
+                    <div
+                      style={{
+                        padding: '10px 14px',
+                        backgroundColor: '#F9FAFB',
+                        borderRadius: '10px',
+                        border: '1px solid #E5E7EB',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>
+                        ⚪ Neutral / Noise
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 700,
+                          color: '#6B7280',
+                          fontFamily: "'JetBrains Mono', monospace",
+                        }}
+                      >
+                        {overview.intent_breakdown.noise.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>Quarantined non-actionable</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 4 KPI Cards */}
               <OverviewCards metrics={overview} onOpenGovernance={handleOpenGovernance} />
 
@@ -563,6 +773,14 @@ export function App() {
               isLoading={isLoading}
               onInspectVerbatims={handleInspectComplaintVerbatims}
               onDispatchTicket={(id) => void handleDispatchIncidentTicket(id)}
+            />
+          )}
+
+          {currentTab === 'strengths' && (
+            <ProductStrengthsView
+              clusters={praiseClusters}
+              isLoading={isLoading}
+              onInspectVerbatims={handleInspectPraiseVerbatims}
             />
           )}
 
@@ -768,6 +986,7 @@ export function App() {
         clusterTitle={selectedClusterTitle}
         search={searchQuery}
         isComplaintCluster={drawerIsComplaint}
+        isPraiseCluster={drawerIsPraise}
         isSilentDefects={drawerIsSilentDefects}
       />
 

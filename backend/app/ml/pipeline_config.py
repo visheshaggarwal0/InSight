@@ -26,16 +26,16 @@ def _find_project_root() -> Path:
     """Locate the InSight project root directory."""
     here = Path(__file__).resolve().parent
     for candidate in [here, here.parent, here.parent.parent, here.parent.parent.parent]:
-        if (candidate / "backend").is_dir() and ((candidate / "data").is_dir() or (candidate / "InSight_ML").is_dir()):
+        if (candidate / "backend").is_dir() and (candidate / "data").is_dir():
             return candidate
     return here.parent.parent.parent
 
 
 PROJECT_ROOT: Path = Path(os.environ.get("INSIGHT_ROOT", str(_find_project_root())))
 
-# Configurable directory roots (prefers root outputs/ and data/, falls back to InSight_ML/)
-_default_artifacts = PROJECT_ROOT / "outputs" if (PROJECT_ROOT / "outputs").is_dir() else PROJECT_ROOT / "InSight_ML" / "outputs"
-_default_datasets = PROJECT_ROOT / "data" if (PROJECT_ROOT / "data" / "processed").is_dir() else PROJECT_ROOT / "InSight_ML" / "data"
+# Configurable directory roots
+_default_artifacts = PROJECT_ROOT / "outputs"
+_default_datasets = PROJECT_ROOT / "data"
 
 ARTIFACTS_ROOT: Path = Path(os.environ.get("INSIGHT_ARTIFACTS_DIR", str(_default_artifacts)))
 DATASETS_ROOT: Path = Path(os.environ.get("INSIGHT_DATASETS_DIR", str(_default_datasets)))
@@ -244,7 +244,7 @@ COMPLAINT_CLUSTERING = {
     },
 
     # Output path for the complaint cluster dashboard JSON
-    "output_path": PROJECT_ROOT / "InSight_ML" / "outputs" / "pipeline_runs" / "complaint_clusters_latest.json",
+    "output_path": ARTIFACTS_ROOT / "pipeline_runs" / "complaint_clusters_latest.json",
 }
 
 

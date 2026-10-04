@@ -40,7 +40,9 @@ logger = logging.getLogger(__name__)
 
 LABEL_COMPLAINT = "COMPLAINT"
 LABEL_RECOMMENDATION = "RECOMMENDATION"
-LABEL_PRAISE_NOISE = "PRAISE/NOISE"
+LABEL_PRAISE = "PRAISE"
+LABEL_NOISE = "NOISE"
+LABEL_PRAISE_NOISE = "PRAISE/NOISE"  # Backward-compatibility alias
 
 
 # ---------------------------------------------------------------------------
@@ -130,12 +132,15 @@ _RECOMMENDATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# PRAISE signals: prevent positive enthusiasm with contrastive words from being labeled as complaints
+# PRAISE signals: positive enthusiasm, efficacy, sensory delight, loyalty
 _PRAISE_PATTERN = re.compile(
     r"\b(?:"
-    r"love|favorite|holy grail|best product|amazing|amazed|incredibly hydrating|so smooth|"
-    r"glowing|cleared my skin|gentle|works wonders|fantastic|blazingly fast|super intuitive|"
-    r"10/10|five stars|outstanding|flawless|super soft|worth every penny|highly recommend"
+    r"love|favorite|favourite|holy grail|best (?:product|cream|serum|moisturizer|cleanser|purchase|ever|app|feature|\w+)|"
+    r"amazing|amazed|incredibly hydrating|so smooth|smooth|soft|glowing|glow|cleared my skin|"
+    r"gentle|works wonders|fantastic|blazingly fast|super intuitive|perfect|absorbs (?:instantly|quickly|well)|"
+    r"10/10|five stars|5 stars|outstanding|flawless|super soft|worth every penny|highly recommend|"
+    r"excellent|wonderful|superb|brilliant|awesome|obsessed|staple|so good|really good|game changer|"
+    r"hydrating|refreshing|soothing|leaves skin|feels great|smells amazing|smells great"
     r")\b",
     re.IGNORECASE,
 )
@@ -334,18 +339,38 @@ class RoutedPools:
     """Output of the router stage."""
     complaint: List[SentenceRecord] = field(default_factory=list)
     recommendation: List[SentenceRecord] = field(default_factory=list)
-    praise_noise: List[SentenceRecord] = field(default_factory=list)
+    praise: List[SentenceRecord] = field(default_factory=list)
+    noise: List[SentenceRecord] = field(default_factory=list)
+
+    @property
+    def praise_noise(self) -> List[SentenceRecord]:
+        """Backward-compatibility alias."""
+        return self.praise + self.noise
 
     @property
     def total(self) -> int:
-        return len(self.complaint) + len(self.recommendation) + len(self.praise_noise)
+        return len(self.complaint) + len(self.recommendation) + len(self.praise) + len(self.noise)
 
-    def summary(self) -> Dict[str, int]:
+    @property
+    def actionable_count(self) -> int:
+        """Count of complaints, praise, and recommendations (actionable feedback)."""
+        return len(self.complaint) + len(self.recommendation) + len(self.praise)
+
+    @property
+    def actionable_rate_pct(self) -> float:
+        """Percentage of ingested sentences carrying actionable product signal."""
+        return round(100.0 * self.actionable_count / max(self.total, 1), 1)
+
+    def summary(self) -> Dict[str, Any]:
         return {
             "complaint": len(self.complaint),
             "recommendation": len(self.recommendation),
+            "praise": len(self.praise),
+            "noise": len(self.noise),
             "praise_noise": len(self.praise_noise),
             "total": self.total,
+            "actionable_count": self.actionable_count,
+            "actionable_rate_pct": self.actionable_rate_pct,
         }
 
 
@@ -445,10 +470,8 @@ def _classify_sentence(sentence_text: str) -> Tuple[str, float]:
     """
     text = sentence_text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').strip()
     if not text:
-        # Blank input carries no evidence in either direction. It must not score
-        # BELOW the no-evidence catch-all, or blank rows sort as the weakest
-        # signal in the corpus.
-        return LABEL_PRAISE_NOISE, _NO_EVIDENCE_CONFIDENCE
+        # Blank input carries no evidence in either direction.
+        return LABEL_NOISE, _NO_EVIDENCE_CONFIDENCE
 
     # 1. Recommendation: suggestions, requests, wishes take precedence
     recommendation_matches = _RECOMMENDATION_PATTERN.findall(text)
@@ -497,15 +520,15 @@ def _classify_sentence(sentence_text: str) -> Tuple[str, float]:
 
     # 4. Praise guard: praise words and no defect evidence at all
     if praise_evidence:
-        return LABEL_PRAISE_NOISE, _PRAISE_CONFIDENCE
+        return LABEL_PRAISE, _PRAISE_CONFIDENCE
 
     # 5. Every complaint-bearing clause was negated ("no breakouts, no redness")
     if mitigated:
-        return LABEL_PRAISE_NOISE, _MITIGATED_CONFIDENCE
+        return LABEL_PRAISE, _MITIGATED_CONFIDENCE
 
     # 6. Catch-all: no defect, no praise, no negation. Pure discourse markers
-    #    (but/however) without defects are not complaints.
-    return LABEL_PRAISE_NOISE, _NO_EVIDENCE_CONFIDENCE
+    #    (but/however) without defects are not complaints; categorized as neutral noise.
+    return LABEL_NOISE, _NO_EVIDENCE_CONFIDENCE
 
 
 # ---------------------------------------------------------------------------
@@ -548,9 +571,6 @@ class DebertaSentenceClassifier:
             ARTIFACTS_ROOT / "deberta_extractor" / "deberta_int8",
             ARTIFACTS_ROOT / "deberta_extractor" / "deberta_fp32",
             ARTIFACTS_ROOT / "deberta_extractor",
-            PROJECT_ROOT / "InSight_ML" / "outputs" / "deberta_extractor" / "deberta_int8",
-            PROJECT_ROOT / "InSight_ML" / "outputs" / "deberta_extractor" / "deberta_fp32",
-            PROJECT_ROOT / "InSight_ML" / "outputs" / "deberta_extractor",
         ]
         chosen_dir = None
         for cand in candidates:
@@ -666,8 +686,10 @@ def classify_and_route_review(
             pools.complaint.append(rec)
         elif label == LABEL_RECOMMENDATION:
             pools.recommendation.append(rec)
+        elif label == LABEL_PRAISE:
+            pools.praise.append(rec)
         else:
-            pools.praise_noise.append(rec)
+            pools.noise.append(rec)
 
     return all_records, pools
 
@@ -719,24 +741,29 @@ def classify_and_route_corpus(
                     corpus_pools.complaint.append(rec)
                 elif label == LABEL_RECOMMENDATION:
                     corpus_pools.recommendation.append(rec)
+                elif label == LABEL_PRAISE:
+                    corpus_pools.praise.append(rec)
                 else:
-                    corpus_pools.praise_noise.append(rec)
+                    corpus_pools.noise.append(rec)
     else:
         for rev_id, src_idx, text in zip(review_ids, source_row_indices, redacted_texts):
             recs, pools = classify_and_route_review(rev_id, src_idx, text)
             all_sentences.extend(recs)
             corpus_pools.complaint.extend(pools.complaint)
             corpus_pools.recommendation.extend(pools.recommendation)
-            corpus_pools.praise_noise.extend(pools.praise_noise)
+            corpus_pools.praise.extend(pools.praise)
+            corpus_pools.noise.extend(pools.noise)
 
     logger.info(
         "Sentence pipeline: %d reviews → %d sentences | "
-        "COMPLAINT=%d, RECOMMENDATION=%d, PRAISE/NOISE=%d [%s]",
+        "COMPLAINT=%d, PRAISE=%d, RECOMMENDATION=%d, NOISE=%d (Actionable=%.1f%%) [%s]",
         len(review_ids),
         len(all_sentences),
         len(corpus_pools.complaint),
+        len(corpus_pools.praise),
         len(corpus_pools.recommendation),
-        len(corpus_pools.praise_noise),
+        len(corpus_pools.noise),
+        corpus_pools.actionable_rate_pct,
         "DeBERTa" if (classifier and classifier.is_available) else "PROVISIONAL rule-based",
     )
     return all_sentences, corpus_pools
@@ -745,6 +772,8 @@ def classify_and_route_corpus(
 __all__ = [
     "LABEL_COMPLAINT",
     "LABEL_RECOMMENDATION",
+    "LABEL_PRAISE",
+    "LABEL_NOISE",
     "LABEL_PRAISE_NOISE",
     "SentenceRecord",
     "RoutedPools",

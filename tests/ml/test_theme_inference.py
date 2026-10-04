@@ -6,14 +6,15 @@ import unittest
 import numpy as np
 import pandas as pd
 
-# Add project root and InSight_ML to sys.path
-ml_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-root_dir = os.path.abspath(os.path.join(ml_dir, ".."))
-for p in [ml_dir, root_dir]:
+# Add project root and backend to sys.path
+_TESTS = os.path.abspath(os.path.dirname(__file__))
+root_dir = os.path.abspath(os.path.join(_TESTS, "..", ".."))
+backend_dir = os.path.join(root_dir, "backend")
+for p in [root_dir, backend_dir]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from InSight_ML.theme_inference import ThemeInferenceEngine, get_theme_engine
+from app.ml.theme_inference import ThemeInferenceEngine, get_theme_engine
 
 class TestThemeInferenceEngine(unittest.TestCase):
 
@@ -26,21 +27,15 @@ class TestThemeInferenceEngine(unittest.TestCase):
 
         # Load 10k dataset (Known Embedding Set)
         data_path = os.path.join(root_dir, "data", "processed", "cosmetics", "cosmetics_10k.csv")
-        if not os.path.exists(data_path):
-            data_path = os.path.join(root_dir, "InSight_ML", "data", "processed", "cosmetics", "cosmetics_10k.csv")
         cls.df_10k = pd.read_csv(data_path)
 
         # Load offline cluster assignments for comparison
         assign_path = os.path.join(root_dir, "outputs", "theme_detection", "cluster_assignments.csv")
-        if not os.path.exists(assign_path):
-            assign_path = os.path.join(root_dir, "InSight_ML", "outputs", "theme_detection", "cluster_assignments.csv")
         cls.df_assign = pd.read_csv(assign_path) if os.path.exists(assign_path) else None
 
         # Extract 30 genuinely unseen reviews from archive.zip
         cls.unseen_reviews = []
         archive_path = os.path.join(root_dir, "data", "raw", "cosmetics", "archive.zip")
-        if not os.path.exists(archive_path):
-            archive_path = os.path.join(root_dir, "InSight_ML", "data", "raw", "cosmetics", "archive.zip")
         if os.path.exists(archive_path):
             known_texts = set(cls.df_10k["review_text"].dropna().astype(str).tolist())
             with zipfile.ZipFile(archive_path, "r") as z:

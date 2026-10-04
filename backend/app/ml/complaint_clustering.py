@@ -45,15 +45,8 @@ import importlib.util
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, CountVectorizer
 
-try:
-    from app.ml.sentence_pipeline import SentenceRecord
-except ImportError:
-    from InSight_ML.sentence_pipeline import SentenceRecord
-
-try:
-    from app.ml.pipeline_config import COMPLAINT_CLUSTERING, HDBSCAN_CONFIG, CLUSTERING_MODE, embedding_cache_key
-except ImportError:
-    from InSight_ML.pipeline_config import COMPLAINT_CLUSTERING, HDBSCAN_CONFIG, CLUSTERING_MODE, embedding_cache_key
+from app.ml.sentence_pipeline import SentenceRecord
+from app.ml.pipeline_config import COMPLAINT_CLUSTERING, HDBSCAN_CONFIG, CLUSTERING_MODE, embedding_cache_key
 
 HDBSCAN_AVAILABLE: bool = (
     importlib.util.find_spec("hdbscan") is not None
@@ -68,7 +61,16 @@ except ImportError:  # pragma: no cover - only if app.ml is not importable
     # it reads the SAME thresholds from pipeline_config.
     _SEV = COMPLAINT_CLUSTERING["severity_thresholds"]
 
-    def classify_complaint_severity(count: int) -> str:
+    def classify_complaint_severity(count: int, total_complaints: int = 0) -> str:
+        if total_complaints and total_complaints > 0:
+            share = count / total_complaints
+            if share >= 0.20 and count >= 3:
+                return "CRITICAL"
+            if share >= 0.14 and count >= 2:
+                return "HIGH"
+            if share >= 0.08:
+                return "MEDIUM"
+            return "LOW"
         if count >= _SEV["critical"]:
             return "CRITICAL"
         if count >= _SEV["high"]:
@@ -478,7 +480,8 @@ def cluster_complaint_sentences(
             title = "Zero-Day Outlier Radar"
             kws = ["unclassified", "novel-defect", "emerging"]
             label_provenance = "HDBSCAN density outlier pool: emerging or non-standard complaints"
-            severity = "HIGH" if count >= 10 else "MEDIUM"
+            outlier_share = count / max(n, 1)
+            severity = "HIGH" if (outlier_share >= 0.10 and count >= 3) else "MEDIUM"
         else:
             kws = keywords_map.get(cid, [])
             if len(kws) >= 2:
@@ -490,7 +493,7 @@ def cluster_complaint_sentences(
             else:
                 title = f"Defect Pattern #{cid + 1}"
                 label_provenance = "Fallback cluster designation"
-            severity = classify_complaint_severity(count)
+            severity = classify_complaint_severity(count, total_complaints=n)
 
         # Statistical Causal Attribution / Relative Risk
         attribution = _compute_relative_risk(sents, review_metadata)
@@ -500,6 +503,7 @@ def cluster_complaint_sentences(
             "title": title,
             "label_provenance": label_provenance,
             "keywords": kws,
+            "complaint_drivers": kws,
             "sentence_count": count,
             "severity": severity,
             "medoid_verbatim": medoid_sent.sentence_text,
@@ -580,12 +584,16 @@ def cluster_feature_requests(
         kws = keywords_map.get(cid, [])
         title = f"{kws[0].title()} & {kws[1].title()} Request" if len(kws) >= 2 else (kws[0].title() if kws else f"Feature Proposal #{cid + 1}")
 
+        share = count / max(n, 1)
+        priority = "HIGH" if (share >= 0.28 and count >= 2) else ("MEDIUM" if share >= 0.16 else "LOW")
+
         feature_requests.append({
             "request_id": cid,
             "title": title,
             "keywords": kws,
+            "feature_themes": kws,
             "vote_count": count,
-            "priority": "HIGH" if count >= 30 else ("MEDIUM" if count >= 10 else "LOW"),
+            "priority": priority,
             "medoid_quote": medoid_sent.sentence_text,
             "sample_quotes": [
                 {
@@ -607,10 +615,114 @@ def cluster_feature_requests(
     }
 
 
+def cluster_praise_sentences(
+    praise_sentences: List[SentenceRecord],
+    n_clusters: int = 5,
+    random_state: int = 42,
+) -> Dict[str, Any]:
+    """Cluster the PRAISE sentences pool into structured product strength themes.
+
+    Surfaces 'Product Strengths' / Delight drivers directly from customer verbatims.
+    Uses MiniLM sentence embeddings + MiniBatchKMeans + c-TF-IDF keyword extraction.
+    """
+    n = len(praise_sentences)
+    if n == 0:
+        return {
+            "clusters": [],
+            "praise_clusters": [],
+            "total_praise": 0,
+            "n_clusters_actual": 0,
+        }
+
+    k = max(1, min(n_clusters, max(1, n // 4), n))
+    texts = [s.sentence_text for s in praise_sentences]
+    embeddings = embed_sentences(texts, cache_key_suffix=f"_praise_k{k}")
+
+    kmeans = MiniBatchKMeans(
+        n_clusters=k,
+        random_state=random_state,
+        batch_size=min(64, n),
+        n_init=3,
+    )
+    labels = kmeans.fit_predict(embeddings)
+
+    cluster_sentence_map: Dict[int, List[SentenceRecord]] = {c: [] for c in range(k)}
+    for sent, cid in zip(praise_sentences, labels):
+        cluster_sentence_map[int(cid)].append(sent)
+
+    cluster_texts_map = {c: [s.sentence_text for s in sents] for c, sents in cluster_sentence_map.items()}
+    keywords_map = extract_ctfidf_keywords(cluster_texts_map, top_n=6)
+
+    praise_clusters = []
+    for cid in range(k):
+        sents = cluster_sentence_map[cid]
+        count = len(sents)
+        if count == 0:
+            continue
+
+        cluster_indices = [i for i, lbl in enumerate(labels) if lbl == cid]
+        c_embs = embeddings[cluster_indices]
+        centroid = kmeans.cluster_centers_[cid]
+        dists = np.linalg.norm(c_embs - centroid, axis=1)
+        medoid_sent = praise_sentences[cluster_indices[int(np.argmin(dists))]]
+
+        kws = keywords_map.get(cid, [])
+        if len(kws) >= 2:
+            title = f"{kws[0].title()} & {kws[1].title()}"
+        elif len(kws) == 1:
+            title = kws[0].title()
+        else:
+            title = f"Product Strength #{cid + 1}"
+
+        # Average confidence for delight metric
+        avg_confidence = float(np.mean([s.confidence for s in sents])) if sents else 0.85
+        delight_score = round(avg_confidence * 100, 1)
+        share = count / max(n, 1)
+        delight_tier = "EXCEPTIONAL" if (share >= 0.28 and count >= 3) else ("STRONG" if share >= 0.15 else "NOTABLE")
+
+        ordered_sents = [medoid_sent] + [s for s in sents if s.sentence_id != medoid_sent.sentence_id]
+        verbatims = [
+            {
+                "sentence_id": s.sentence_id,
+                "review_id": s.review_id,
+                "source_row_index": s.source_row_index,
+                "sentence_text": s.sentence_text,
+                "start": s.start,
+                "end": s.end,
+                "confidence": s.confidence,
+            }
+            for s in ordered_sents[:10]
+        ]
+
+        praise_clusters.append({
+            "cluster_id": cid,
+            "title": title,
+            "strength_drivers": kws,
+            "keywords": kws,
+            "sentence_count": count,
+            "praise_count": count,
+            "delight_score": delight_score,
+            "delight_tier": delight_tier,
+            "medoid_verbatim": medoid_sent.sentence_text,
+            "verbatims": verbatims,
+            "is_provisional": True,
+        })
+
+    praise_clusters.sort(key=lambda x: x["praise_count"], reverse=True)
+    return {
+        "clusters": praise_clusters,
+        "praise_clusters": praise_clusters,
+        "total_praise": n,
+        "n_clusters_actual": len(praise_clusters),
+    }
+
+
 __all__ = [
     "embed_sentences",
     "extract_ctfidf_keywords",
     "cluster_complaint_sentences",
     "cluster_feature_requests",
+    "cluster_praise_sentences",
 ]
+
 

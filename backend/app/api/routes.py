@@ -64,6 +64,7 @@ class AppState:
         self.sentiment_model: CalibratedSentimentClassifier = sentiment_model
         self.complaint_clusters: list = []
         self.feature_requests: list = []
+        self.praise_clusters: list = []
         self.is_initialized: bool = False
         self.data_provenance: dict = {}
 
@@ -179,6 +180,39 @@ def compute_domain_artifacts(domain: str) -> dict:
         reviews = cluster_res["reviews"]
         drift_results = drift_detector.analyze_drift(reviews)
 
+        # Sentence-level multi-aspect intent routing for synthetic domain
+        from app.ml.sentence_pipeline import classify_and_route_corpus
+        from app.ml.complaint_clustering import (
+            cluster_complaint_sentences,
+            cluster_feature_requests,
+            cluster_praise_sentences,
+        )
+        rev_ids = [r["id"] for r in reviews]
+        src_idxs = list(range(len(reviews)))
+        red_texts = [r["redacted_text"] for r in reviews]
+        all_sents, pools = classify_and_route_corpus(rev_ids, src_idxs, red_texts)
+        sents_by_id = {}
+        for s in all_sents:
+            sents_by_id.setdefault(s.review_id, []).append(s.to_dict())
+        for r in reviews:
+            r["sentences"] = sents_by_id.get(r["id"], [])
+
+        # Cluster synthetic sentence pools (sample up to 200 for sub-second initialization)
+        saas_complaint_clusters = []
+        if pools.complaint:
+            c_res = cluster_complaint_sentences(pools.complaint[:200], n_clusters=4)
+            saas_complaint_clusters = c_res.get("clusters", [])
+
+        saas_feature_requests = []
+        if pools.recommendation:
+            f_res = cluster_feature_requests(pools.recommendation[:200], n_clusters=3)
+            saas_feature_requests = f_res.get("feature_requests", [])
+
+        saas_praise_clusters = []
+        if pools.praise:
+            p_res = cluster_praise_sentences(pools.praise[:200], n_clusters=4)
+            saas_praise_clusters = p_res.get("praise_clusters", p_res.get("clusters", []))
+
     if use_real_pipeline:
         # Sentiment already came from the verified offline artifact.
         domain_model = sentiment_model
@@ -191,8 +225,9 @@ def compute_domain_artifacts(domain: str) -> dict:
         "eval_results": eval_results,
         "sentiment_model": domain_model,
         "data_provenance": provenance,
-        "complaint_clusters": real_res.get("complaint_clusters", []) if use_real_pipeline else [],
-        "feature_requests": real_res.get("feature_requests", []) if use_real_pipeline else [],
+        "complaint_clusters": real_res.get("complaint_clusters", []) if use_real_pipeline else saas_complaint_clusters,
+        "feature_requests": real_res.get("feature_requests", []) if use_real_pipeline else saas_feature_requests,
+        "praise_clusters": real_res.get("praise_clusters", []) if use_real_pipeline else saas_praise_clusters,
     }
 
 
@@ -208,6 +243,7 @@ def _swap_state(domain: str, cached: dict) -> None:
     state.sentiment_model = cached["sentiment_model"]
     state.complaint_clusters = cached.get("complaint_clusters", [])
     state.feature_requests = cached.get("feature_requests", [])
+    state.praise_clusters = cached.get("praise_clusters", [])
 
     # Keep legacy singleton sentiment_model synchronized with active domain pipeline
     sentiment_model.pipeline = cached["sentiment_model"].pipeline
@@ -596,6 +632,37 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
             "psiAlert": None,
         })
 
+    # 6. Sentence Intent Breakdown (4-Way Partitioning: Complaints, Praise, Recommendations, Noise)
+    comp_sents = 0
+    praise_sents = 0
+    rec_sents = 0
+    noise_sents = 0
+    for r in state.reviews:
+        for s in r.get("sentences", []):
+            lbl = s.get("label")
+            if lbl == "COMPLAINT":
+                comp_sents += 1
+            elif lbl == "RECOMMENDATION":
+                rec_sents += 1
+            elif lbl == "PRAISE":
+                praise_sents += 1
+            else:
+                noise_sents += 1
+
+    total_sents = comp_sents + praise_sents + rec_sents + noise_sents
+    actionable_sents = comp_sents + praise_sents + rec_sents
+    actionable_rate_pct = round(100.0 * actionable_sents / max(total_sents, 1), 1)
+
+    intent_breakdown = {
+        "total_sentences": total_sents,
+        "complaints": comp_sents,
+        "praise": praise_sents,
+        "recommendations": rec_sents,
+        "noise": noise_sents,
+        "actionable_count": actionable_sents,
+        "actionable_rate_pct": actionable_rate_pct,
+    }
+
     return {
         "domain": state.active_domain,
         "data_provenance": state.data_provenance,
@@ -616,6 +683,7 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
         "sentiment_trend": sentiment_trend,
         "keyword_cloud": cloud_keywords,
         "recent_insights": recent_insights,
+        "intent_breakdown": intent_breakdown,
     }
 
 
@@ -902,9 +970,18 @@ def search_semantic(req: SemanticSearchRequest, db=Depends(get_db),
 
 
 def _build_export_rows() -> list:
-    """Redacted-only telemetry export. raw_text is never included."""
-    return [
-        {
+    """Redacted-only telemetry export with 4-way sentence intent and actionability metrics."""
+    rows = []
+    for r in state.reviews:
+        sents = r.get("sentences", [])
+        c_count = sum(1 for s in sents if s.get("label") == "COMPLAINT")
+        p_count = sum(1 for s in sents if s.get("label") == "PRAISE")
+        r_count = sum(1 for s in sents if s.get("label") == "RECOMMENDATION")
+        rating = r.get("rating") or 0
+        has_silent_defect = bool(
+            rating >= 4 and ((r.get("highlight_span") or {}).get("detected") or c_count > 0)
+        )
+        rows.append({
             "Review_ID": r.get("id"),
             "Domain": r.get("domain"),
             "Product_Name": r.get("product_name"),
@@ -917,13 +994,18 @@ def _build_export_rows() -> list:
             "Sentiment_Confidence": r.get("sentiment_confidence"),
             "Theme_Title": r.get("theme_title", "General"),
             "Cluster_ID": r.get("cluster_id"),
+            "Sentence_Count": len(sents),
+            "Complaint_Clauses": c_count,
+            "Praise_Clauses": p_count,
+            "Recommendation_Clauses": r_count,
+            "Is_Actionable": (c_count + p_count + r_count) > 0,
+            "Has_Silent_Defect": has_silent_defect,
             "Is_PII_Scrubbed": bool(r.get("pii_detected")),
             "PII_Entities_Detected": ";".join(sorted(r.get("pii_detected") or [])),
             "Sanitized_Verbatim": r.get("redacted_text"),
             "Defect_Clause": (r.get("highlight_span") or {}).get("text", ""),
-        }
-        for r in state.reviews
-    ]
+        })
+    return rows
 
 
 @router.get("/export/powerbi")
@@ -1020,6 +1102,48 @@ def get_feature_requests(user: Optional[AuthenticatedUser] = _auth()):
     }
 
 
+@router.get("/praise-clusters")
+def get_praise_clusters(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Returns sentence-level product strength and delight clusters discovered
+    via MiniLM + c-TF-IDF over the PRAISE intent pool.
+    """
+    ensure_initialized()
+    clusters = state.praise_clusters or []
+    return {
+        "clusters": clusters,
+        "total": len(clusters),
+        "domain": state.active_domain,
+    }
+
+
+@router.get("/praise-clusters/{cluster_id}/verbatims")
+def get_praise_cluster_verbatims(
+    cluster_id: int,
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns representative sentence verbatims for a specific product strength cluster,
+    including character slice offsets [start, end] for verbatim span highlighting.
+    """
+    ensure_initialized()
+    matched = [c for c in (state.praise_clusters or []) if c.get("cluster_id") == cluster_id]
+    if not matched:
+        raise HTTPException(status_code=404, detail=f"Product strength cluster #{cluster_id} not found.")
+    cluster = matched[0]
+    return {
+        "cluster_id": cluster_id,
+        "title": cluster.get("title"),
+        "strength_drivers": cluster.get("strength_drivers", cluster.get("keywords", [])),
+        "keywords": cluster.get("keywords", []),
+        "praise_count": cluster.get("praise_count", cluster.get("sentence_count", 0)),
+        "delight_score": cluster.get("delight_score", 0.0),
+        "delight_tier": cluster.get("delight_tier", "STRONG"),
+        "medoid_verbatim": cluster.get("medoid_verbatim"),
+        "verbatims": cluster.get("verbatims", []),
+    }
+
+
 @router.get("/reviews/silent-defects")
 def get_silent_defects(
     min_rating: int = Query(4, ge=3, le=5, description="Filter for positive ratings containing hidden defects"),
@@ -1095,7 +1219,7 @@ def generate_incident_ticket(
 **Priority:** {severity}
 **Reported Incident Volume:** {volume} customer citations
 **Estimated Blast Radius:** {rr}x relative risk concentration on `{batch}`
-**Identified Root Cause Terms:** {keywords}
+**Identified Complaint Drivers (c-TF-IDF):** {keywords}
 
 ---
 
@@ -1103,7 +1227,7 @@ def generate_incident_ticket(
 Customer feedback analysis detected a statistically significant defect concentration regarding **{title}**. 
 Affected customers specifically report failures matching: `{medoid}`.
 
-### Causal Attribution
+### Cohort Attribution & Relative Risk
 - **Primary Over-Indexed Cohort:** `{batch}`
 - **Relative Risk (RR):** `{rr}x` baseline failure probability
 - **Statistical Significance:** {'Verified (p < 0.05)' if cluster.get('is_statistically_significant') else 'Observational Signal'}

@@ -48,7 +48,7 @@ for _p in (str(PROJECT_ROOT), str(PROJECT_ROOT / "backend")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from InSight_ML.sentence_pipeline import deconstruct_sentences
+from app.ml.sentence_pipeline import deconstruct_sentences
 
 OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "complaint_sentences_2k.json"
 

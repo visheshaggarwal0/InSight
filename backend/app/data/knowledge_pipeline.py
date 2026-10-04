@@ -31,6 +31,12 @@ from app.data.embedding_service import embedding_service, EmbeddingManifest
 from app.ml.sentiment import CalibratedSentimentClassifier
 from app.ml.evaluation import evaluation_harness
 from app.ml.clustering import clusterer
+from app.ml.sentence_pipeline import classify_and_route_corpus
+from app.ml.complaint_clustering import (
+    cluster_complaint_sentences,
+    cluster_feature_requests,
+    cluster_praise_sentences,
+)
 from app.ml.drift import drift_detector
 from app.core.database import SessionLocal
 from app.services.db_service import db_service
@@ -99,7 +105,10 @@ class KnowledgePipeline:
         for _, row in clean_df.iterrows():
             raw_text = str(row["raw_text"])
             rec_id = str(row["id"])
-            rating = int(row["rating"])
+            try:
+                rating = int(round(float(row["rating"])))
+            except (ValueError, TypeError):
+                rating = 3
             prod_name = str(row.get("product_name", "Custom Product"))
             sku = str(row.get("sku_or_module", "General"))
             version = str(row.get("batch_or_version", "Batch-Custom"))
@@ -142,6 +151,22 @@ class KnowledgePipeline:
             processed_records.append(record)
 
         logger.info(f"Stages 3 & 4 complete: PII redacted and defect clauses extracted for {len(processed_records)} records.")
+
+        # -------------------------------------------------------------------
+        # Stage 4b: Multi-Aspect Sentence Classification & Routing (Complaints, Praise, Recommendations, Noise)
+        # -------------------------------------------------------------------
+        rev_ids = [r["id"] for r in processed_records]
+        src_indices = list(range(len(processed_records)))
+        red_texts = [r["redacted_text"] for r in processed_records]
+
+        all_sentences, pools = classify_and_route_corpus(rev_ids, src_indices, red_texts)
+
+        sents_by_review: Dict[str, list] = {}
+        for s in all_sentences:
+            sents_by_review.setdefault(s.review_id, []).append(s.to_dict())
+
+        for r in processed_records:
+            r["sentences"] = sents_by_review.get(r["id"], [])
 
         # -------------------------------------------------------------------
         # Stage 5: Production Vector ETL & Dense Embeddings
@@ -211,6 +236,44 @@ class KnowledgePipeline:
         logger.info(f"Stage 7 complete: Extracted {len(themes)} thematic clusters via c-TF-IDF.")
 
         # -------------------------------------------------------------------
+        # Stage 7b: Multi-Aspect Thematic Clustering (Complaints, Backlog, Strengths)
+        # -------------------------------------------------------------------
+        review_metadata = {
+            r["id"]: {
+                "batch_or_version": r.get("batch_or_version", "General"),
+                "sku_or_module": r.get("sku_or_module", "General"),
+            }
+            for r in processed_records
+        }
+
+        complaint_clusters = []
+        if pools.complaint:
+            k_comp = min(6, max(1, len(pools.complaint) // 5))
+            c_res = cluster_complaint_sentences(
+                pools.complaint,
+                n_clusters=k_comp,
+                review_metadata=review_metadata,
+            )
+            complaint_clusters = c_res.get("clusters", [])
+
+        feature_requests = []
+        if pools.recommendation:
+            k_rec = min(4, max(1, len(pools.recommendation) // 5))
+            f_res = cluster_feature_requests(pools.recommendation, n_clusters=k_rec)
+            feature_requests = f_res.get("feature_requests", [])
+
+        praise_clusters = []
+        if pools.praise:
+            k_pra = min(5, max(1, len(pools.praise) // 5))
+            p_res = cluster_praise_sentences(pools.praise, n_clusters=k_pra)
+            praise_clusters = p_res.get("praise_clusters", p_res.get("clusters", []))
+
+        logger.info(
+            f"Stage 7b complete: Generated {len(complaint_clusters)} complaint clusters, "
+            f"{len(feature_requests)} feature requests, and {len(praise_clusters)} praise clusters."
+        )
+
+        # -------------------------------------------------------------------
         # Stage 8: Temporal & Batch Drift Analysis (PSI)
         # -------------------------------------------------------------------
         drift_results = drift_detector.analyze_drift(reviews)
@@ -252,6 +315,9 @@ class KnowledgePipeline:
             "themes": themes,
             "drift_results": drift_results,
             "eval_results": eval_results,
+            "complaint_clusters": complaint_clusters,
+            "feature_requests": feature_requests,
+            "praise_clusters": praise_clusters,
             "sentiment_model": custom_model,
             "schema_report": schema_report.to_dict(),
             "quality_manifest": quality_manifest.to_dict(),

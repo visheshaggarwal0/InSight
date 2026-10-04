@@ -12,15 +12,15 @@ import unittest
 
 # ── Path setup ───────────────────────────────────────────────────────────────
 _TESTS_DIR = os.path.abspath(os.path.dirname(__file__))
-_ML_DIR = os.path.abspath(os.path.join(_TESTS_DIR, ".."))
-_ROOT = os.path.abspath(os.path.join(_ML_DIR, ".."))
-for p in [_ROOT, _ML_DIR]:
+_ROOT = os.path.abspath(os.path.join(_TESTS_DIR, "..", ".."))
+_BACKEND = os.path.join(_ROOT, "backend")
+for p in [_ROOT, _BACKEND]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
 import pandas as pd
-from InSight_ML.complaint_extraction import extract_complaint_span
-from InSight_ML.pipeline_config import DATASETS
+from app.ml.complaint_extraction import extract_complaint_span
+from app.ml.pipeline_config import DATASETS
 
 
 class TestComplaintExtractionOnRealData(unittest.TestCase):

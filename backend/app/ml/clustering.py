@@ -25,14 +25,9 @@ import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-try:
-    from app.ml.pipeline_config import (
-        THEME, CLUSTERING_MODE, HDBSCAN_CONFIG, embedding_cache_key
-    )
-except ImportError:  # pragma: no cover - InSight_ML shim import path
-    from InSight_ML.pipeline_config import (
-        THEME, CLUSTERING_MODE, HDBSCAN_CONFIG, embedding_cache_key
-    )
+from app.ml.pipeline_config import (
+    THEME, CLUSTERING_MODE, HDBSCAN_CONFIG, embedding_cache_key
+)
 
 try:
     from app.ml.severity import classify_severity, corpus_negative_fraction

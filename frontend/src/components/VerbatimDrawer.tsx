@@ -14,6 +14,7 @@ interface Props {
   /** Externally-driven search term (e.g. a keyword-cloud click). */
   search?: string;
   isComplaintCluster?: boolean;
+  isPraiseCluster?: boolean;
   isSilentDefects?: boolean;
 }
 
@@ -24,6 +25,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
   clusterTitle,
   search: externalSearch,
   isComplaintCluster = false,
+  isPraiseCluster = false,
   isSilentDefects = false
 }) => {
   const [reviews, setReviews] = useState<VerbatimItem[]>([]);
@@ -44,7 +46,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
   // Done during render (React's derived-state pattern) so it does not cascade an extra
   // render pass, and the fetch effect below only sees the settled state.
   const scopeKey = isOpen
-    ? `${isSilentDefects ? 'silent' : isComplaintCluster ? 'complaint' : 'verbatim'}|${clusterId ?? 'all'}|${externalSearch ?? ''}`
+    ? `${isSilentDefects ? 'silent' : isComplaintCluster ? 'complaint' : isPraiseCluster ? 'praise' : 'verbatim'}|${clusterId ?? 'all'}|${externalSearch ?? ''}`
     : 'closed';
   const [lastScopeKey, setLastScopeKey] = useState<string>('closed');
   if (scopeKey !== lastScopeKey) {
@@ -138,10 +140,57 @@ export const VerbatimDrawer: React.FC<Props> = ({
               sentiment_pred: 'NEGATIVE' as const,
               sentiment_confidence: v.confidence ?? 0.95,
               cluster_id: clusterId ?? 0,
-              theme_title: (data.title as string) || 'Complaint Root Cause',
+              theme_title: (data.title as string) || 'Complaint Driver',
               channel: 'Sentence Deconstructor',
               batch_or_version: (data.affected_batch as string) || 'Extracted Sentence',
-              product_name: (data.title as string) || 'Complaint Root Cause',
+              product_name: (data.title as string) || 'Complaint Driver',
+              sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
+              highlight_span: {
+                text: txt,
+                start: 0,
+                end: txt.length
+              }
+            };
+          });
+          setReviews(items);
+          setTotal(items.length);
+          setTotalPages(1);
+          return;
+        }
+
+        if (isPraiseCluster && clusterId !== null && clusterId !== undefined) {
+          const res = await fetch(`${API_BASE}/praise-clusters/${clusterId}/verbatims`, {
+            signal: controller.signal
+          });
+          if (!res.ok) {
+            setError(`Product strength verbatims query failed (HTTP ${res.status}).`);
+            return;
+          }
+          const data = await res.json();
+          if (generation !== generationRef.current) return;
+          const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
+            sentence_id?: string;
+            review_id?: string;
+            sentence_text?: string;
+            start?: number;
+            end?: number;
+            confidence?: number;
+          }>).map((v) => {
+            const txt = v.sentence_text || '';
+            return {
+              id: v.sentence_id || v.review_id || 'SENT-PRAISE',
+              domain: 'd2c',
+              raw_text: txt,
+              redacted_text: txt,
+              display_text: txt,
+              rating: 5,
+              sentiment_pred: 'POSITIVE' as const,
+              sentiment_confidence: v.confidence ?? 0.95,
+              cluster_id: clusterId ?? 0,
+              theme_title: (data.title as string) || 'Product Strength',
+              channel: 'Praise Medoid',
+              batch_or_version: 'Extracted Sentence',
+              product_name: (data.title as string) || 'Product Strength',
               sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
               highlight_span: {
                 text: txt,
