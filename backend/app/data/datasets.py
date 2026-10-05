@@ -7,43 +7,24 @@ import re
 
 # Compiled ONCE at module scope. Previously this regex was recompiled inside
 # extract_complaint_span, i.e. once per review (21,000 times per corpus).
-_COMPLAINT_SPAN_PATTERN = re.compile(
-    r'\b(?:but|however|except\s+that|except|although|unfortunately|until|cracked|jammed|leaked|burning|stinging|rash|dermatitis|crash|crashes|freeze|freezes|failed|fails|limbo|terrible|horrible)\b.*',
-    re.IGNORECASE
-)
+from app.ml.sentence_pipeline import sentence_clause_extractor
 
 
 def extract_complaint_span(text: str) -> Dict[str, Any]:
     """
-    PROVISIONAL heuristic: extracts contrastive complaint clauses or defect phrases.
-    Matches discourse markers ('but', 'however', 'except that', 'although',
-    'unfortunately', 'until') or defect terms ('cracked', 'leaked', 'jammed',
-    'burning', 'crash', etc.).
-
-    Returns:
-        detected : bool – True if a complaint pattern was found
-        text     : str  – matched span text (empty string when not detected)
-        start    : int  – start character offset (None when not detected)
-        end      : int  – end character offset (None when not detected)
-
-    When detected is True: source_text[start:end] == text (guaranteed).
-    When detected is False: text is "" and offsets are None.
-
-    IMPORTANT: The previous implementation returned {text: full_text, start: 0,
-    end: len(text)} on no-match, which made it impossible to distinguish
-    "no complaint detected" from "complaint found at position 0". Fixed.
+    Extracts bounded contrastive complaint clauses or defect phrases with exact character offsets.
+    Guarantees: source_text[start:end] == text when detected is True.
     """
     if not isinstance(text, str) or not text.strip():
         return {"detected": False, "text": "", "start": None, "end": None}
 
-    pattern = _COMPLAINT_SPAN_PATTERN
-    match = pattern.search(text)
-    if match:
+    span = sentence_clause_extractor.extract_complaint_span(text)
+    if span.detected:
         return {
             "detected": True,
-            "text": match.group(0),
-            "start": match.start(),
-            "end": match.end(),
+            "text": span.text,
+            "start": span.start,
+            "end": span.end,
         }
     return {
         "detected": False,
@@ -209,9 +190,19 @@ class TelemetryDatasetManager:
                 else:
                     label = "NEGATIVE"
                     rating = random.choice([1, 2])
-                    raw_text = random.choice(negative_delivery_templates).format(
-                        channel=channel, order_id=order_id, address=address
-                    )
+                    neg_type = random.choice(["delivery", "leakage", "irritation"])
+                    if neg_type == "delivery":
+                        raw_text = random.choice(negative_delivery_templates).format(
+                            channel=channel, order_id=order_id, address=address
+                        )
+                    elif neg_type == "leakage":
+                        raw_text = random.choice(negative_leakage_templates).format(
+                            order_id=order_id, phone=phone
+                        )
+                    else:
+                        raw_text = random.choice(negative_irritation_templates).format(
+                            email=email, phone=phone, order_id=order_id
+                        )
 
             # Natural PII injection on 20% of reviews
             if random.random() < 0.2:

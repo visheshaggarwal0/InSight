@@ -28,14 +28,14 @@ from __future__ import annotations
 
 import re
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Sentence label constants
+# Sentence & Proposition label constants
 # ---------------------------------------------------------------------------
 
 LABEL_COMPLAINT = "COMPLAINT"
@@ -43,6 +43,17 @@ LABEL_RECOMMENDATION = "RECOMMENDATION"
 LABEL_PRAISE = "PRAISE"
 LABEL_NOISE = "NOISE"
 LABEL_PRAISE_NOISE = "PRAISE/NOISE"  # Backward-compatibility alias
+
+# Proposition Class Constants (guarantees backward compatibility with sentence_extractor)
+CLASS_COMPLAINT = "COMPLAINT"
+CLASS_RECOMMENDATION = "RECOMMENDATION"
+CLASS_PRAISE_NOISE = "PRAISE_NOISE"
+
+# Operational Severity Constants (P0 to P3)
+SEVERITY_P0 = "P0"  # Critical: Physical injury/harm, app crash, financial lockout
+SEVERITY_P1 = "P1"  # High: Functional blocker, broken pump/dispenser, module failure
+SEVERITY_P2 = "P2"  # Medium: Performance degradation, texture/scent dislike, friction
+SEVERITY_P3 = "P3"  # Low: Cosmetic nuance, suggestion, minor preference
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +188,7 @@ _MITIGATION_TOKENS = (
 _SYMPTOM_TERMS = (
     r"irritat\w*|burn\w*|breakout\w*|acne|rash\w*|peel\w*|sting\w*|pill\w*|"
     r"problem\w*|issue\w*|defect\w*|clog\w*|leak\w*|dry\w*|crash\w*|shrink\w*|"
-    r"strip\w*|redness|tightness|puffiness|wrinkle\w*"
+    r"strip\w*|redness|tightness|puffiness|wrinkle\w*|greas\w*|stick\w*|residue"
 )
 _NEGATION_FILTER = re.compile(
     # "<negation> ... <symptom>"  (≤2 tokens apart)
@@ -222,12 +233,95 @@ _CLAUSE_SPLITTER = re.compile(
     re.IGNORECASE,
 )
 
+# Contrastive discourse markers that pivot from praise to defect
+_CONTRASTIVE_MARKERS = re.compile(
+    r"\b(?P<marker>but|however|except\s+that|except|although|though|unfortunately|"
+    r"sadly|regrettably|despite|nevertheless|yet|until)\b",
+    re.IGNORECASE,
+)
+
+# P0 Signals: Severe reactions / App crashes / Financial failure
+_P0_SIGNALS = re.compile(
+    r"\b(?:"
+    r"burning|burns|burned|stinging|stings|stung|itching|itchy|rash|hives|"
+    r"dermatitis|allergic|allergy|blisters?|swollen|swelling|chemical\s+burn|"
+    r"crash|crashes|crashed|freeze|freezes|frozen|black\s+screen|login\s+loop|"
+    r"biometric\s+loop|money\s+stuck|double\s+charged|unauthorized\s+charge|fatal\s+error"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# P1 Signals: Functional blockers / Physical component breakages
+_P1_SIGNALS = re.compile(
+    r"\b(?:"
+    r"cracked|broken|shattered|leaked|leaking|spilled|exploded|jammed|stuck|"
+    r"clogged|blocked|stripped|peeled|pump\s+broke|dispenser\s+broke|dropper\s+cracked|"
+    r"spray\s+nozzle|seal\s+broken|half\s+empty|"
+    r"failed|fails|failure|error|bug|bugs|glitch|limbo|pending|timeout|not\s+loading|"
+    r"cannot\s+open|won't\s+open|white\s+screen|data\s+loss|sync\s+failed"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# P2 Signals: Degradation / Disappointment / Sensory friction
+_P2_SIGNALS = re.compile(
+    r"\b(?:"
+    r"terrible|horrible|awful|worst|useless|waste|disappointed|disappointing|"
+    r"doesn't\s+work|didn't\s+work|stopped\s+working|smells\s+off|changed\s+formula|"
+    r"greasy|sticky|chalky|dryness|drying|flaking|slow|laggy|sluggish|battery\s+drain|"
+    r"overheats|heating\s+up|poor\s+quality"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Recommendation signals: suggestions & requests
+_RECOMMENDATION_SIGNALS = re.compile(
+    r"\b(?:"
+    r"would\s+(?:love|like|want|prefer|suggest|recommend)|"
+    r"wish\s+(?:it|they|you)|"
+    r"hope\s+(?:they|you|it)|"
+    r"should\s+(?:add|include|have|make|create|offer|provide|fix)|"
+    r"please\s+(?:add|make|consider|include|fix|release|offer)|"
+    r"it\s+would\s+be\s+(?:great|nice|better|amazing|helpful|perfect)\s+if|"
+    r"feature\s+request|suggestion|could\s+(?:add|include|improve|offer)"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Sentence splitter — splits on '.', '!', '?' followed by whitespace or end-of-string,
-# but not on common abbreviations like 'vs.', 'etc.', 'Mr.', decimal numbers.
+# protecting abbreviations (Dr., Mr., Ms., v1.0, decimals)
 _SENT_SPLITTER = re.compile(
-    r"""(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|!)\s+""",
+    r"""(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<!\bv\d)(?<!\bDr)(?<!\bMr)(?<!\bMs)(?<!\bNo)(?<=\.|\?|!)\s+""",
     re.VERBOSE,
 )
+
+
+def evaluate_severity(text: str) -> str:
+    """Evaluates operational defect severity tier (P0 > P1 > P2 > P3) with negation guards."""
+    clauses = [c for c in _CLAUSE_SPLITTER.split(text) if c and c.strip()]
+    has_unmitigated_p0 = False
+    has_unmitigated_p1 = False
+    has_unmitigated_p2 = False
+
+    for cl in clauses:
+        is_mitigated = bool(_NEGATION_FILTER.search(cl) and not _FAILED_MITIGATION.search(cl))
+        if _P0_SIGNALS.search(cl):
+            if not is_mitigated:
+                has_unmitigated_p0 = True
+        if _P1_SIGNALS.search(cl):
+            if not is_mitigated:
+                has_unmitigated_p1 = True
+        if _P2_SIGNALS.search(cl):
+            if not is_mitigated:
+                has_unmitigated_p2 = True
+
+    if has_unmitigated_p0:
+        return SEVERITY_P0
+    if has_unmitigated_p1:
+        return SEVERITY_P1
+    if has_unmitigated_p2:
+        return SEVERITY_P2
+    return SEVERITY_P3
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +466,56 @@ class RoutedPools:
             "actionable_count": self.actionable_count,
             "actionable_rate_pct": self.actionable_rate_pct,
         }
+
+
+@dataclass
+class SentenceProposition:
+    """An individual atomic sentence proposition extracted from a review."""
+    sentence_idx: int
+    text: str
+    char_start: int
+    char_end: int
+    classification: str  # COMPLAINT | RECOMMENDATION | PRAISE_NOISE
+    severity_hint: str   # P0 | P1 | P2 | P3
+    detected_marker: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class HighlightSpan:
+    """Exact character span of the primary defect clause for UI rendering and Jira tickets."""
+    detected: bool
+    text: str
+    start: Optional[int]
+    end: Optional[int]
+    trigger: Optional[str]
+    severity_hint: str = SEVERITY_P3
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class ExtractedReviewTelemetry:
+    """Complete clause-level extraction payload for a single review."""
+    review_id: str
+    sanitized_text: str
+    propositions: List[SentenceProposition]
+    complaint_propositions: List[SentenceProposition]
+    recommendation_propositions: List[SentenceProposition]
+    primary_complaint_text: str
+    highlight_span: HighlightSpan
+    overall_severity: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["highlight_span"] = self.highlight_span.to_dict()
+        d["propositions"] = [p.to_dict() for p in self.propositions]
+        d["complaint_propositions"] = [p.to_dict() for p in self.complaint_propositions]
+        d["recommendation_propositions"] = [p.to_dict() for p in self.recommendation_propositions]
+        return d
 
 
 # ---------------------------------------------------------------------------
@@ -769,16 +913,228 @@ def classify_and_route_corpus(
     return all_sentences, corpus_pools
 
 
+class SentenceClauseExtractor:
+    """
+    Unified surgical sentence and clause deconstructor.
+    Parses reviews, isolates defect spans, classifies propositions, and prepares
+    isolated text spans for dense vector embeddings.
+    """
+
+    @staticmethod
+    def _split_into_sentences(text: str) -> List[Tuple[str, int, int]]:
+        """
+        Splits text into sentences while calculating exact start and end offsets.
+        Guarantees: text[start:end] == sent_text.
+        """
+        if not text:
+            return []
+
+        spans: List[Tuple[str, int, int]] = []
+        last_end = 0
+
+        for match in _SENT_SPLITTER.finditer(text):
+            sent_end = match.start()
+            sent_text = text[last_end:sent_end].strip()
+            if sent_text:
+                actual_start = text.find(sent_text, last_end)
+                actual_end = actual_start + len(sent_text)
+                spans.append((sent_text, actual_start, actual_end))
+            last_end = match.end()
+
+        if last_end < len(text):
+            sent_text = text[last_end:].strip()
+            if sent_text:
+                actual_start = text.find(sent_text, last_end)
+                actual_end = actual_start + len(sent_text)
+                spans.append((sent_text, actual_start, actual_end))
+
+        if not spans and text.strip():
+            stripped = text.strip()
+            s_idx = text.find(stripped)
+            spans.append((stripped, s_idx, s_idx + len(stripped)))
+
+        return spans
+
+    @staticmethod
+    def _evaluate_severity(text: str) -> str:
+        return evaluate_severity(text)
+
+    def _classify_sentence(self, sentence_text: str) -> Tuple[str, str, Optional[str]]:
+        severity = evaluate_severity(sentence_text)
+        contrast_match = _CONTRASTIVE_MARKERS.search(sentence_text)
+        detected_marker = contrast_match.group("marker") if contrast_match else None
+
+        if _RECOMMENDATION_SIGNALS.search(sentence_text) or _RECOMMENDATION_PATTERN.search(sentence_text):
+            return CLASS_RECOMMENDATION, severity, detected_marker
+
+        is_mitigated = bool(_NEGATION_FILTER.search(sentence_text) and not _FAILED_MITIGATION.search(sentence_text))
+        if (severity in {SEVERITY_P0, SEVERITY_P1, SEVERITY_P2} or contrast_match or _COMPLAINT_PATTERN.search(sentence_text)) and not is_mitigated:
+            return CLASS_COMPLAINT, severity, detected_marker
+
+        return CLASS_PRAISE_NOISE, SEVERITY_P3, None
+
+    def extract_complaint_span(self, text: str) -> HighlightSpan:
+        """Extracts the bounded defect clause span for UI highlighting.
+        Guarantees: text[start:end] == span.text (exact character slice match).
+        """
+        if not text or not isinstance(text, str) or not text.strip():
+            return HighlightSpan(detected=False, text="", start=None, end=None, trigger=None, severity_hint=SEVERITY_P3)
+
+        def _find_bounded_end(start_pos: int) -> Tuple[int, str]:
+            sub = text[start_pos:]
+            bound_m = re.search(
+                r"""(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<!\bv\d)(?<!\bDr)(?<!\bMr)(?<=\.|\?|!)(?:\s+|$)|[\r\n]+""",
+                sub,
+            )
+            if bound_m:
+                raw_slice = sub[:bound_m.start()]
+            else:
+                raw_slice = sub
+            trimmed = raw_slice.rstrip()
+            end_pos = start_pos + len(trimmed)
+            return end_pos, text[start_pos:end_pos]
+
+        # 1. Search for contrastive marker (e.g. "..., but the glass dropper cracked...")
+        c_match = _CONTRASTIVE_MARKERS.search(text)
+        if c_match:
+            start_idx = c_match.start()
+            end_idx, span_text = _find_bounded_end(start_idx)
+            is_mitigated = bool(_NEGATION_FILTER.search(span_text) and not _FAILED_MITIGATION.search(span_text))
+            sev = evaluate_severity(span_text)
+            if not is_mitigated or sev in {SEVERITY_P0, SEVERITY_P1}:
+                return HighlightSpan(
+                    detected=True,
+                    text=span_text,
+                    start=start_idx,
+                    end=end_idx,
+                    trigger=f"contrastive:{c_match.group('marker').lower()}",
+                    severity_hint=sev,
+                )
+
+        # 2. Check direct defect signals (P0, P1, P2)
+        for pattern, tier, trigger_name in [
+            (_P0_SIGNALS, SEVERITY_P0, "direct_defect:P0"),
+            (_P1_SIGNALS, SEVERITY_P1, "direct_defect:P1"),
+            (_P2_SIGNALS, SEVERITY_P2, "direct_defect:P2"),
+        ]:
+            match = pattern.search(text)
+            if match:
+                start_idx = match.start()
+                end_idx, span_text = _find_bounded_end(start_idx)
+                clause_start = max(
+                    0,
+                    text.rfind(".", 0, start_idx),
+                    text.rfind("!", 0, start_idx),
+                    text.rfind("?", 0, start_idx),
+                    text.rfind(",", 0, start_idx),
+                    text.rfind(";", 0, start_idx),
+                )
+                if clause_start > 0:
+                    clause_start += 1
+                clause_context = text[clause_start:end_idx]
+                is_mitigated = bool(
+                    (_NEGATION_FILTER.search(clause_context) or _NEGATION_FILTER.search(span_text))
+                    and not _FAILED_MITIGATION.search(clause_context)
+                )
+                if not is_mitigated:
+                    return HighlightSpan(
+                        detected=True,
+                        text=span_text,
+                        start=start_idx,
+                        end=end_idx,
+                        trigger=trigger_name,
+                        severity_hint=tier,
+                    )
+
+        return HighlightSpan(
+            detected=False,
+            text="",
+            start=None,
+            end=None,
+            trigger=None,
+            severity_hint=SEVERITY_P3,
+        )
+
+    def extract_telemetry(self, review_id: str, sanitized_text: str) -> ExtractedReviewTelemetry:
+        raw_sentences = self._split_into_sentences(sanitized_text)
+        propositions: List[SentenceProposition] = []
+        complaints: List[SentenceProposition] = []
+        recommendations: List[SentenceProposition] = []
+
+        highest_severity = SEVERITY_P3
+        severity_rank = {SEVERITY_P0: 4, SEVERITY_P1: 3, SEVERITY_P2: 2, SEVERITY_P3: 1}
+
+        for idx, (sent_text, s_start, s_end) in enumerate(raw_sentences):
+            classification, severity, marker = self._classify_sentence(sent_text)
+            prop = SentenceProposition(
+                sentence_idx=idx,
+                text=sent_text,
+                char_start=s_start,
+                char_end=s_end,
+                classification=classification,
+                severity_hint=severity,
+                detected_marker=marker,
+            )
+            propositions.append(prop)
+
+            if classification == CLASS_COMPLAINT:
+                complaints.append(prop)
+                if severity_rank.get(severity, 1) > severity_rank.get(highest_severity, 1):
+                    highest_severity = severity
+            elif classification == CLASS_RECOMMENDATION:
+                recommendations.append(prop)
+
+        highlight_span = self.extract_complaint_span(sanitized_text)
+        if highlight_span.detected:
+            hl_sev = highlight_span.severity_hint
+            if severity_rank.get(hl_sev, 1) > severity_rank.get(highest_severity, 1):
+                highest_severity = hl_sev
+
+        if complaints:
+            primary_complaint = " ".join([c.text for c in complaints])
+        elif highlight_span.detected:
+            primary_complaint = highlight_span.text
+        else:
+            primary_complaint = sanitized_text
+
+        return ExtractedReviewTelemetry(
+            review_id=review_id,
+            sanitized_text=sanitized_text,
+            propositions=propositions,
+            complaint_propositions=complaints,
+            recommendation_propositions=recommendations,
+            primary_complaint_text=primary_complaint,
+            highlight_span=highlight_span,
+            overall_severity=highest_severity,
+        )
+
+
+sentence_clause_extractor = SentenceClauseExtractor()
+
+
 __all__ = [
     "LABEL_COMPLAINT",
     "LABEL_RECOMMENDATION",
     "LABEL_PRAISE",
     "LABEL_NOISE",
     "LABEL_PRAISE_NOISE",
+    "CLASS_COMPLAINT",
+    "CLASS_RECOMMENDATION",
+    "CLASS_PRAISE_NOISE",
+    "SEVERITY_P0",
+    "SEVERITY_P1",
+    "SEVERITY_P2",
+    "SEVERITY_P3",
     "SentenceRecord",
     "RoutedPools",
+    "SentenceProposition",
+    "HighlightSpan",
+    "ExtractedReviewTelemetry",
     "DebertaSentenceClassifier",
+    "SentenceClauseExtractor",
+    "sentence_clause_extractor",
     "deconstruct_sentences",
     "classify_and_route_review",
     "classify_and_route_corpus",
+    "evaluate_severity",
 ]

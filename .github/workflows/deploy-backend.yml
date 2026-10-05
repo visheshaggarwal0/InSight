@@ -6,6 +6,8 @@ on:
       - master
     paths:
       - 'backend/**'
+      - 'data/**'
+      - 'outputs/**'
       - 'Dockerfile'
       - '.dockerignore'
       - '.github/workflows/deploy-backend.yml'

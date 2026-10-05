@@ -13,8 +13,10 @@ COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy backend application source code
+# Copy backend application source code, datasets, and precomputed ML artifacts
 COPY backend/app ./app
+COPY data ./data
+COPY outputs ./outputs
 
 # Expose FastAPI port
 EXPOSE 8000

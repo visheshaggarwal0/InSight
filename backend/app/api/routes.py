@@ -197,20 +197,24 @@ def compute_domain_artifacts(domain: str) -> dict:
         for r in reviews:
             r["sentences"] = sents_by_id.get(r["id"], [])
 
-        # Cluster synthetic sentence pools (sample up to 200 for sub-second initialization)
+        # Cluster synthetic sentence pools (sample up to 200 across the corpus for fast, diverse clustering)
+        rng = random.Random(42)
         saas_complaint_clusters = []
         if pools.complaint:
-            c_res = cluster_complaint_sentences(pools.complaint[:200], n_clusters=4)
+            sampled_complaints = rng.sample(pools.complaint, min(200, len(pools.complaint)))
+            c_res = cluster_complaint_sentences(sampled_complaints, n_clusters=4)
             saas_complaint_clusters = c_res.get("clusters", [])
 
         saas_feature_requests = []
         if pools.recommendation:
-            f_res = cluster_feature_requests(pools.recommendation[:200], n_clusters=3)
+            sampled_recs = rng.sample(pools.recommendation, min(200, len(pools.recommendation)))
+            f_res = cluster_feature_requests(sampled_recs, n_clusters=3)
             saas_feature_requests = f_res.get("feature_requests", [])
 
         saas_praise_clusters = []
         if pools.praise:
-            p_res = cluster_praise_sentences(pools.praise[:200], n_clusters=4)
+            sampled_praise = rng.sample(pools.praise, min(200, len(pools.praise)))
+            p_res = cluster_praise_sentences(sampled_praise, n_clusters=4)
             saas_praise_clusters = p_res.get("praise_clusters", p_res.get("clusters", []))
 
     if use_real_pipeline:
