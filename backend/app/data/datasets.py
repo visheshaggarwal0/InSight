@@ -25,12 +25,14 @@ def extract_complaint_span(text: str) -> Dict[str, Any]:
             "text": span.text,
             "start": span.start,
             "end": span.end,
+            "severity": span.severity_hint,
         }
     return {
         "detected": False,
         "text": "",
         "start": None,
         "end": None,
+        "severity": None,
     }
 
 def _holdout_templates(templates: List[str], name: str) -> List[str]:

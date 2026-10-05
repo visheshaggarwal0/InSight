@@ -88,6 +88,79 @@ class TemporalDriftDetector:
             dist[t] = dist.get(t, 0) + 1
         return dist
 
+    @staticmethod
+    def compute_causal_attribution(
+        baseline_dist: Dict[str, int],
+        target_dist: Dict[str, int],
+        baseline_total: int,
+        target_total: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        Computes empirical Relative Risk (RR) and Fisher's exact test for each category/theme
+        across baseline and target cohorts.
+
+        Returns:
+            List of causal attribution objects sorted by percentage point increase.
+        """
+        from scipy.stats import fisher_exact
+
+        all_keys = list(set(baseline_dist.keys()).union(set(target_dist.keys())))
+        b_total = max(int(baseline_total), 1)
+        t_total = max(int(target_total), 1)
+        drivers: List[Dict[str, Any]] = []
+
+        for key in all_keys:
+            k_base = int(baseline_dist.get(key, 0))
+            k_target = int(target_dist.get(key, 0))
+
+            p_base = k_base / b_total
+            p_target = k_target / t_total
+            delta_pp = (p_target - p_base) * 100.0
+
+            # Haldane-Anscombe corrected Relative Risk (+0.5) to avoid division by 0
+            rr = ((k_target + 0.5) / (t_total + 0.5)) / ((k_base + 0.5) / (b_total + 0.5))
+
+            # 2x2 contingency table for Fisher's Exact Test:
+            # [[Target_Key, Target_Other], [Baseline_Key, Baseline_Other]]
+            contingency_table = [
+                [k_target, max(0, t_total - k_target)],
+                [k_base, max(0, b_total - k_base)],
+            ]
+
+            try:
+                _, p_greater = fisher_exact(contingency_table, alternative="greater")
+                _, p_two_sided = fisher_exact(contingency_table, alternative="two-sided")
+                if np.isnan(p_greater):
+                    p_greater = 1.0
+                if np.isnan(p_two_sided):
+                    p_two_sided = 1.0
+            except Exception:
+                p_greater = 1.0
+                p_two_sided = 1.0
+
+            is_sig = bool(p_greater < 0.05 and k_target >= 3 and delta_pp > 0)
+
+            drivers.append({
+                "theme": key,
+                "target_count": k_target,
+                "baseline_count": k_base,
+                "target_rate_pct": round(p_target * 100.0, 2),
+                "baseline_rate_pct": round(p_base * 100.0, 2),
+                "rate_delta_pp": round(delta_pp, 2),
+                "relative_risk": round(float(rr), 2),
+                "p_value": round(float(p_greater), 5),
+                "p_value_two_sided": round(float(p_two_sided), 5),
+                "is_statistically_significant": is_sig,
+                "significance_tier": (
+                    "p < 0.001" if p_greater < 0.001
+                    else ("p < 0.05" if p_greater < 0.05 else "n.s.")
+                ),
+            })
+
+        # Sort primarily by rate_delta_pp descending, then by smallest p_value
+        drivers.sort(key=lambda d: (d["rate_delta_pp"], -d["p_value"]), reverse=True)
+        return drivers
+
     def _build_timeline(
         self,
         batch_order: List[str],
@@ -99,6 +172,7 @@ class TemporalDriftDetector:
         timeline = []
         alerts = []
         prev_theme_dist: Dict[str, int] = {}
+        prev_total = 0
 
         for i, b in enumerate(batch_order):
             items = batch_groups[b]
@@ -113,6 +187,8 @@ class TemporalDriftDetector:
             psi: float | None = None
             drift_status = "BASELINE"
             surging_theme = None
+            surging_delta = 0.0
+            drivers: List[Dict[str, Any]] = []
 
             if i == 0:
                 # First cohort is the reference period / baseline.
@@ -127,14 +203,22 @@ class TemporalDriftDetector:
             else:
                 psi = self.calculate_psi(prev_theme_dist, theme_dist)
 
-                # A "surge" is the largest INCREASE in share, not the largest
-                # cluster. Picking max(count) named the dominant theme for every
-                # alert in the timeline.
-                surging_theme = max(
-                    set(theme_dist) | set(prev_theme_dist),
-                    key=lambda t: theme_dist.get(t, 0) - prev_theme_dist.get(t, 0),
+                drivers = self.compute_causal_attribution(
+                    prev_theme_dist, theme_dist, prev_total, total
                 )
-                surging_delta = (theme_dist.get(surging_theme, 0) - prev_theme_dist.get(surging_theme, 0)) / total
+                if drivers:
+                    top_driver = drivers[0]
+                    surging_theme = top_driver["theme"]
+                    surging_delta = top_driver["rate_delta_pp"] / 100.0
+                    relative_risk = top_driver["relative_risk"]
+                    p_val = top_driver["p_value"]
+                    is_sig = top_driver["is_statistically_significant"]
+                else:
+                    surging_theme = "Unknown"
+                    surging_delta = 0.0
+                    relative_risk = 1.0
+                    p_val = 1.0
+                    is_sig = False
 
                 if psi >= critical:
                     drift_status = "CRITICAL_DRIFT"
@@ -144,10 +228,14 @@ class TemporalDriftDetector:
                         "psi_score": round(psi, 3),
                         "surging_theme": surging_theme,
                         "surging_theme_delta": round(surging_delta, 4),
+                        "relative_risk": relative_risk,
+                        "p_value": p_val,
+                        "is_statistically_significant": is_sig,
+                        "causal_drivers": drivers[:3],
                         "review_count": total,
                         "message": (
                             f"Critical distribution drift detected in {b} (PSI: {round(psi, 2)}). "
-                            f"Largest increase: '{surging_theme}' (+{surging_delta * 100:.1f} pp)."
+                            f"Largest increase: '{surging_theme}' (+{surging_delta * 100:.1f} pp, RR: {relative_risk}x, p={p_val:.4f})."
                         ),
                     })
                 elif psi >= moderate:
@@ -158,10 +246,14 @@ class TemporalDriftDetector:
                         "psi_score": round(psi, 3),
                         "surging_theme": surging_theme,
                         "surging_theme_delta": round(surging_delta, 4),
+                        "relative_risk": relative_risk,
+                        "p_value": p_val,
+                        "is_statistically_significant": is_sig,
+                        "causal_drivers": drivers[:3],
                         "review_count": total,
                         "message": (
                             f"Moderate topic drift detected in {b} (PSI: {round(psi, 2)}). "
-                            f"Largest increase: '{surging_theme}' (+{surging_delta * 100:.1f} pp)."
+                            f"Largest increase: '{surging_theme}' (+{surging_delta * 100:.1f} pp, RR: {relative_risk}x, p={p_val:.4f})."
                         ),
                     })
                 else:
@@ -178,9 +270,11 @@ class TemporalDriftDetector:
                 "status": drift_status,
                 "sufficient_data": total >= MIN_COHORT_SIZE,
                 "themes": theme_dist,
+                "causal_attribution": drivers[:5] if (i > 0 and drivers) else None,
             })
 
             prev_theme_dist = theme_dist
+            prev_total = total
 
         return {
             "timeline": timeline,

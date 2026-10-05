@@ -416,19 +416,42 @@ class SemanticThematicClusterer:
             total = len(c_reviews)
             neg_ratio = (neg_count / total) if total > 0 else 0
 
+            # Proposition-conditioned severity: account for P0/P1 defect clauses
+            p0_count = sum(
+                1 for r in c_reviews
+                if (r.get("highlight_span") or {}).get("detected") and (r.get("highlight_span") or {}).get("severity") == "P0"
+            )
+            p1_count = sum(
+                1 for r in c_reviews
+                if (r.get("highlight_span") or {}).get("detected") and (r.get("highlight_span") or {}).get("severity") == "P1"
+            )
+            max_prop_sev = "P0" if p0_count > 0 else ("P1" if p1_count > 0 else "P2")
+
             # Severity: single shared implementation in app.ml.severity, using
-            # pipeline_config.SEVERITY plus the corpus baseline.
+            # pipeline_config.SEVERITY plus the corpus baseline and proposition signals.
             if classify_severity is not None:
                 severity = classify_severity(
-                    neg_ratio, total, baseline_negative_fraction=baseline_neg
+                    neg_ratio,
+                    total,
+                    baseline_negative_fraction=baseline_neg,
+                    max_proposition_severity=max_prop_sev,
+                    p0_count=p0_count,
+                    p1_count=p1_count,
                 )
             else:  # pragma: no cover - only if app.ml.severity is unimportable
                 severity = "CRITICAL" if neg_ratio > 0.6 and total > 200 else (
                     "HIGH" if neg_ratio > 0.6 else ("MEDIUM" if neg_ratio > 0.3 else "LOW")
                 )
 
-            # Auto-title generated from top keywords
-            theme_title = " & ".join(top_keywords[:2]).title() if top_keywords else f"Cluster {c_id}"
+            # Auto-title generated from top keywords (deduplicated distinct terms)
+            clean_terms = []
+            for kw in top_keywords:
+                kw_words = set(kw.strip().lower().split())
+                if not any(kw_words.intersection(set(e.split())) for e in clean_terms):
+                    clean_terms.append(kw.strip().lower())
+                if len(clean_terms) == 2:
+                    break
+            theme_title = " & ".join([t.title() for t in clean_terms]) if clean_terms else f"Cluster {c_id}"
 
             # Assign title to individual reviews
             for r in c_reviews:

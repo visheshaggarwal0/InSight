@@ -33,7 +33,8 @@ def extract_complaint_span(text: str) -> Dict[str, Any]:
             "text": span.text,
             "start": span.start,
             "end": span.end,
-            "trigger": "pattern",
+            "trigger": span.trigger or "pattern",
+            "severity": span.severity_hint,
         }
     return {
         "detected": False,
@@ -41,6 +42,7 @@ def extract_complaint_span(text: str) -> Dict[str, Any]:
         "start": None,
         "end": None,
         "trigger": None,
+        "severity": None,
     }
 
 

@@ -219,8 +219,11 @@ SENTENCE_PIPELINE = {
 # full reviews). These are two separate, complementary cluster dimensions.
 
 COMPLAINT_CLUSTERING = {
-    # Target cluster count (auto-scales down for small corpora)
-    "n_clusters": 6,
+    # Target cluster count (auto-scales dynamically for corpus size)
+    "n_clusters": 14,
+    "adaptive_k": True,
+    "min_clusters": 6,
+    "max_clusters": 18,
 
     # MiniLM model (same as theme engine — shared singleton)
     "model_name": "sentence-transformers/all-MiniLM-L6-v2",
@@ -236,10 +239,10 @@ COMPLAINT_CLUSTERING = {
     "n_verbatims": 5,
 
     # Severity thresholds (by complaint sentence count — NOT negative fraction)
-    # These are provisional; recalibrate when the complaint corpus is profiled.
+    # Scaled to account for granular defect clusters across larger pools.
     "severity_thresholds": {
-        "critical": 200,    # ≥ 200 complaint sentences → CRITICAL
-        "high": 80,         # ≥ 80  → HIGH
+        "critical": 120,    # ≥ 120 complaint sentences → CRITICAL
+        "high": 60,         # ≥ 60  → HIGH
         "medium": 20,       # ≥ 20  → MEDIUM; else → LOW
     },
 

@@ -412,6 +412,7 @@ class SentenceRecord:
                                # calibrated probability.
     is_provisional: bool = True
     classifier_note: str = HEURISTIC_CLASSIFIER_NOTE
+    operational_severity: str = SEVERITY_P3
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -425,6 +426,7 @@ class SentenceRecord:
             "confidence": self.confidence,
             "is_provisional": self.is_provisional,
             "classifier_note": self.classifier_note,
+            "operational_severity": self.operational_severity,
         }
 
 
@@ -493,8 +495,14 @@ class HighlightSpan:
     trigger: Optional[str]
     severity_hint: str = SEVERITY_P3
 
+    @property
+    def severity(self) -> str:
+        return self.severity_hint
+
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["severity"] = self.severity_hint
+        return d
 
 
 @dataclass
@@ -824,6 +832,7 @@ def classify_and_route_review(
             confidence=confidence,
             is_provisional=is_provisional,
             classifier_note=note,
+            operational_severity=evaluate_severity(sent_text),
         )
         all_records.append(rec)
         if label == LABEL_COMPLAINT:
@@ -879,6 +888,7 @@ def classify_and_route_corpus(
                     confidence=confidence,
                     is_provisional=False,
                     classifier_note=note,
+                    operational_severity=evaluate_severity(sent_text),
                 )
                 all_sentences.append(rec)
                 if label == LABEL_COMPLAINT:

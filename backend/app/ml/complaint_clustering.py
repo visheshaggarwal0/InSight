@@ -61,7 +61,15 @@ except ImportError:  # pragma: no cover - only if app.ml is not importable
     # it reads the SAME thresholds from pipeline_config.
     _SEV = COMPLAINT_CLUSTERING["severity_thresholds"]
 
-    def classify_complaint_severity(count: int, total_complaints: int = 0) -> str:
+    def classify_complaint_severity(
+        count: int,
+        total_complaints: int = 0,
+        max_proposition_severity: str | None = None,
+        p0_count: int = 0,
+        p1_count: int = 0,
+    ) -> str:
+        if (p0_count > 0 or max_proposition_severity == "P0"):
+            return "CRITICAL" if (p0_count >= 2 or count >= 4) else "HIGH"
         if total_complaints and total_complaints > 0:
             share = count / total_complaints
             if share >= 0.20 and count >= 3:
@@ -172,15 +180,152 @@ def embed_sentences(texts: List[str], cache_key_suffix: str = "") -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 _VOC_STOPWORDS = {
-    "product", "products", "use", "used", "using", "really", "feel", "feels", "feeling",
+    # Product and category filler
+    "product", "products", "use", "used", "using", "really", "feel", "feels", "feeling", "felt",
     "tried", "bought", "got", "just", "like", "time", "day", "days", "face",
     "skin", "make", "makes", "think", "love", "way", "bit", "lot", "good",
     "great", "cream", "eyes", "eye", "moisturizer", "cleanser", "serum",
-    "oil", "lotion", "apply", "applying", "applied", "didn", "don", "wasn",
+    "oil", "lotion", "apply", "applying", "applied", "didn", "don", "wasn", "doesn",
     "wouldn", "couldn", "ve", "ll", "went", "come", "came", "going", "know",
-    "item", "brand", "order", "ordered", "purchase", "purchased", "bottle"
+    "item", "items", "brand", "order", "ordered", "purchase", "purchased", "bottle",
+    # Evaluative adjectives & generic sentiment noise that pollute defect root causes
+    "worst", "bad", "terrible", "horrible", "awful", "disappointed", "disappointment",
+    "waste", "work", "worked", "working", "works", "noticed", "notice", "noticing",
+    "money", "unfortunately", "sadly", "thing", "things", "star", "stars",
+    "say", "saying", "said", "give", "gave", "given", "giving", "get", "getting",
+    "tries", "trying", "look", "looked", "looking", "ever", "completely",
+    "absolutely", "definitely", "maybe", "probably", "actually", "literally",
+    # Promotional review boilerplate & PII tokens
+    "influenster", "honest", "review", "reviews", "received", "free", "exchange",
+    "complimentary", "sample", "tested", "testing", "promotion", "promotional",
+    "freeproduct", "repurchasing", "repurchase", "appreciative", "reward",
+    "redacted_name", "redacted_email", "redacted_phone", "redacted_ip", "redacted", "sk",
 }
 _COMBINED_STOPWORDS = list(ENGLISH_STOP_WORDS.union(_VOC_STOPWORDS))
+
+
+# ---------------------------------------------------------------------------
+# Adaptive Cluster Count & Semantic Defect Titling
+# ---------------------------------------------------------------------------
+
+def determine_adaptive_k(n_samples: int, target_k: Optional[int] = None) -> int:
+    """Dynamically determine optimal cluster count k based on sample size.
+
+    Prevents over-fragmentation on small batches and avoids collapsing
+    large corpora into blurry mega-clusters.
+    """
+    if n_samples <= 6:
+        return max(1, n_samples)
+    if n_samples <= 20:
+        return max(2, n_samples // 4)
+    if n_samples <= 80:
+        return max(4, n_samples // 12)
+    if n_samples <= 250:
+        return max(6, n_samples // 25)
+
+    # Large corpora (n > 250): scale between 8 and 18 clusters
+    min_k = int(COMPLAINT_CLUSTERING.get("min_clusters", 6))
+    max_k = int(COMPLAINT_CLUSTERING.get("max_clusters", 18))
+    computed_k = max(min_k, min(max_k, n_samples // 110))
+    if target_k and not COMPLAINT_CLUSTERING.get("adaptive_k", True):
+        return max(1, min(target_k, n_samples))
+    return computed_k
+
+
+_DEFECT_TAXONOMY_CANDIDATES = [
+    "Dryness & Dehydration",
+    "Skin Sensitivity & Irritation",
+    "Allergic Reaction & Swelling",
+    "Acne Breakouts & Blemishes",
+    "Cystic & Hormonal Acne",
+    "Pore Congestion & Blackheads",
+    "Redness & Skin Flushing",
+    "Unpleasant Odor & Scent",
+    "Packaging & Dispenser Defect",
+    "Packaging Leakage & Spillage",
+    "Packaging Breakage & Shattered Bottle",
+    "Greasy Texture & Heavy Residue",
+    "Lack of Results & Inefficacy",
+    "Eye Stinging & Irritation",
+    "Lip Chapping & Peeling",
+    "Delivery & Shipping Delays",
+    "Refund & Billing Friction",
+    "Burning & Itching Sensation",
+    "Formula Stripping & Tightness",
+    "Formula Separation & Discoloration",
+]
+
+_CACHED_TAXONOMY_EMBS: Optional[np.ndarray] = None
+
+
+def _get_taxonomy_embeddings() -> np.ndarray:
+    global _CACHED_TAXONOMY_EMBS
+    if _CACHED_TAXONOMY_EMBS is None:
+        encoder = _get_encoder()
+        _CACHED_TAXONOMY_EMBS = encoder.encode(
+            _DEFECT_TAXONOMY_CANDIDATES,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+    return _CACHED_TAXONOMY_EMBS
+
+
+def _derive_cluster_title(
+    keywords: List[str],
+    centroid: Optional[np.ndarray] = None,
+    medoid_text: str = "",
+    cluster_id: int = 0,
+    used_titles: Optional[set] = None,
+) -> Tuple[str, str]:
+    """Derives a meaningful, professional defect title without repetitive keyword slop."""
+    if used_titles is None:
+        used_titles = set()
+
+    # Step 1: Semantic taxonomy alignment via MiniLM centroid cosine similarity
+    if centroid is not None:
+        try:
+            cand_embs = _get_taxonomy_embeddings()
+            c_norm = centroid / (np.linalg.norm(centroid) + 1e-12)
+            sims = np.dot(cand_embs, c_norm)
+            sorted_indices = np.argsort(sims)[::-1]
+
+            for idx in sorted_indices:
+                cand_title = _DEFECT_TAXONOMY_CANDIDATES[idx]
+                cand_sim = float(sims[idx])
+                if cand_sim >= 0.46 and cand_title not in used_titles:
+                    used_titles.add(cand_title)
+                    return cand_title, f"Semantic centroid alignment ({cand_sim:.2f} similarity)"
+        except Exception as exc:
+            logger.debug("Taxonomy matching fallback: %s", exc)
+
+    # Step 2: Clean distinct keyword derivation (no stem/word overlap)
+    distinct_terms = []
+    for kw in keywords:
+        kw_clean = kw.strip().lower()
+        if not kw_clean:
+            continue
+        kw_words = set(kw_clean.split())
+        overlap = any(
+            kw_words.intersection(set(existing.split()))
+            for existing in distinct_terms
+        )
+        if not overlap:
+            distinct_terms.append(kw_clean)
+        if len(distinct_terms) == 2:
+            break
+
+    if len(distinct_terms) >= 2:
+        title = f"{distinct_terms[0].title()} & {distinct_terms[1].title()}"
+        provenance = "c-TF-IDF distinctive root causes"
+    elif len(distinct_terms) == 1:
+        title = f"{distinct_terms[0].title()} Defect"
+        provenance = "c-TF-IDF single dominant defect term"
+    else:
+        title = f"Defect Pattern #{cluster_id + 1}"
+        provenance = "Heuristic defect cluster designation"
+
+    used_titles.add(title)
+    return title, provenance
 
 
 # ---------------------------------------------------------------------------
@@ -337,14 +482,27 @@ def _compute_relative_risk(
     p_cluster_in_other = other_batch_cluster_count / other_corpus_count
 
     rr = round(p_cluster_in_batch / max(p_cluster_in_other, 1e-4), 2)
-    # Simple significance heuristic: at least 5 instances and RR >= 1.5
-    is_sig = bool(cluster_batch_count >= 5 and rr >= 1.5)
+    p_val = 1.0
+    try:
+        from scipy.stats import fisher_exact
+        table = [
+            [cluster_batch_count, max(0, total_corpus_for_batch - cluster_batch_count)],
+            [other_batch_cluster_count, max(0, other_corpus_count - other_batch_cluster_count)],
+        ]
+        _, p_val = fisher_exact(table, alternative="greater")
+        if np.isnan(p_val):
+            p_val = 1.0
+    except Exception:
+        p_val = 1.0
+
+    is_sig = bool(p_val < 0.05 and cluster_batch_count >= 3 and rr >= 1.5)
 
     return {
         "affected_batch": top_batch if is_sig else (top_batch if cluster_batch_count >= 3 else "Omnichannel"),
         "relative_risk": rr if is_sig else 1.0,
         "is_statistically_significant": is_sig,
         "batch_count": cluster_batch_count,
+        "p_value": round(float(p_val), 5),
     }
 
 
@@ -379,7 +537,7 @@ def cluster_complaint_sentences(
             "provisional_notices": ["No complaint sentences found in corpus."],
         }
 
-    k = max(1, min(n_clusters, max(1, n // 5), n))
+    k = determine_adaptive_k(n, n_clusters)
     texts = [s.sentence_text for s in complaint_sentences]
 
     # Step 1: MiniLM embeddings (384-d, L2-normalized)
@@ -440,6 +598,7 @@ def cluster_complaint_sentences(
     # Step 5: Build cluster summaries
     n_verbatims = COMPLAINT_CLUSTERING["n_verbatims"]
     clusters = []
+    used_titles: set = set()
 
     for cid in unique_cids:
         sents = cluster_sentence_map[cid]
@@ -451,13 +610,15 @@ def cluster_complaint_sentences(
         c_embs = embeddings[cluster_indices]
 
         # Medoid calculation
+        c_centroid = None
         if kmeans_obj is not None and cid >= 0:
-            centroid = kmeans_obj.cluster_centers_[cid]
-            dists = np.linalg.norm(c_embs - centroid, axis=1)
+            c_centroid = kmeans_obj.cluster_centers_[cid]
+            dists = np.linalg.norm(c_embs - c_centroid, axis=1)
             medoid_sent = complaint_sentences[cluster_indices[int(np.argmin(dists))]]
         else:
             # Cosine mean medoid
             mean_vec = c_embs.mean(axis=0, keepdims=True)
+            c_centroid = mean_vec[0]
             dists = np.linalg.norm(c_embs - mean_vec, axis=1)
             medoid_sent = complaint_sentences[cluster_indices[int(np.argmin(dists))]]
 
@@ -475,25 +636,34 @@ def cluster_complaint_sentences(
             for s in ordered_sents[:n_verbatims]
         ]
 
+        # Proposition-conditioned severity signals
+        p0_count = sum(1 for s in sents if getattr(s, "operational_severity", "") == "P0")
+        p1_count = sum(1 for s in sents if getattr(s, "operational_severity", "") == "P1")
+        max_prop_sev = "P0" if p0_count > 0 else ("P1" if p1_count > 0 else "P2")
+
         # Titles and keywords
         if cid == -1:
             title = "Zero-Day Outlier Radar"
             kws = ["unclassified", "novel-defect", "emerging"]
             label_provenance = "HDBSCAN density outlier pool: emerging or non-standard complaints"
             outlier_share = count / max(n, 1)
-            severity = "HIGH" if (outlier_share >= 0.10 and count >= 3) else "MEDIUM"
+            severity = "HIGH" if (outlier_share >= 0.10 and count >= 3 or p0_count >= 1) else "MEDIUM"
         else:
             kws = keywords_map.get(cid, [])
-            if len(kws) >= 2:
-                title = f"{kws[0].title()} & {kws[1].title()}"
-                label_provenance = "c-TF-IDF over cluster member sentences"
-            elif len(kws) == 1:
-                title = kws[0].title()
-                label_provenance = "c-TF-IDF (single dominant term)"
-            else:
-                title = f"Defect Pattern #{cid + 1}"
-                label_provenance = "Fallback cluster designation"
-            severity = classify_complaint_severity(count, total_complaints=n)
+            title, label_provenance = _derive_cluster_title(
+                keywords=kws,
+                centroid=c_centroid,
+                medoid_text=medoid_sent.sentence_text,
+                cluster_id=cid,
+                used_titles=used_titles,
+            )
+            severity = classify_complaint_severity(
+                count,
+                total_complaints=n,
+                max_proposition_severity=max_prop_sev,
+                p0_count=p0_count,
+                p1_count=p1_count,
+            )
 
         # Statistical Causal Attribution / Relative Risk
         attribution = _compute_relative_risk(sents, review_metadata)
@@ -582,7 +752,20 @@ def cluster_feature_requests(
         medoid_sent = recommendation_sentences[cluster_indices[int(np.argmin(dists))]]
 
         kws = keywords_map.get(cid, [])
-        title = f"{kws[0].title()} & {kws[1].title()} Request" if len(kws) >= 2 else (kws[0].title() if kws else f"Feature Proposal #{cid + 1}")
+        clean_terms = []
+        for kw in kws:
+            kw_words = set(kw.strip().lower().split())
+            if not any(kw_words.intersection(set(e.split())) for e in clean_terms):
+                clean_terms.append(kw.strip().lower())
+            if len(clean_terms) == 2:
+                break
+
+        if len(clean_terms) >= 2:
+            title = f"{clean_terms[0].title()} & {clean_terms[1].title()} Request"
+        elif len(clean_terms) == 1:
+            title = f"{clean_terms[0].title()} Request"
+        else:
+            title = f"Feature Proposal #{cid + 1}"
 
         share = count / max(n, 1)
         priority = "HIGH" if (share >= 0.28 and count >= 2) else ("MEDIUM" if share >= 0.16 else "LOW")
@@ -667,10 +850,18 @@ def cluster_praise_sentences(
         medoid_sent = praise_sentences[cluster_indices[int(np.argmin(dists))]]
 
         kws = keywords_map.get(cid, [])
-        if len(kws) >= 2:
-            title = f"{kws[0].title()} & {kws[1].title()}"
-        elif len(kws) == 1:
-            title = kws[0].title()
+        clean_terms = []
+        for kw in kws:
+            kw_words = set(kw.strip().lower().split())
+            if not any(kw_words.intersection(set(e.split())) for e in clean_terms):
+                clean_terms.append(kw.strip().lower())
+            if len(clean_terms) == 2:
+                break
+
+        if len(clean_terms) >= 2:
+            title = f"{clean_terms[0].title()} & {clean_terms[1].title()}"
+        elif len(clean_terms) == 1:
+            title = clean_terms[0].title()
         else:
             title = f"Product Strength #{cid + 1}"
 

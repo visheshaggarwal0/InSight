@@ -271,12 +271,38 @@ def ensure_initialized():
                 initialize_domain("d2c_cosmetics")
 
 
+def get_domain_bundle(domain: Optional[str] = None) -> Tuple[str, dict]:
+    """Thread-safe retrieval of domain state bundle without global race conditions.
+    
+    If domain is None, defaults to state.active_domain.
+    If requested domain is not cached, initializes it under INIT_LOCK.
+    Returns (domain_key, bundle_dict).
+    """
+    ensure_initialized()
+    target_domain = (domain or state.active_domain).strip()
+    if target_domain not in ("d2c_cosmetics", "tech_saas", "custom"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid domain '{target_domain}'. Valid options: 'd2c_cosmetics', 'tech_saas', 'custom'.",
+        )
+    with INIT_LOCK:
+        if target_domain not in DOMAIN_CACHE:
+            if target_domain == "custom":
+                raise HTTPException(
+                    status_code=404,
+                    detail="No custom dataset has been uploaded yet. Upload a CSV/Excel file first.",
+                )
+            DOMAIN_CACHE[target_domain] = compute_domain_artifacts(target_domain)
+        return target_domain, DOMAIN_CACHE[target_domain]
+
+
 class DomainSelectRequest(BaseModel):
     domain: str
 
 
 class TicketRequest(BaseModel):
     cluster_id: int
+    domain: Optional[str] = None
 
 
 class SemanticSearchRequest(BaseModel):
@@ -296,7 +322,7 @@ def list_datasets(user: Optional[AuthenticatedUser] = _auth()):
                 "name": "D2C Cosmetics & Beauty (Aura Botanicals)",
                 "category": "Consumer Goods / Skincare",
                 "focus": "Batch lot tracking, formulation changes, skin irritation, packaging defects",
-                "review_count": len(state.reviews) if state.active_domain == "d2c_cosmetics" else 10000,
+                "review_count": len(DOMAIN_CACHE.get("d2c_cosmetics", {}).get("reviews", [])) if "d2c_cosmetics" in DOMAIN_CACHE else 10000,
                 "synthetic": False,
             },
             {
@@ -304,7 +330,7 @@ def list_datasets(user: Optional[AuthenticatedUser] = _auth()):
                 "name": "Fintech Mobile App (NovaPay)",
                 "category": "Software / Mobile App",
                 "focus": "Release regressions, biometric crashes, P2P transfer failures",
-                "review_count": len(state.reviews) if state.active_domain == "tech_saas" else 10000,
+                "review_count": len(DOMAIN_CACHE.get("tech_saas", {}).get("reviews", [])) if "tech_saas" in DOMAIN_CACHE else 10000,
                 "synthetic": True,
             },
             {
@@ -312,7 +338,7 @@ def list_datasets(user: Optional[AuthenticatedUser] = _auth()):
                 "name": "Custom Review Dataset (CSV Upload)",
                 "category": "User Upload",
                 "focus": "On-demand ingestion of any review text and metadata",
-                "review_count": len(state.reviews) if state.active_domain == "custom" else 0,
+                "review_count": len(DOMAIN_CACHE.get("custom", {}).get("reviews", [])) if "custom" in DOMAIN_CACHE else 0,
                 "synthetic": None,
             },
         ],
@@ -321,12 +347,21 @@ def list_datasets(user: Optional[AuthenticatedUser] = _auth()):
 
 @router.post("/datasets/select")
 def select_dataset(req: DomainSelectRequest, user: Optional[AuthenticatedUser] = _auth()):
-    if req.domain not in ("d2c_cosmetics", "tech_saas"):
+    if req.domain not in ("d2c_cosmetics", "tech_saas", "custom"):
         raise HTTPException(
             status_code=400,
-            detail="Invalid domain. Choose 'd2c_cosmetics' or 'tech_saas'. Use the upload control to load a custom CSV.",
+            detail="Invalid domain. Choose 'd2c_cosmetics', 'tech_saas', or 'custom'. Use the upload control to load a custom CSV.",
         )
-    initialize_domain(req.domain)
+    if req.domain == "custom":
+        with INIT_LOCK:
+            if "custom" not in DOMAIN_CACHE:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No custom dataset has been uploaded yet. Upload a CSV/Excel file first.",
+                )
+            _swap_state("custom", DOMAIN_CACHE["custom"])
+    else:
+        initialize_domain(req.domain)
     return {"status": "success", "active_domain": state.active_domain}
 
 
@@ -490,19 +525,27 @@ async def upload_custom_dataset(
     }
 
 @router.get("/overview")
-def get_overview(user: Optional[AuthenticatedUser] = _auth()):
-    ensure_initialized()
-    total = len(state.reviews)
-    pos_count = sum(1 for r in state.reviews if r.get("sentiment_pred") == "POSITIVE")
-    neu_count = sum(1 for r in state.reviews if r.get("sentiment_pred") == "NEUTRAL")
-    neg_count = sum(1 for r in state.reviews if r.get("sentiment_pred") == "NEGATIVE")
+def get_overview(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    themes = bundle["themes"]
+    drift_results = bundle["drift_results"]
+    data_provenance = bundle.get("data_provenance", {})
 
-    pii_count = sum(1 for r in state.reviews if len(r.get("pii_detected") or []) > 0)
-    critical_themes = sum(1 for t in state.themes if t.get("severity") == "CRITICAL")
+    total = len(reviews)
+    pos_count = sum(1 for r in reviews if r.get("sentiment_pred") == "POSITIVE")
+    neu_count = sum(1 for r in reviews if r.get("sentiment_pred") == "NEUTRAL")
+    neg_count = sum(1 for r in reviews if r.get("sentiment_pred") == "NEGATIVE")
+
+    pii_count = sum(1 for r in reviews if len(r.get("pii_detected") or []) > 0)
+    critical_themes = sum(1 for t in themes if t.get("severity") == "CRITICAL")
 
     # 1. Dynamic Rating Distribution (1 to 5 stars)
     rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-    for r in state.reviews:
+    for r in reviews:
         star = r.get("rating")
         if star in rating_counts:
             rating_counts[star] += 1
@@ -520,7 +563,7 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
 
     # 2. Dynamic Sentiment by Channel / Source
     channel_map: dict = {}
-    for r in state.reviews:
+    for r in reviews:
         ch = r.get("channel") or "Direct"
         entry = channel_map.setdefault(ch, {"POSITIVE": 0, "NEUTRAL": 0, "NEGATIVE": 0, "total": 0})
         sp = r.get("sentiment_pred", "NEUTRAL")
@@ -546,7 +589,7 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
 
     # 3. Dynamic Sentiment Trend from Drift Timeline
     sentiment_trend = []
-    for b in state.drift_results.get("timeline", []):
+    for b in drift_results.get("timeline", []):
         b_total = b.get("review_count") or 1
         sentiment_trend.append({
             "label": b.get("batch_or_version", "Batch"),
@@ -578,7 +621,7 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
         ("#6B7280", "0.9rem", 500),
     ]
     idx = 0
-    for t in state.themes:
+    for t in themes:
         for kw in t.get("keywords", []):
             clean_kw = kw.strip().lower()
             if clean_kw and clean_kw not in seen and len(clean_kw) > 2:
@@ -598,14 +641,12 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
             break
 
     # 5. Dynamic Recent Insights based on statistical drift and defects
-    alerts = state.drift_results.get("alerts", [])
+    alerts = drift_results.get("alerts", [])
     recent_insights = []
     if alerts:
         top_alert = alerts[0]
         recent_insights.append({
             "title": top_alert["message"],
-            # PSI is a unitless divergence index. Rendering it as "+25%"
-            # implied a 25% increase in something and is semantically wrong.
             "metric": {"value": f"{top_alert['psi_score']:.2f}", "kind": "index"},
             "metric_label": "PSI",
             "period": f"in {top_alert['batch_or_version']}",
@@ -613,11 +654,11 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
             "psiAlert": f"PSI {top_alert['psi_score']:.2f}",
         })
 
-    critical_themes_list = [t for t in state.themes if t.get("severity") in ("CRITICAL", "HIGH")]
+    critical_themes_list = [t for t in themes if t.get("severity") in ("CRITICAL", "HIGH")]
     if critical_themes_list:
         top_crit = critical_themes_list[0]
         recent_insights.append({
-            "title": f"Highest-severity cluster '{top_crit['title']}' ({top_crit['negative_rate']}% negative)",
+            "title": f"Highest-severity cluster '{top_crit['title']}' ({top_crit.get('negative_rate', 0)}% negative)",
             "metric": {"value": f"{top_crit['review_count']}", "kind": "count"},
             "metric_label": "reviews",
             "period": "active defect cluster",
@@ -641,7 +682,7 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
     praise_sents = 0
     rec_sents = 0
     noise_sents = 0
-    for r in state.reviews:
+    for r in reviews:
         for s in r.get("sentences", []):
             lbl = s.get("label")
             if lbl == "COMPLAINT":
@@ -668,8 +709,8 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
     }
 
     return {
-        "domain": state.active_domain,
-        "data_provenance": state.data_provenance,
+        "domain": active_dom,
+        "data_provenance": data_provenance,
         "total_reviews": total,
         "sentiment_counts": {
             "POSITIVE": pos_count,
@@ -692,11 +733,16 @@ def get_overview(user: Optional[AuthenticatedUser] = _auth()):
 
 
 @router.get("/themes")
-def get_themes(user: Optional[AuthenticatedUser] = _auth()):
-    ensure_initialized()
+def get_themes(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    active_dom, bundle = get_domain_bundle(domain)
+    themes = bundle["themes"]
     return {
-        "themes": state.themes,
-        "total_themes": len(state.themes),
+        "domain": active_dom,
+        "themes": themes,
+        "total_themes": len(themes),
         "severity_thresholds": severity_snapshot(),
     }
 
@@ -733,6 +779,7 @@ def _public_verbatim(record: dict) -> dict:
 @router.get("/verbatims")
 def get_verbatims(
     request: Request,
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
     user: Optional[AuthenticatedUser] = _auth(),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
@@ -742,7 +789,7 @@ def get_verbatims(
     search: Optional[str] = Query(None, min_length=1, max_length=200),
     show_raw_pii: bool = Query(False),
 ):
-    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
 
     # Unmasking is privileged. When authentication is enabled it additionally
     # requires an audited role, and every unmask is recorded.
@@ -755,7 +802,7 @@ def get_verbatims(
             unmask_allowed = True
             logger.warning(
                 "AUDIT: role=%s unmasked raw customer text (domain=%s, page=%s)",
-                role, state.active_domain, page,
+                role, active_dom, page,
             )
     if show_raw_pii and not unmask_allowed:
         raise HTTPException(
@@ -763,9 +810,8 @@ def get_verbatims(
             detail="Unredacted customer text requires an authorised compliance role.",
         )
 
-    # Copy: `state.reviews` is a reference, and any future in-place filter
-    # would corrupt global state.
-    filtered = list(state.reviews)
+    # Filter over isolated bundle reviews
+    filtered = list(bundle["reviews"])
 
     if sentiment:
         filtered = [r for r in filtered if r.get("sentiment_pred") == sentiment.upper()]
@@ -797,24 +843,32 @@ def get_verbatims(
         "page": page,
         "page_size": page_size,
         "total_pages": (total_matching + page_size - 1) // page_size,
+        "domain": active_dom,
         "pii_masked": not unmask_allowed,
         "verbatims": results,
     }
 
 
 @router.get("/drift")
-def get_drift(user: Optional[AuthenticatedUser] = _auth()):
-    ensure_initialized()
-    return state.drift_results
+def get_drift(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    _, bundle = get_domain_bundle(domain)
+    return bundle["drift_results"]
 
 
 @router.get("/governance")
-def get_model_governance(user: Optional[AuthenticatedUser] = _auth()):
-    ensure_initialized()
+def get_model_governance(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    active_dom, bundle = get_domain_bundle(domain)
     return {
+        "domain": active_dom,
         "model_architecture": "Calibrated Logistic Regression (Platt Scaling) over Sublinear N-Gram TF-IDF",
-        "evaluation": state.eval_results,
-        "data_provenance": state.data_provenance,
+        "evaluation": bundle["eval_results"],
+        "data_provenance": bundle.get("data_provenance", {}),
         "severity_thresholds": severity_snapshot(),
         "auth_required": settings.REQUIRE_AUTH,
     }
@@ -823,14 +877,18 @@ def get_model_governance(user: Optional[AuthenticatedUser] = _auth()):
 @router.post("/ticket/generate")
 def generate_ticket(req: TicketRequest, db=Depends(get_db),
                     user: Optional[AuthenticatedUser] = _auth()):
-    ensure_initialized()
-    theme = next((t for t in state.themes if t["cluster_id"] == req.cluster_id), None)
+    active_dom, bundle = get_domain_bundle(req.domain)
+    themes = bundle["themes"]
+    reviews = bundle["reviews"]
+    data_provenance = bundle.get("data_provenance", {})
+
+    theme = next((t for t in themes if t["cluster_id"] == req.cluster_id), None)
     if not theme:
         raise HTTPException(status_code=404, detail="Cluster ID not found.")
 
-    theme_reviews = [r for r in state.reviews if r.get("cluster_id") == req.cluster_id][:5]
+    theme_reviews = [r for r in reviews if r.get("cluster_id") == req.cluster_id][:5]
 
-    is_d2c = (state.active_domain == "d2c_cosmetics")
+    is_d2c = (active_dom == "d2c_cosmetics")
 
     if is_d2c:
         ticket_type = "MANUFACTURING & QUALITY INCIDENT REPORT"
@@ -854,9 +912,9 @@ def generate_ticket(req: TicketRequest, db=Depends(get_db),
 **Title:** {title}
 **Severity:** {theme['severity']}
 **{affected_field}:** {", ".join(batches)}
-**Incident Volume:** {theme['review_count']} user complaints ({theme['negative_rate']}% negative)
+**Incident Volume:** {theme['review_count']} user complaints ({theme.get('negative_rate', 0)}% negative)
 **Core Keywords:** {", ".join(theme.get("keywords", []))}
-**Data Source:** {"synthetic (generated templates)" if state.data_provenance.get("synthetic") else "real customer telemetry"}
+**Data Source:** {"synthetic (generated templates)" if data_provenance.get("synthetic") else "real customer telemetry"}
 
 #### Observed Customer Verbatims (Masked):
 {quotes}
@@ -867,13 +925,12 @@ def generate_ticket(req: TicketRequest, db=Depends(get_db),
 3. Validate automated unit tests and customer support response scripts.
 """
 
-    # Session lifecycle is owned by Depends(get_db); the previous manual
-    # SessionLocal()/close() pair leaked connections whenever the write raised.
+    # Session lifecycle is owned by Depends(get_db)
     ticket_id = None
     try:
         ticket_record = db_service.save_ticket(
             db=db,
-            domain_id=state.active_domain,
+            domain_id=active_dom,
             cluster_id=req.cluster_id,
             title=title,
             severity=theme['severity'],
@@ -973,10 +1030,11 @@ def search_semantic(req: SemanticSearchRequest, db=Depends(get_db),
         raise HTTPException(status_code=500, detail="Semantic search failed.")
 
 
-def _build_export_rows() -> list:
+def _build_export_rows(reviews: list | None = None) -> list:
     """Redacted-only telemetry export with 4-way sentence intent and actionability metrics."""
+    source_reviews = reviews if reviews is not None else state.reviews
     rows = []
-    for r in state.reviews:
+    for r in source_reviews:
         sents = r.get("sentences", [])
         c_count = sum(1 for s in sents if s.get("label") == "COMPLAINT")
         p_count = sum(1 for s in sents if s.get("label") == "PRAISE")
@@ -1014,7 +1072,10 @@ def _build_export_rows() -> list:
 
 @router.get("/export/powerbi")
 @router.get("/export/csv", include_in_schema=False)
-def export_powerbi_telemetry(user: Optional[AuthenticatedUser] = _privileged_auth()):
+def export_powerbi_telemetry(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _privileged_auth(),
+):
     """
     Streams clean, tabular telemetry for Microsoft Power BI Web Connector, Excel
     or CSV download. Contains redacted verbatim text only.
@@ -1023,20 +1084,18 @@ def export_powerbi_telemetry(user: Optional[AuthenticatedUser] = _privileged_aut
     """
     from fastapi.responses import Response
 
-    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
 
-    if not state.reviews:
+    if not reviews:
         raise HTTPException(status_code=503, detail="No dataset is loaded yet.")
 
-    csv_str = pd.DataFrame(_build_export_rows()).to_csv(index=False)
-    # No hand-written Access-Control-Allow-Origin: a wildcard here made the
-    # full corpus fetchable by any origin on the internet, on top of the
-    # credentialed CORSMiddleware configuration.
+    csv_str = pd.DataFrame(_build_export_rows(reviews)).to_csv(index=False)
     return Response(
         content=csv_str,
         media_type="text/csv",
         headers={
-            "Content-Disposition": f"attachment; filename=insight_{state.active_domain}_telemetry.csv"
+            "Content-Disposition": f"attachment; filename=insight_{active_dom}_telemetry.csv"
         },
     )
 
@@ -1047,6 +1106,7 @@ def export_powerbi_telemetry(user: Optional[AuthenticatedUser] = _privileged_aut
 
 @router.get("/complaint-clusters")
 def get_complaint_clusters(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
     severity: Optional[str] = Query(None, description="Optional filter by severity: CRITICAL, HIGH, MEDIUM, LOW"),
     user: Optional[AuthenticatedUser] = _auth(),
 ):
@@ -1054,33 +1114,36 @@ def get_complaint_clusters(
     Returns sentence-level complaint clusters discovered via MiniLM + c-TF-IDF.
     Includes severity, c-TF-IDF root cause keywords, medoid verbatims, and Relative Risk.
     """
-    ensure_initialized()
-    clusters = state.complaint_clusters or []
+    active_dom, bundle = get_domain_bundle(domain)
+    clusters = bundle.get("complaint_clusters") or []
     if severity:
         clusters = [c for c in clusters if str(c.get("severity")).upper() == severity.upper()]
     return {
         "clusters": clusters,
         "total": len(clusters),
-        "domain": state.active_domain,
+        "domain": active_dom,
     }
 
 
 @router.get("/complaint-clusters/{cluster_id}/verbatims")
 def get_complaint_cluster_verbatims(
     cluster_id: int,
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
     user: Optional[AuthenticatedUser] = _auth(),
 ):
     """
     Returns representative sentence verbatims for a specific complaint cluster,
     including character slice offsets [start, end] for verbatim span highlighting.
     """
-    ensure_initialized()
-    matched = [c for c in (state.complaint_clusters or []) if c.get("cluster_id") == cluster_id]
+    active_dom, bundle = get_domain_bundle(domain)
+    clusters = bundle.get("complaint_clusters") or []
+    matched = [c for c in clusters if c.get("cluster_id") == cluster_id]
     if not matched:
-        raise HTTPException(status_code=404, detail=f"Complaint cluster #{cluster_id} not found.")
+        raise HTTPException(status_code=404, detail=f"Complaint cluster #{cluster_id} not found in domain '{active_dom}'.")
     cluster = matched[0]
     return {
         "cluster_id": cluster_id,
+        "domain": active_dom,
         "title": cluster.get("title"),
         "severity": cluster.get("severity"),
         "keywords": cluster.get("keywords", []),
@@ -1093,50 +1156,60 @@ def get_complaint_cluster_verbatims(
 
 
 @router.get("/feature-requests")
-def get_feature_requests(user: Optional[AuthenticatedUser] = _auth()):
+def get_feature_requests(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
     """
     Returns structured customer recommendations and wishlist proposals
     isolated by the sentence intent classifier.
     """
-    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    feature_requests = bundle.get("feature_requests") or []
     return {
-        "feature_requests": state.feature_requests or [],
-        "total": len(state.feature_requests or []),
-        "domain": state.active_domain,
+        "feature_requests": feature_requests,
+        "total": len(feature_requests),
+        "domain": active_dom,
     }
 
 
 @router.get("/praise-clusters")
-def get_praise_clusters(user: Optional[AuthenticatedUser] = _auth()):
+def get_praise_clusters(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
     """
     Returns sentence-level product strength and delight clusters discovered
     via MiniLM + c-TF-IDF over the PRAISE intent pool.
     """
-    ensure_initialized()
-    clusters = state.praise_clusters or []
+    active_dom, bundle = get_domain_bundle(domain)
+    clusters = bundle.get("praise_clusters") or []
     return {
         "clusters": clusters,
         "total": len(clusters),
-        "domain": state.active_domain,
+        "domain": active_dom,
     }
 
 
 @router.get("/praise-clusters/{cluster_id}/verbatims")
 def get_praise_cluster_verbatims(
     cluster_id: int,
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
     user: Optional[AuthenticatedUser] = _auth(),
 ):
     """
     Returns representative sentence verbatims for a specific product strength cluster,
     including character slice offsets [start, end] for verbatim span highlighting.
     """
-    ensure_initialized()
-    matched = [c for c in (state.praise_clusters or []) if c.get("cluster_id") == cluster_id]
+    active_dom, bundle = get_domain_bundle(domain)
+    clusters = bundle.get("praise_clusters") or []
+    matched = [c for c in clusters if c.get("cluster_id") == cluster_id]
     if not matched:
-        raise HTTPException(status_code=404, detail=f"Product strength cluster #{cluster_id} not found.")
+        raise HTTPException(status_code=404, detail=f"Product strength cluster #{cluster_id} not found in domain '{active_dom}'.")
     cluster = matched[0]
     return {
         "cluster_id": cluster_id,
+        "domain": active_dom,
         "title": cluster.get("title"),
         "strength_drivers": cluster.get("strength_drivers", cluster.get("keywords", [])),
         "keywords": cluster.get("keywords", []),
@@ -1150,6 +1223,7 @@ def get_praise_cluster_verbatims(
 
 @router.get("/reviews/silent-defects")
 def get_silent_defects(
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
     min_rating: int = Query(4, ge=3, le=5, description="Filter for positive ratings containing hidden defects"),
     limit: int = Query(50, ge=1, le=200),
     user: Optional[AuthenticatedUser] = _auth(),
@@ -1158,9 +1232,10 @@ def get_silent_defects(
     The 'Trojan Horse' Filter: Returns 4★ and 5★ reviews that contain a verified
     defect clause or complaint sentence. Solves the 'Whole-Document Fallacy'.
     """
-    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
     silent = []
-    for r in state.reviews:
+    for r in reviews:
         rating = r.get("rating") or 0
         if rating < min_rating:
             continue
@@ -1185,6 +1260,7 @@ def get_silent_defects(
                 break
 
     return {
+        "domain": active_dom,
         "silent_defects": silent,
         "total_found": len(silent),
         "min_rating": min_rating,
@@ -1193,6 +1269,7 @@ def get_silent_defects(
 
 class IncidentTicketRequest(BaseModel):
     cluster_id: int
+    domain: Optional[str] = None
 
 
 @router.post("/ticket/generate-incident")
@@ -1204,10 +1281,11 @@ def generate_incident_ticket(
     1-Click Engineering & Jira Incident Dispatch:
     Generates a structured engineering bug / QA incident report for a complaint cluster.
     """
-    ensure_initialized()
-    matched = [c for c in (state.complaint_clusters or []) if c.get("cluster_id") == payload.cluster_id]
+    active_dom, bundle = get_domain_bundle(payload.domain)
+    clusters = bundle.get("complaint_clusters") or []
+    matched = [c for c in clusters if c.get("cluster_id") == payload.cluster_id]
     if not matched:
-        raise HTTPException(status_code=404, detail=f"Complaint cluster #{payload.cluster_id} not found.")
+        raise HTTPException(status_code=404, detail=f"Complaint cluster #{payload.cluster_id} not found in domain '{active_dom}'.")
     cluster = matched[0]
 
     title = cluster.get("title", f"Defect Pattern #{payload.cluster_id}")

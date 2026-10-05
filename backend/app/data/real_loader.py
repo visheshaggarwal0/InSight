@@ -304,7 +304,24 @@ class RealDataLoader:
             pos_count = sum(1 for r in c_reviews if r["sentiment_pred"] == "POSITIVE")
             neg_ratio = (neg_count / total_c) if total_c > 0 else 0.0
 
-            severity = classify_severity(neg_ratio, total_c, baseline_neg)
+            p0_count = sum(
+                1 for r in c_reviews
+                if (r.get("highlight_span") or {}).get("detected") and (r.get("highlight_span") or {}).get("severity") == "P0"
+            )
+            p1_count = sum(
+                1 for r in c_reviews
+                if (r.get("highlight_span") or {}).get("detected") and (r.get("highlight_span") or {}).get("severity") == "P1"
+            )
+            max_prop_sev = "P0" if p0_count > 0 else ("P1" if p1_count > 0 else "P2")
+
+            severity = classify_severity(
+                neg_ratio,
+                total_c,
+                baseline_negative_fraction=baseline_neg,
+                max_proposition_severity=max_prop_sev,
+                p0_count=p0_count,
+                p1_count=p1_count,
+            )
 
             keywords = theme_keywords.get(c_id) or [kw.lower() for kw in theme_names[c_id].split() if len(kw) > 3][:5]
 

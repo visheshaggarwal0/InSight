@@ -1,5 +1,5 @@
-import { memo, useState } from 'react';
-import { Eye, FileText, Quote, ShieldAlert, Zap, Tag } from 'lucide-react';
+import { memo, useState, useMemo } from 'react';
+import { Eye, FileText, Quote, ShieldAlert, Zap, Tag, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ComplaintClusterItem } from '../types/telemetry';
 
 interface Props {
@@ -16,17 +16,41 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
   onDispatchTicket,
 }: Props) {
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(6);
 
-  const filteredClusters = clusters.filter((c) => {
-    if (severityFilter === 'ALL') return true;
-    return c.severity === severityFilter;
-  });
+  const filteredClusters = useMemo(() => {
+    return clusters.filter((c) => {
+      if (severityFilter !== 'ALL' && c.severity !== severityFilter) {
+        return false;
+      }
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      const inTitle = c.title.toLowerCase().includes(q);
+      const inKeywords = (c.keywords || []).some((k) => k.toLowerCase().includes(q));
+      const inMedoid = (c.medoid_verbatim || '').toLowerCase().includes(q);
+      const inBatch = (c.affected_batch || '').toLowerCase().includes(q);
+      return inTitle || inKeywords || inMedoid || inBatch;
+    });
+  }, [clusters, severityFilter, searchQuery]);
 
   const totalCitations = clusters.reduce((acc, c) => acc + c.sentence_count, 0);
   const criticalCount = clusters.filter((c) => c.severity === 'CRITICAL').length;
   const outlierCluster = clusters.find((c) => c.cluster_id === -1);
   const maxCitations = Math.max(...clusters.map((c) => c.sentence_count), 1);
-  const sortedClusters = [...filteredClusters].sort((a, b) => b.sentence_count - a.sentence_count);
+  const sortedClusters = useMemo(() => {
+    return [...filteredClusters].sort((a, b) => b.sentence_count - a.sentence_count);
+  }, [filteredClusters]);
+
+  const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(sortedClusters.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+
+  const displayedClusters = useMemo(() => {
+    if (pageSize === -1) return sortedClusters;
+    const start = (safePage - 1) * pageSize;
+    return sortedClusters.slice(start, start + pageSize);
+  }, [sortedClusters, safePage, pageSize]);
 
   return (
     <div style={{ paddingTop: '32px' }}>
@@ -105,28 +129,86 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '22px', borderBottom: '1px solid #E5E7EB', paddingBottom: '12px', flexWrap: 'wrap' }}>
-        {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((tier) => (
-          <button
-            key={tier}
-            type="button"
-            onClick={() => setSeverityFilter(tier)}
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.78rem',
-              fontWeight: severityFilter === tier ? 700 : 500,
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: severityFilter === tier ? '#0F382E' : '#F3F4F6',
-              color: severityFilter === tier ? '#FFFFFF' : '#4B5563',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            {tier === 'ALL' ? 'All Tiers' : tier}
-          </button>
-        ))}
+      {/* Filter Tabs & Search Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px', borderBottom: '1px solid #E5E7EB', paddingBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => {
+                setSeverityFilter(tier);
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.78rem',
+                fontWeight: severityFilter === tier ? 700 : 500,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: severityFilter === tier ? '#0F382E' : '#F3F4F6',
+                color: severityFilter === tier ? '#FFFFFF' : '#4B5563',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {tier === 'ALL' ? 'All Tiers' : tier}
+            </button>
+          ))}
+        </div>
+
+        {/* Search input & pagination display options */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search size={14} style={{ position: 'absolute', left: '10px', color: '#9CA3AF' }} />
+            <input
+              type="text"
+              placeholder="Filter defect titles or keywords..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '6px 12px 6px 30px',
+                fontSize: '0.8rem',
+                borderRadius: '6px',
+                border: '1px solid #D1D5DB',
+                backgroundColor: '#FFFFFF',
+                color: '#1F2937',
+                outline: 'none',
+                width: '240px',
+                transition: 'border-color 0.15s ease'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#F3F4F6', padding: '3px', borderRadius: '6px' }}>
+            {[6, 12, -1].map((sz) => (
+              <button
+                key={sz}
+                type="button"
+                onClick={() => {
+                  setPageSize(sz);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '0.72rem',
+                  fontWeight: pageSize === sz ? 700 : 500,
+                  borderRadius: '4px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: pageSize === sz ? '#FFFFFF' : 'transparent',
+                  color: pageSize === sz ? '#111827' : '#6B7280',
+                  boxShadow: pageSize === sz ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
+                }}
+              >
+                {sz === -1 ? 'All' : `${sz}/page`}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Clusters Grid */}
@@ -136,11 +218,13 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
         </div>
       ) : filteredClusters.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#FFFFFF', borderRadius: '10px', border: '1px solid #E5E7EB' }}>
-          <p style={{ color: '#6B7280', fontSize: '0.9rem' }}>No complaint clusters found for filter: {severityFilter}</p>
+          <p style={{ color: '#6B7280', fontSize: '0.9rem' }}>
+            No complaint clusters found matching your criteria.
+          </p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
-          {sortedClusters.map((cluster, index) => {
+          {displayedClusters.map((cluster, index) => {
             const isZeroDay = cluster.cluster_id === -1;
             const isCrit = cluster.severity === 'CRITICAL';
             const isHigh = cluster.severity === 'HIGH';
@@ -357,6 +441,89 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!isLoading && sortedClusters.length > 0 && totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '28px',
+          paddingTop: '16px',
+          borderTop: '1px solid #E5E7EB',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ fontSize: '0.82rem', color: '#6B7280' }}>
+            Showing <strong>{(safePage - 1) * pageSize + 1}</strong> &ndash; <strong>{Math.min(safePage * pageSize, sortedClusters.length)}</strong> of <strong>{sortedClusters.length}</strong> defect clusters
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              disabled={safePage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                color: safePage <= 1 ? '#9CA3AF' : '#374151',
+                backgroundColor: safePage <= 1 ? '#F3F4F6' : '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                borderRadius: '6px',
+                cursor: safePage <= 1 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <ChevronLeft size={14} /> Previous
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setCurrentPage(p)}
+                style={{
+                  minWidth: '32px',
+                  height: '32px',
+                  fontSize: '0.78rem',
+                  fontWeight: safePage === p ? 700 : 500,
+                  borderRadius: '6px',
+                  border: safePage === p ? '1px solid #0F382E' : '1px solid #E5E7EB',
+                  backgroundColor: safePage === p ? '#0F382E' : '#FFFFFF',
+                  color: safePage === p ? '#FFFFFF' : '#374151',
+                  cursor: 'pointer'
+                }}
+              >
+                {p}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              disabled={safePage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                color: safePage >= totalPages ? '#9CA3AF' : '#374151',
+                backgroundColor: safePage >= totalPages ? '#F3F4F6' : '#FFFFFF',
+                border: '1px solid #D1D5DB',
+                borderRadius: '6px',
+                cursor: safePage >= totalPages ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
       )}
     </div>
