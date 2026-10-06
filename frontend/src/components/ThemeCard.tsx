@@ -8,6 +8,15 @@ interface Props {
   onGenerateTicket: (clusterId: number) => void;
 }
 
+/**
+ * ThemeCard - Interactive card component displaying a single thematic cluster.
+ *
+ * Shows:
+ * - Cluster title, severity indicator (CRITICAL, HIGH, MEDIUM, LOW)
+ * - Review volume, sentiment distribution breakdown (positive/neutral/negative)
+ * - Extracted c-TF-IDF keyword tags and exemplar verbatim quotes
+ * - Direct triggers for verbatim inspection drawer and incident ticket generation
+ */
 export const ThemeCard = memo(function ThemeCard({
   theme,
   onInspectVerbatims,

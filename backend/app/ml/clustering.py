@@ -262,6 +262,12 @@ class SemanticThematicClusterer:
     def _cluster_embeddings(self, X: np.ndarray, texts: List[str]) -> np.ndarray:
         """Dispatch to HDBSCAN or KMeans based on CLUSTERING_MODE.
 
+        Algorithmic Pipeline:
+        1. Dimension Reduction: UMAP reduces 384-d MiniLM embeddings to 12-d cosine manifold.
+        2. Density Clustering: HDBSCAN constructs hierarchical density trees (Excess of Mass).
+        3. Zero-Day Outlier Isolation: Points in low-density regions receive label -1.
+        4. Resilient Fallback: Defaults to MiniBatchKMeans if libraries are absent or errors occur.
+
         Returns:
             Integer label array. HDBSCAN may return ``-1`` for noise points.
         """
@@ -269,6 +275,7 @@ class SemanticThematicClusterer:
 
         if mode == "hdbscan":
             if not HDBSCAN_AVAILABLE:
+                # Log guidance if optional density-clustering libraries are missing
                 logger.warning(
                     "CLUSTERING_MODE='hdbscan' requested but 'hdbscan' or 'umap-learn' "
                     "is not installed. Falling back to KMeans. "
@@ -276,14 +283,16 @@ class SemanticThematicClusterer:
                 )
             else:
                 try:
+                    # Step 1: Manifold learning (UMAP dimension reduction)
                     X_reduced = _umap_reduce(X)
+                    # Step 2: Density-based cluster extraction
                     return _hdbscan_cluster(X_reduced)
                 except Exception as exc:
                     logger.warning(
                         "HDBSCAN clustering failed (%s); falling back to KMeans.", exc
                     )
 
-        # Default / fallback: MiniBatchKMeans
+        # Default / fallback: MiniBatchKMeans for rapid linear clustering
         if len(texts) < self.n_clusters:
             self.n_clusters = max(1, len(texts))
             self.kmeans.n_clusters = self.n_clusters

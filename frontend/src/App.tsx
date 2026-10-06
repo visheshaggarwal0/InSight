@@ -69,6 +69,15 @@ async function readErrorDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`;
 }
 
+/**
+ * Main application shell for InSight Telemetry & Review Intelligence.
+ *
+ * Coordinates:
+ * - Active telemetry domain selection (D2C Cosmetics, Tech SaaS, Custom Uploads)
+ * - Concurrent asynchronous data fetching across telemetry endpoints
+ * - Navigation between Dashboard, Complaints, Feature Requests, and Governance
+ * - Interactive verbatim drilldown drawers and modal dialogs
+ */
 export function App() {
   const [datasets, setDatasets] = useState<DatasetInfo[]>([]);
   const [activeDomain, setActiveDomain] = useState<string>('');
