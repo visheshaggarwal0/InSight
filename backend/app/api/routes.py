@@ -1672,7 +1672,7 @@ def get_noise_telemetry(
         "noise_rate_pct": round((total_noise_sents / max(total_all_sents, 1)) * 100, 1),
         "engineering_hours_saved": hours_saved,
         "word_cloud": word_cloud,
-        "sample_quarantined_sentences": noise_sentences[:20],
+        "sample_quarantined_sentences": noise_sentences[:limit],
     }
 
 

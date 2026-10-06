@@ -63,8 +63,13 @@ export const NoiseQuarantineView: React.FC<NoiseQuarantineViewProps> = () => {
     if (!data?.sample_quarantined_sentences) return [];
     return data.sample_quarantined_sentences.filter((s) => {
       if (selectedWord) {
-        const regex = new RegExp(`\\b${selectedWord}\\b`, 'i');
-        if (!regex.test(s.text)) return false;
+        try {
+          const escaped = selectedWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+          if (!regex.test(s.text)) return false;
+        } catch {
+          if (!s.text.toLowerCase().includes(selectedWord.toLowerCase())) return false;
+        }
       }
       if (search.trim()) {
         const q = search.toLowerCase();

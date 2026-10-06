@@ -58,10 +58,10 @@ ${data.threat_radar.map((t) => `- [${t.severity}] ${t.title} (${t.count} reviews
 ${data.sprint_backlog_recommendations.map((r) => `- ${r.ticket} [${r.priority}]: ${r.summary} (${r.projected_csat_lift})`).join('\n')}
     `.trim();
 
-    navigator.clipboard.writeText(md).then(() => {
+    navigator.clipboard?.writeText(md).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => setCopied(false));
   }
 
   function handlePrint() {

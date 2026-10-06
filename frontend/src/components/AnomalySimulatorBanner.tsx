@@ -67,10 +67,10 @@ Affected Cohort: ${t.affected_cohort}
 Blast Radius: ${t.blast_radius}
 Required Action: ${t.action_required}
     `.trim();
-    navigator.clipboard.writeText(text).then(() => {
+    navigator.clipboard?.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => setCopied(false));
   }
 
   return (

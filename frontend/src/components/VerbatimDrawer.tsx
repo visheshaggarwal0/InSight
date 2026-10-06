@@ -242,7 +242,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
     };
 
     void load();
-  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search, isComplaintCluster, isSilentDefects]);
+  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search, isComplaintCluster, isPraiseCluster, isSilentDefects]);
 
   // Unmount cleanup: abort any in-flight request so no response lands after teardown.
   useEffect(() => {
