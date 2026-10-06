@@ -44,10 +44,42 @@ LABEL_PRAISE = "PRAISE"
 LABEL_NOISE = "NOISE"
 LABEL_PRAISE_NOISE = "PRAISE/NOISE"  # Backward-compatibility alias
 
-# Proposition Class Constants (guarantees backward compatibility with sentence_extractor)
+# ---------------------------------------------------------------------------
+# 4-Way Canonical Proposition Intent Constants & Backward Compatibility Class
+# ---------------------------------------------------------------------------
+
+class _PraiseNoiseCompatibility(str):
+    """String subclass that preserves 4-way intent while maintaining backward compatibility with CLASS_PRAISE_NOISE."""
+    def __eq__(self, other: object) -> bool:
+        if str.__eq__(self, other):
+            return True
+        s = str.__str__(self)
+        o = str(other)
+        if s in ("PRAISE", "NOISE") and o in ("PRAISE_NOISE", "PRAISE/NOISE"):
+            return True
+        if s in ("PRAISE_NOISE", "PRAISE/NOISE") and o in ("PRAISE", "NOISE"):
+            return True
+        return False
+
+    def __hash__(self) -> int:
+        return super().__hash__()
+
+
+# Proposition Intent Constants (4-Way Canonical Representation)
 CLASS_COMPLAINT = "COMPLAINT"
 CLASS_RECOMMENDATION = "RECOMMENDATION"
-CLASS_PRAISE_NOISE = "PRAISE_NOISE"
+CLASS_PRAISE = _PraiseNoiseCompatibility("PRAISE")
+CLASS_NOISE = _PraiseNoiseCompatibility("NOISE")
+CLASS_PRAISE_NOISE = _PraiseNoiseCompatibility("PRAISE_NOISE")
+
+# Canonical Intent Aliases
+INTENT_COMPLAINT = CLASS_COMPLAINT
+INTENT_RECOMMENDATION = CLASS_RECOMMENDATION
+INTENT_PRAISE = CLASS_PRAISE
+INTENT_NOISE = CLASS_NOISE
+
+ALL_INTENTS = (CLASS_COMPLAINT, CLASS_RECOMMENDATION, CLASS_PRAISE, CLASS_NOISE)
+ACTIONABLE_INTENTS = (CLASS_COMPLAINT, CLASS_RECOMMENDATION, CLASS_PRAISE)
 
 # Operational Severity Constants (P0 to P3)
 SEVERITY_P0 = "P0"  # Critical: Physical injury/harm, app crash, financial lockout
@@ -424,6 +456,45 @@ class SentenceRecord:
             "operational_severity": self.operational_severity,
         }
 
+    def to_proposition(self, domain_id: Optional[str] = None) -> SentenceProposition:
+        """Convert this SentenceRecord into a canonical SentenceProposition."""
+        idx = 0
+        if "::S" in self.sentence_id:
+            try:
+                idx = int(self.sentence_id.split("::S")[-1])
+            except ValueError:
+                idx = 0
+        elif "::P" in self.sentence_id:
+            try:
+                idx = int(self.sentence_id.split("::P")[-1])
+            except ValueError:
+                idx = 0
+
+        raw_label = self.label
+        if raw_label in ("PRAISE/NOISE", "PRAISE_NOISE"):
+            if _PRAISE_PATTERN.search(self.sentence_text):
+                intent = CLASS_PRAISE
+            else:
+                intent = CLASS_NOISE
+        elif raw_label in (CLASS_COMPLAINT, CLASS_RECOMMENDATION, CLASS_PRAISE, CLASS_NOISE):
+            intent = raw_label
+        else:
+            intent = CLASS_NOISE
+
+        return SentenceProposition(
+            proposition_id=f"{self.review_id}::P{idx:03d}",
+            review_id=self.review_id,
+            sentence_idx=idx,
+            text=self.sentence_text,
+            char_start=self.start,
+            char_end=self.end,
+            intent=intent,
+            severity_hint=self.operational_severity,
+            confidence=self.confidence,
+            domain_id=domain_id,
+            metadata={"source_row_index": self.source_row_index, "is_provisional": self.is_provisional},
+        )
+
 
 @dataclass
 class RoutedPools:
@@ -467,17 +538,78 @@ class RoutedPools:
 
 @dataclass
 class SentenceProposition:
-    """An individual atomic sentence proposition extracted from a review."""
+    """An individual atomic proposition extracted from a review with 4-way intent and full provenance."""
     sentence_idx: int
     text: str
     char_start: int
     char_end: int
-    classification: str  # COMPLAINT | RECOMMENDATION | PRAISE_NOISE
-    severity_hint: str   # P0 | P1 | P2 | P3
+    intent: str = CLASS_NOISE
+    severity_hint: str = SEVERITY_P3
     detected_marker: Optional[str] = None
+    proposition_id: Optional[str] = None
+    review_id: Optional[str] = None
+    confidence: float = 0.80
+    domain_id: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    classification: Optional[str] = None
+    embedding: Optional[List[float]] = None
+
+    def __post_init__(self):
+        if self.classification is not None and (self.intent == CLASS_NOISE or not self.intent):
+            self.intent = self.classification
+        self.intent = _PraiseNoiseCompatibility(self.intent or CLASS_NOISE)
+        if not self.proposition_id:
+            rev = self.review_id or "REV-UNKNOWN"
+            self.proposition_id = f"{rev}::P{self.sentence_idx:03d}"
+        self.classification = self.intent
+
+    @property
+    def severity(self) -> str:
+        """Alias for severity_hint."""
+        return self.severity_hint
+
+    @property
+    def is_actionable(self) -> bool:
+        """True if intent is COMPLAINT, RECOMMENDATION, or PRAISE (NOISE is excluded)."""
+        return str(self.intent) in (CLASS_COMPLAINT, CLASS_RECOMMENDATION, CLASS_PRAISE)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = {
+            "proposition_id": self.proposition_id,
+            "review_id": self.review_id,
+            "sentence_idx": self.sentence_idx,
+            "text": self.text,
+            "char_start": self.char_start,
+            "char_end": self.char_end,
+            "intent": str(self.intent),
+            "classification": str(self.intent),  # Backward compatibility
+            "severity_hint": self.severity_hint,
+            "severity": self.severity_hint,       # Backward compatibility
+            "detected_marker": self.detected_marker,
+            "confidence": self.confidence,
+            "domain_id": self.domain_id,
+            "is_actionable": self.is_actionable,
+            "metadata": dict(self.metadata),
+        }
+        if self.embedding is not None:
+            d["embedding"] = self.embedding
+        return d
+
+    def to_sentence_record(self, source_row_index: int = 0) -> SentenceRecord:
+        """Convert this proposition into a SentenceRecord."""
+        return SentenceRecord(
+            sentence_id=self.proposition_id or f"{self.review_id or 'REV'}::S{self.sentence_idx:03d}",
+            review_id=self.review_id or "REV-UNKNOWN",
+            source_row_index=source_row_index,
+            sentence_text=self.text,
+            start=self.char_start,
+            end=self.char_end,
+            label=str(self.intent),
+            confidence=self.confidence,
+            is_provisional=False,
+            classifier_note=HEURISTIC_CLASSIFIER_NOTE,
+            operational_severity=self.severity_hint,
+        )
 
 
 @dataclass
@@ -511,14 +643,24 @@ class ExtractedReviewTelemetry:
     primary_complaint_text: str
     highlight_span: HighlightSpan
     overall_severity: str
+    praise_propositions: List[SentenceProposition] = field(default_factory=list)
+    noise_propositions: List[SentenceProposition] = field(default_factory=list)
+    domain_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        d = asdict(self)
-        d["highlight_span"] = self.highlight_span.to_dict()
-        d["propositions"] = [p.to_dict() for p in self.propositions]
-        d["complaint_propositions"] = [p.to_dict() for p in self.complaint_propositions]
-        d["recommendation_propositions"] = [p.to_dict() for p in self.recommendation_propositions]
-        return d
+        return {
+            "review_id": self.review_id,
+            "sanitized_text": self.sanitized_text,
+            "overall_severity": self.overall_severity,
+            "primary_complaint_text": self.primary_complaint_text,
+            "domain_id": self.domain_id,
+            "highlight_span": self.highlight_span.to_dict(),
+            "propositions": [p.to_dict() for p in self.propositions],
+            "complaint_propositions": [p.to_dict() for p in self.complaint_propositions],
+            "recommendation_propositions": [p.to_dict() for p in self.recommendation_propositions],
+            "praise_propositions": [p.to_dict() for p in self.praise_propositions],
+            "noise_propositions": [p.to_dict() for p in self.noise_propositions],
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -990,7 +1132,11 @@ class SentenceClauseExtractor:
         if (severity in {SEVERITY_P0, SEVERITY_P1, SEVERITY_P2} or contrast_match or _COMPLAINT_PATTERN.search(sentence_text)) and not is_mitigated:
             return CLASS_COMPLAINT, severity, detected_marker
 
-        return CLASS_PRAISE_NOISE, SEVERITY_P3, None
+        # Check for PRAISE vs NOISE (independent 4-way intent routing)
+        if _PRAISE_PATTERN.search(sentence_text) or is_mitigated:
+            return CLASS_PRAISE, SEVERITY_P3, None
+
+        return CLASS_NOISE, SEVERITY_P3, None
 
     def extract_complaint_span(self, text: str) -> HighlightSpan:
         """Extracts the bounded defect clause span for UI highlighting.
@@ -1074,11 +1220,18 @@ class SentenceClauseExtractor:
             severity_hint=SEVERITY_P3,
         )
 
-    def extract_telemetry(self, review_id: str, sanitized_text: str) -> ExtractedReviewTelemetry:
+    def extract_telemetry(
+        self,
+        review_id: str,
+        sanitized_text: str,
+        domain_id: Optional[str] = None,
+    ) -> ExtractedReviewTelemetry:
         raw_sentences = self._split_into_sentences(sanitized_text)
         propositions: List[SentenceProposition] = []
         complaints: List[SentenceProposition] = []
         recommendations: List[SentenceProposition] = []
+        praises: List[SentenceProposition] = []
+        noises: List[SentenceProposition] = []
 
         highest_severity = SEVERITY_P3
         severity_rank = {SEVERITY_P0: 4, SEVERITY_P1: 3, SEVERITY_P2: 2, SEVERITY_P3: 1}
@@ -1086,13 +1239,16 @@ class SentenceClauseExtractor:
         for idx, (sent_text, s_start, s_end) in enumerate(raw_sentences):
             classification, severity, marker = self._classify_sentence(sent_text)
             prop = SentenceProposition(
+                proposition_id=f"{review_id}::P{idx:03d}",
+                review_id=review_id,
                 sentence_idx=idx,
                 text=sent_text,
                 char_start=s_start,
                 char_end=s_end,
-                classification=classification,
+                intent=classification,
                 severity_hint=severity,
                 detected_marker=marker,
+                domain_id=domain_id,
             )
             propositions.append(prop)
 
@@ -1102,6 +1258,10 @@ class SentenceClauseExtractor:
                     highest_severity = severity
             elif classification == CLASS_RECOMMENDATION:
                 recommendations.append(prop)
+            elif classification == CLASS_PRAISE:
+                praises.append(prop)
+            else:
+                noises.append(prop)
 
         highlight_span = self.extract_complaint_span(sanitized_text)
         if highlight_span.detected:
@@ -1122,9 +1282,12 @@ class SentenceClauseExtractor:
             propositions=propositions,
             complaint_propositions=complaints,
             recommendation_propositions=recommendations,
+            praise_propositions=praises,
+            noise_propositions=noises,
             primary_complaint_text=primary_complaint,
             highlight_span=highlight_span,
             overall_severity=highest_severity,
+            domain_id=domain_id,
         )
 
 
@@ -1139,7 +1302,15 @@ __all__ = [
     "LABEL_PRAISE_NOISE",
     "CLASS_COMPLAINT",
     "CLASS_RECOMMENDATION",
+    "CLASS_PRAISE",
+    "CLASS_NOISE",
     "CLASS_PRAISE_NOISE",
+    "INTENT_COMPLAINT",
+    "INTENT_RECOMMENDATION",
+    "INTENT_PRAISE",
+    "INTENT_NOISE",
+    "ALL_INTENTS",
+    "ACTIONABLE_INTENTS",
     "SEVERITY_P0",
     "SEVERITY_P1",
     "SEVERITY_P2",
