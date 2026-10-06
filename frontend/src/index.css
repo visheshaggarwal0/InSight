@@ -415,9 +415,27 @@ body {
 /* Search bar responsiveness */
 .topbar-search-box {
   position: relative;
-  flex: 1 1 220px;
-  min-width: 140px;
-  max-width: 440px;
+  flex: 1 1 280px;
+  min-width: 200px;
+  max-width: 480px;
+}
+
+@media (max-width: 1380px) {
+  .hide-on-laptop {
+    display: none !important;
+  }
+  .topbar-search-box {
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 1150px) {
+  .topbar-search-shortcut {
+    display: none !important;
+  }
+  .topbar-search-input {
+    padding-right: 14px !important;
+  }
 }
 
 @media (max-width: 640px) {

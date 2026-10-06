@@ -95,3 +95,53 @@ def test_anomaly_injection_and_reset():
     assert drift_clean.status_code == 200
     clean_alerts = drift_clean.json().get("alerts", [])
     assert not any(a.get("is_simulated") for a in clean_alerts)
+
+
+def test_temporal_drift_analytics():
+    """Verify temporal drift time-series trajectories for charts."""
+    res = client.get("/api/analytics/temporal-drift?limit_cohorts=8")
+    assert res.status_code == 200
+    data = res.json()
+    assert "cohorts" in data
+    assert "series" in data
+    assert "timeline_summary" in data
+    assert len(data["cohorts"]) > 0
+    assert len(data["series"]) > 0
+    first_series = data["series"][0]
+    assert "title" in first_series
+    assert "data" in first_series
+    assert len(first_series["data"]) == len(data["cohorts"])
+
+
+def test_product_matrix_analytics():
+    """Verify SKU product risk matrix calculations."""
+    res = client.get("/api/analytics/product-matrix?limit=10")
+    assert res.status_code == 200
+    data = res.json()
+    assert "total_products_analyzed" in data
+    assert "products" in data
+    assert len(data["products"]) > 0
+    p = data["products"][0]
+    assert "product_name" in p
+    assert "total_reviews" in p
+    assert "avg_rating" in p
+    assert "defect_rate_pct" in p
+    assert "risk_tier" in p
+    assert p["risk_tier"] in ("CRITICAL", "ELEVATED", "STABLE")
+
+
+def test_rating_divergence_analytics():
+    """Verify Trojan Horse blind-spot metrics and rating divergence."""
+    res = client.get("/api/analytics/rating-divergence")
+    assert res.status_code == 200
+    data = res.json()
+    assert "trojan_horse_metrics" in data
+    assert "star_distribution" in data
+    assert "top_trojan_samples" in data
+    metrics = data["trojan_horse_metrics"]
+    assert "trojan_rate_pct" in metrics
+    assert metrics["trojan_rate_pct"] > 0
+    assert len(data["star_distribution"]) == 5
+    assert len(data["top_trojan_samples"]) > 0
+    # Confirm Trojan sample has high star rating
+    assert data["top_trojan_samples"][0]["rating"] in (4, 5)

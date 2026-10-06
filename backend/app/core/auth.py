@@ -6,8 +6,29 @@ from sqlalchemy import text
 from app.core.database import SessionLocal
 from app.core.config import settings
 
+import hashlib
+import time
+import threading
+
 logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
+
+# Thread-safe in-memory token cache (60s TTL) to prevent hammering Neon Postgres on every request
+_AUTH_CACHE: Dict[str, tuple[AuthenticatedUser, float]] = {}
+_AUTH_CACHE_LOCK = threading.Lock()
+_AUTH_CACHE_TTL_SECONDS = 60.0
+
+def clear_auth_cache() -> None:
+    """Clears the token cache (primarily for tests and token revocation)."""
+    with _AUTH_CACHE_LOCK:
+        _AUTH_CACHE.clear()
+
+def _clean_expired_cache(now: float) -> None:
+    """Evicts expired token cache entries if cache size exceeds threshold."""
+    if len(_AUTH_CACHE) > 512:
+        expired_keys = [k for k, (_, exp) in _AUTH_CACHE.items() if exp <= now]
+        for k in expired_keys:
+            _AUTH_CACHE.pop(k, None)
 
 class AuthenticatedUser:
     """Represents a validated user from Neon Auth (Better Auth)."""
@@ -30,12 +51,26 @@ def get_current_user_optional(
 ) -> Optional[AuthenticatedUser]:
     """
     Validates the session token from Better Auth against neon_auth.session
-    directly in our Neon PostgreSQL database.
+    directly in our Neon PostgreSQL database, with a 60s thread-safe in-memory cache.
     """
     if not credentials or not credentials.credentials:
         return None
 
     token = credentials.credentials.strip()
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = time.monotonic()
+
+    # Fast path: check in-memory TTL cache
+    with _AUTH_CACHE_LOCK:
+        cached = _AUTH_CACHE.get(token_hash)
+        if cached:
+            user, expires_at = cached
+            if now < expires_at:
+                return user
+            else:
+                _AUTH_CACHE.pop(token_hash, None)
+
+    # Slow path: query Neon PostgreSQL
     db = SessionLocal()
     try:
         query = text("""
@@ -49,12 +84,18 @@ def get_current_user_optional(
         if not row:
             return None
 
-        return AuthenticatedUser(
+        user = AuthenticatedUser(
             id=str(row[0]),
             email=row[1],
             name=row[2],
             role=row[3]
         )
+
+        with _AUTH_CACHE_LOCK:
+            _clean_expired_cache(now)
+            _AUTH_CACHE[token_hash] = (user, now + _AUTH_CACHE_TTL_SECONDS)
+
+        return user
     except Exception as e:
         # Infrastructure failure must NOT be reported as "anonymous": doing so
         # silently downgrades every authenticated request during a DB outage.

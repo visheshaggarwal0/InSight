@@ -8,7 +8,8 @@
       "positive_count": 9,
       "negative_rate": 0.0,
       "psi": 0.0,
-      "status": "STABLE",
+      "status": "BASELINE",
+      "sufficient_data": false,
       "themes": {
         "Lip Care & Balms": 6,
         "Acne, Breakouts & Skin Clearing Treatments": 1,
@@ -16,7 +17,8 @@
         "Cleansers, Face Wash & Makeup Removal": 1,
         "Facial Moisturizers & Dry Skin Hydration": 1,
         "Fragrance, Scent & Sensory Properties": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2008-Q4",
@@ -25,15 +27,17 @@
       "neutral_count": 1,
       "positive_count": 10,
       "negative_rate": 21.4,
-      "psi": 2.357,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 6,
         "Facial Moisturizers & Dry Skin Hydration": 2,
         "Fragrance, Scent & Sensory Properties": 4,
         "Eye Care & Dark Circles": 1,
         "Lip Care & Balms": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2009-Q1",
@@ -42,8 +46,9 @@
       "neutral_count": 2,
       "positive_count": 18,
       "negative_rate": 16.7,
-      "psi": 1.729,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 4,
         "Lip Care & Balms": 7,
@@ -51,7 +56,8 @@
         "Cleansers, Face Wash & Makeup Removal": 3,
         "Acne, Breakouts & Skin Clearing Treatments": 7,
         "Fragrance, Scent & Sensory Properties": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2009-Q2",
@@ -60,8 +66,9 @@
       "neutral_count": 1,
       "positive_count": 18,
       "negative_rate": 13.6,
-      "psi": 0.213,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Lip Care & Balms": 5,
         "Eye Care & Dark Circles": 3,
@@ -69,7 +76,8 @@
         "Facial Moisturizers & Dry Skin Hydration": 2,
         "Fragrance, Scent & Sensory Properties": 3,
         "Cleansers, Face Wash & Makeup Removal": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2009-Q3",
@@ -78,14 +86,16 @@
       "neutral_count": 0,
       "positive_count": 15,
       "negative_rate": 11.8,
-      "psi": 2.221,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 5,
         "Lip Care & Balms": 8,
         "Fragrance, Scent & Sensory Properties": 2,
         "Acne, Breakouts & Skin Clearing Treatments": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2009-Q4",
@@ -94,8 +104,9 @@
       "neutral_count": 0,
       "positive_count": 31,
       "negative_rate": 3.1,
-      "psi": 0.67,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 10,
         "Cleansers, Face Wash & Makeup Removal": 7,
@@ -103,7 +114,8 @@
         "Lip Care & Balms": 9,
         "Facial Moisturizers & Dry Skin Hydration": 1,
         "Eye Care & Dark Circles": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2010-Q1",
@@ -112,8 +124,9 @@
       "neutral_count": 2,
       "positive_count": 20,
       "negative_rate": 4.3,
-      "psi": 0.613,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 4,
         "Lip Care & Balms": 8,
@@ -121,7 +134,8 @@
         "Eye Care & Dark Circles": 4,
         "Facial Moisturizers & Dry Skin Hydration": 3,
         "Cleansers, Face Wash & Makeup Removal": 3
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2010-Q2",
@@ -130,8 +144,9 @@
       "neutral_count": 2,
       "positive_count": 39,
       "negative_rate": 10.9,
-      "psi": 0.208,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 7,
         "Fragrance, Scent & Sensory Properties": 5,
@@ -139,7 +154,8 @@
         "Acne, Breakouts & Skin Clearing Treatments": 13,
         "Eye Care & Dark Circles": 5,
         "Cleansers, Face Wash & Makeup Removal": 6
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2010-Q3",
@@ -148,8 +164,9 @@
       "neutral_count": 3,
       "positive_count": 17,
       "negative_rate": 9.1,
-      "psi": 0.241,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Fragrance, Scent & Sensory Properties": 3,
         "Lip Care & Balms": 7,
@@ -157,7 +174,8 @@
         "Acne, Breakouts & Skin Clearing Treatments": 8,
         "Eye Care & Dark Circles": 1,
         "Facial Moisturizers & Dry Skin Hydration": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2010-Q4",
@@ -166,8 +184,9 @@
       "neutral_count": 2,
       "positive_count": 23,
       "negative_rate": 13.8,
-      "psi": 0.171,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Lip Care & Balms": 8,
         "Facial Moisturizers & Dry Skin Hydration": 4,
@@ -175,7 +194,8 @@
         "Eye Care & Dark Circles": 2,
         "Acne, Breakouts & Skin Clearing Treatments": 8,
         "Fragrance, Scent & Sensory Properties": 3
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2011-Q1",
@@ -184,8 +204,9 @@
       "neutral_count": 3,
       "positive_count": 24,
       "negative_rate": 18.2,
-      "psi": 0.049,
-      "status": "STABLE",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 9,
         "Fragrance, Scent & Sensory Properties": 4,
@@ -193,7 +214,8 @@
         "Facial Moisturizers & Dry Skin Hydration": 6,
         "Lip Care & Balms": 9,
         "Eye Care & Dark Circles": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2011-Q2",
@@ -202,8 +224,9 @@
       "neutral_count": 4,
       "positive_count": 30,
       "negative_rate": 5.6,
-      "psi": 0.186,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 7,
         "Eye Care & Dark Circles": 3,
@@ -211,7 +234,8 @@
         "Cleansers, Face Wash & Makeup Removal": 5,
         "Acne, Breakouts & Skin Clearing Treatments": 13,
         "Lip Care & Balms": 5
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2011-Q3",
@@ -220,25 +244,28 @@
       "neutral_count": 3,
       "positive_count": 17,
       "negative_rate": 13.0,
-      "psi": 0.708,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 5,
         "Acne, Breakouts & Skin Clearing Treatments": 7,
         "Lip Care & Balms": 6,
         "Facial Moisturizers & Dry Skin Hydration": 3,
         "Fragrance, Scent & Sensory Properties": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2011-Q4",
       "review_count": 37,
-      "negative_count": 3,
+      "negative_count": 2,
       "neutral_count": 2,
-      "positive_count": 32,
-      "negative_rate": 8.1,
-      "psi": 0.258,
-      "status": "CRITICAL_DRIFT",
+      "positive_count": 33,
+      "negative_rate": 5.4,
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 10,
         "Acne, Breakouts & Skin Clearing Treatments": 9,
@@ -246,7 +273,8 @@
         "Facial Moisturizers & Dry Skin Hydration": 2,
         "Fragrance, Scent & Sensory Properties": 3,
         "Eye Care & Dark Circles": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2012-Q1",
@@ -255,8 +283,9 @@
       "neutral_count": 4,
       "positive_count": 27,
       "negative_rate": 0.0,
-      "psi": 0.84,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Eye Care & Dark Circles": 5,
         "Lip Care & Balms": 8,
@@ -264,7 +293,8 @@
         "Acne, Breakouts & Skin Clearing Treatments": 8,
         "Fragrance, Scent & Sensory Properties": 1,
         "Cleansers, Face Wash & Makeup Removal": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2012-Q2",
@@ -273,14 +303,16 @@
       "neutral_count": 1,
       "positive_count": 16,
       "negative_rate": 10.5,
-      "psi": 1.59,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Lip Care & Balms": 4,
         "Facial Moisturizers & Dry Skin Hydration": 6,
         "Cleansers, Face Wash & Makeup Removal": 4,
         "Acne, Breakouts & Skin Clearing Treatments": 5
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2012-Q3",
@@ -289,15 +321,17 @@
       "neutral_count": 3,
       "positive_count": 25,
       "negative_rate": 9.7,
-      "psi": 0.224,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Lip Care & Balms": 7,
         "Facial Moisturizers & Dry Skin Hydration": 8,
         "Acne, Breakouts & Skin Clearing Treatments": 10,
         "Cleansers, Face Wash & Makeup Removal": 5,
         "Eye Care & Dark Circles": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2012-Q4",
@@ -306,8 +340,9 @@
       "neutral_count": 2,
       "positive_count": 32,
       "negative_rate": 2.9,
-      "psi": 0.396,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 11,
         "Facial Moisturizers & Dry Skin Hydration": 8,
@@ -315,7 +350,8 @@
         "Fragrance, Scent & Sensory Properties": 2,
         "Eye Care & Dark Circles": 2,
         "Lip Care & Balms": 6
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2013-Q1",
@@ -324,25 +360,28 @@
       "neutral_count": 2,
       "positive_count": 39,
       "negative_rate": 6.8,
-      "psi": 0.421,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 16,
         "Lip Care & Balms": 10,
         "Facial Moisturizers & Dry Skin Hydration": 9,
         "Cleansers, Face Wash & Makeup Removal": 8,
         "Fragrance, Scent & Sensory Properties": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2013-Q2",
       "review_count": 37,
       "negative_count": 2,
-      "neutral_count": 2,
-      "positive_count": 33,
+      "neutral_count": 1,
+      "positive_count": 34,
       "negative_rate": 5.4,
-      "psi": 0.581,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 8,
         "Acne, Breakouts & Skin Clearing Treatments": 15,
@@ -350,7 +389,8 @@
         "Eye Care & Dark Circles": 2,
         "Lip Care & Balms": 7,
         "Cleansers, Face Wash & Makeup Removal": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2013-Q3",
@@ -359,8 +399,9 @@
       "neutral_count": 1,
       "positive_count": 26,
       "negative_rate": 6.9,
-      "psi": 0.472,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 8,
         "Acne, Breakouts & Skin Clearing Treatments": 10,
@@ -368,7 +409,8 @@
         "Facial Moisturizers & Dry Skin Hydration": 4,
         "Fragrance, Scent & Sensory Properties": 3,
         "Eye Care & Dark Circles": 1
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2013-Q4",
@@ -377,8 +419,9 @@
       "neutral_count": 3,
       "positive_count": 30,
       "negative_rate": 13.2,
-      "psi": 0.098,
-      "status": "STABLE",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 10,
         "Cleansers, Face Wash & Makeup Removal": 10,
@@ -386,7 +429,8 @@
         "Eye Care & Dark Circles": 3,
         "Facial Moisturizers & Dry Skin Hydration": 4,
         "Lip Care & Balms": 6
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2014-Q1",
@@ -395,15 +439,17 @@
       "neutral_count": 4,
       "positive_count": 28,
       "negative_rate": 17.9,
-      "psi": 1.04,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 7,
         "Acne, Breakouts & Skin Clearing Treatments": 7,
         "Lip Care & Balms": 8,
         "Facial Moisturizers & Dry Skin Hydration": 15,
         "Fragrance, Scent & Sensory Properties": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2014-Q2",
@@ -412,8 +458,9 @@
       "neutral_count": 2,
       "positive_count": 43,
       "negative_rate": 18.2,
-      "psi": 1.213,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 19,
         "Cleansers, Face Wash & Makeup Removal": 10,
@@ -421,7 +468,8 @@
         "Fragrance, Scent & Sensory Properties": 2,
         "Facial Moisturizers & Dry Skin Hydration": 10,
         "Lip Care & Balms": 7
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2014-Q3",
@@ -430,8 +478,9 @@
       "neutral_count": 2,
       "positive_count": 38,
       "negative_rate": 20.0,
-      "psi": 0.27,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Fragrance, Scent & Sensory Properties": 5,
         "Acne, Breakouts & Skin Clearing Treatments": 11,
@@ -439,7 +488,8 @@
         "Cleansers, Face Wash & Makeup Removal": 13,
         "Lip Care & Balms": 9,
         "Eye Care & Dark Circles": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2014-Q4",
@@ -448,8 +498,9 @@
       "neutral_count": 2,
       "positive_count": 38,
       "negative_rate": 11.1,
-      "psi": 0.199,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 11,
         "Eye Care & Dark Circles": 5,
@@ -457,7 +508,8 @@
         "Fragrance, Scent & Sensory Properties": 1,
         "Facial Moisturizers & Dry Skin Hydration": 10,
         "Lip Care & Balms": 7
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2015-Q1",
@@ -466,8 +518,9 @@
       "neutral_count": 3,
       "positive_count": 45,
       "negative_rate": 15.8,
-      "psi": 0.176,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 16,
         "Facial Moisturizers & Dry Skin Hydration": 10,
@@ -475,17 +528,19 @@
         "Acne, Breakouts & Skin Clearing Treatments": 15,
         "Fragrance, Scent & Sensory Properties": 5,
         "Lip Care & Balms": 4
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2015-Q2",
       "review_count": 46,
       "negative_count": 8,
-      "neutral_count": 8,
-      "positive_count": 30,
+      "neutral_count": 7,
+      "positive_count": 31,
       "negative_rate": 17.4,
-      "psi": 0.36,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 13,
         "Fragrance, Scent & Sensory Properties": 6,
@@ -493,7 +548,8 @@
         "Lip Care & Balms": 10,
         "Facial Moisturizers & Dry Skin Hydration": 8,
         "Eye Care & Dark Circles": 4
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2015-Q3",
@@ -502,8 +558,9 @@
       "neutral_count": 6,
       "positive_count": 25,
       "negative_rate": 20.5,
-      "psi": 0.358,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 13,
         "Acne, Breakouts & Skin Clearing Treatments": 11,
@@ -511,7 +568,8 @@
         "Lip Care & Balms": 6,
         "Fragrance, Scent & Sensory Properties": 3,
         "Eye Care & Dark Circles": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2015-Q4",
@@ -520,8 +578,9 @@
       "neutral_count": 7,
       "positive_count": 34,
       "negative_rate": 16.3,
-      "psi": 0.307,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Eye Care & Dark Circles": 6,
         "Fragrance, Scent & Sensory Properties": 4,
@@ -529,7 +588,8 @@
         "Lip Care & Balms": 5,
         "Facial Moisturizers & Dry Skin Hydration": 8,
         "Cleansers, Face Wash & Makeup Removal": 7
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2016-Q1",
@@ -538,8 +598,9 @@
       "neutral_count": 6,
       "positive_count": 50,
       "negative_rate": 17.6,
-      "psi": 0.189,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Fragrance, Scent & Sensory Properties": 4,
         "Cleansers, Face Wash & Makeup Removal": 10,
@@ -547,7 +608,8 @@
         "Lip Care & Balms": 14,
         "Facial Moisturizers & Dry Skin Hydration": 15,
         "Eye Care & Dark Circles": 3
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2016-Q2",
@@ -556,8 +618,9 @@
       "neutral_count": 10,
       "positive_count": 47,
       "negative_rate": 12.3,
-      "psi": 0.176,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 14,
         "Cleansers, Face Wash & Makeup Removal": 10,
@@ -565,17 +628,19 @@
         "Facial Moisturizers & Dry Skin Hydration": 19,
         "Lip Care & Balms": 10,
         "Eye Care & Dark Circles": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2016-Q3",
       "review_count": 76,
       "negative_count": 18,
-      "neutral_count": 6,
-      "positive_count": 52,
+      "neutral_count": 5,
+      "positive_count": 53,
       "negative_rate": 23.7,
-      "psi": 0.262,
-      "status": "CRITICAL_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Lip Care & Balms": 16,
         "Acne, Breakouts & Skin Clearing Treatments": 28,
@@ -583,17 +648,19 @@
         "Cleansers, Face Wash & Makeup Removal": 13,
         "Facial Moisturizers & Dry Skin Hydration": 10,
         "Eye Care & Dark Circles": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2016-Q4",
       "review_count": 76,
-      "negative_count": 18,
+      "negative_count": 17,
       "neutral_count": 10,
-      "positive_count": 48,
-      "negative_rate": 23.7,
-      "psi": 0.245,
-      "status": "MODERATE_DRIFT",
+      "positive_count": 49,
+      "negative_rate": 22.4,
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 13,
         "Facial Moisturizers & Dry Skin Hydration": 20,
@@ -601,7 +668,8 @@
         "Fragrance, Scent & Sensory Properties": 8,
         "Lip Care & Balms": 6,
         "Eye Care & Dark Circles": 4
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2017-Q1",
@@ -610,8 +678,9 @@
       "neutral_count": 3,
       "positive_count": 76,
       "negative_rate": 18.6,
-      "psi": 0.179,
-      "status": "MODERATE_DRIFT",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 37,
         "Facial Moisturizers & Dry Skin Hydration": 16,
@@ -619,7 +688,8 @@
         "Cleansers, Face Wash & Makeup Removal": 14,
         "Fragrance, Scent & Sensory Properties": 10,
         "Eye Care & Dark Circles": 2
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2017-Q2",
@@ -628,8 +698,9 @@
       "neutral_count": 5,
       "positive_count": 54,
       "negative_rate": 15.7,
-      "psi": 0.064,
-      "status": "STABLE",
+      "psi": null,
+      "status": "INSUFFICIENT_DATA",
+      "sufficient_data": false,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 11,
         "Acne, Breakouts & Skin Clearing Treatments": 23,
@@ -637,7 +708,8 @@
         "Lip Care & Balms": 13,
         "Fragrance, Scent & Sensory Properties": 5,
         "Eye Care & Dark Circles": 4
-      }
+      },
+      "causal_attribution": null
     },
     {
       "batch_or_version": "2017-Q3",
@@ -648,6 +720,7 @@
       "negative_rate": 8.9,
       "psi": 0.172,
       "status": "MODERATE_DRIFT",
+      "sufficient_data": true,
       "themes": {
         "Fragrance, Scent & Sensory Properties": 23,
         "Facial Moisturizers & Dry Skin Hydration": 50,
@@ -655,7 +728,74 @@
         "Lip Care & Balms": 28,
         "Cleansers, Face Wash & Makeup Removal": 27,
         "Eye Care & Dark Circles": 3
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 50,
+          "baseline_count": 14,
+          "target_rate_pct": 29.76,
+          "baseline_rate_pct": 20.0,
+          "rate_delta_pp": 9.76,
+          "relative_risk": 1.46,
+          "p_value": 0.08098,
+          "p_value_two_sided": 0.14908,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 23,
+          "baseline_count": 5,
+          "target_rate_pct": 13.69,
+          "baseline_rate_pct": 7.14,
+          "rate_delta_pp": 6.55,
+          "relative_risk": 1.79,
+          "p_value": 0.11095,
+          "p_value_two_sided": 0.18836,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 27,
+          "baseline_count": 11,
+          "target_rate_pct": 16.07,
+          "baseline_rate_pct": 15.71,
+          "rate_delta_pp": 0.36,
+          "relative_risk": 1.0,
+          "p_value": 0.55706,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 28,
+          "baseline_count": 13,
+          "target_rate_pct": 16.67,
+          "baseline_rate_pct": 18.57,
+          "rate_delta_pp": -1.9,
+          "relative_risk": 0.88,
+          "p_value": 0.71035,
+          "p_value_two_sided": 0.71016,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 3,
+          "baseline_count": 4,
+          "target_rate_pct": 1.79,
+          "baseline_rate_pct": 5.71,
+          "rate_delta_pp": -3.93,
+          "relative_risk": 0.33,
+          "p_value": 0.97542,
+          "p_value_two_sided": 0.19933,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2017-Q4",
@@ -666,6 +806,7 @@
       "negative_rate": 10.3,
       "psi": 0.102,
       "status": "MODERATE_DRIFT",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 45,
         "Lip Care & Balms": 22,
@@ -673,7 +814,74 @@
         "Fragrance, Scent & Sensory Properties": 16,
         "Cleansers, Face Wash & Makeup Removal": 20,
         "Eye Care & Dark Circles": 10
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 45,
+          "baseline_count": 37,
+          "target_rate_pct": 29.03,
+          "baseline_rate_pct": 22.02,
+          "rate_delta_pp": 7.01,
+          "relative_risk": 1.31,
+          "p_value": 0.09378,
+          "p_value_two_sided": 0.1607,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 10,
+          "baseline_count": 3,
+          "target_rate_pct": 6.45,
+          "baseline_rate_pct": 1.79,
+          "rate_delta_pp": 4.67,
+          "relative_risk": 3.25,
+          "p_value": 0.03098,
+          "p_value_two_sided": 0.04553,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 22,
+          "baseline_count": 28,
+          "target_rate_pct": 14.19,
+          "baseline_rate_pct": 16.67,
+          "rate_delta_pp": -2.47,
+          "relative_risk": 0.86,
+          "p_value": 0.77841,
+          "p_value_two_sided": 0.64451,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 42,
+          "baseline_count": 50,
+          "target_rate_pct": 27.1,
+          "baseline_rate_pct": 29.76,
+          "rate_delta_pp": -2.67,
+          "relative_risk": 0.91,
+          "p_value": 0.74311,
+          "p_value_two_sided": 0.62314,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 20,
+          "baseline_count": 27,
+          "target_rate_pct": 12.9,
+          "baseline_rate_pct": 16.07,
+          "rate_delta_pp": -3.17,
+          "relative_risk": 0.81,
+          "p_value": 0.83258,
+          "p_value_two_sided": 0.43476,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2018-Q1",
@@ -684,6 +892,7 @@
       "negative_rate": 14.2,
       "psi": 0.066,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Lip Care & Balms": 42,
         "Facial Moisturizers & Dry Skin Hydration": 55,
@@ -691,17 +900,85 @@
         "Acne, Breakouts & Skin Clearing Treatments": 66,
         "Cleansers, Face Wash & Makeup Removal": 21,
         "Fragrance, Scent & Sensory Properties": 11
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 42,
+          "baseline_count": 22,
+          "target_rate_pct": 19.91,
+          "baseline_rate_pct": 14.19,
+          "rate_delta_pp": 5.71,
+          "relative_risk": 1.39,
+          "p_value": 0.09923,
+          "p_value_two_sided": 0.16619,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 66,
+          "baseline_count": 45,
+          "target_rate_pct": 31.28,
+          "baseline_rate_pct": 29.03,
+          "rate_delta_pp": 2.25,
+          "relative_risk": 1.07,
+          "p_value": 0.36508,
+          "p_value_two_sided": 0.73004,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 16,
+          "baseline_count": 10,
+          "target_rate_pct": 7.58,
+          "baseline_rate_pct": 6.45,
+          "rate_delta_pp": 1.13,
+          "relative_risk": 1.16,
+          "p_value": 0.42035,
+          "p_value_two_sided": 0.83733,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 55,
+          "baseline_count": 42,
+          "target_rate_pct": 26.07,
+          "baseline_rate_pct": 27.1,
+          "rate_delta_pp": -1.03,
+          "relative_risk": 0.96,
+          "p_value": 0.63418,
+          "p_value_two_sided": 0.90466,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 21,
+          "baseline_count": 20,
+          "target_rate_pct": 9.95,
+          "baseline_rate_pct": 12.9,
+          "rate_delta_pp": -2.95,
+          "relative_risk": 0.77,
+          "p_value": 0.85351,
+          "p_value_two_sided": 0.40456,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2018-Q2",
       "review_count": 221,
-      "negative_count": 24,
+      "negative_count": 22,
       "neutral_count": 23,
-      "positive_count": 174,
-      "negative_rate": 10.9,
+      "positive_count": 176,
+      "negative_rate": 10.0,
       "psi": 0.04,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Fragrance, Scent & Sensory Properties": 22,
         "Facial Moisturizers & Dry Skin Hydration": 51,
@@ -709,17 +986,85 @@
         "Eye Care & Dark Circles": 13,
         "Acne, Breakouts & Skin Clearing Treatments": 72,
         "Cleansers, Face Wash & Makeup Removal": 21
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 22,
+          "baseline_count": 11,
+          "target_rate_pct": 9.95,
+          "baseline_rate_pct": 5.21,
+          "rate_delta_pp": 4.74,
+          "relative_risk": 1.87,
+          "p_value": 0.04627,
+          "p_value_two_sided": 0.07133,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 72,
+          "baseline_count": 66,
+          "target_rate_pct": 32.58,
+          "baseline_rate_pct": 31.28,
+          "rate_delta_pp": 1.3,
+          "relative_risk": 1.04,
+          "p_value": 0.42621,
+          "p_value_two_sided": 0.83654,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 21,
+          "baseline_count": 21,
+          "target_rate_pct": 9.5,
+          "baseline_rate_pct": 9.95,
+          "rate_delta_pp": -0.45,
+          "relative_risk": 0.95,
+          "p_value": 0.62582,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 42,
+          "baseline_count": 42,
+          "target_rate_pct": 19.0,
+          "baseline_rate_pct": 19.91,
+          "rate_delta_pp": -0.9,
+          "relative_risk": 0.95,
+          "p_value": 0.63995,
+          "p_value_two_sided": 0.90328,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 13,
+          "baseline_count": 16,
+          "target_rate_pct": 5.88,
+          "baseline_rate_pct": 7.58,
+          "rate_delta_pp": -1.7,
+          "relative_risk": 0.78,
+          "p_value": 0.81542,
+          "p_value_two_sided": 0.56537,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2018-Q3",
       "review_count": 263,
-      "negative_count": 31,
+      "negative_count": 30,
       "neutral_count": 23,
-      "positive_count": 209,
-      "negative_rate": 11.8,
+      "positive_count": 210,
+      "negative_rate": 11.4,
       "psi": 0.097,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 67,
         "Facial Moisturizers & Dry Skin Hydration": 90,
@@ -727,7 +1072,74 @@
         "Cleansers, Face Wash & Makeup Removal": 22,
         "Fragrance, Scent & Sensory Properties": 33,
         "Eye Care & Dark Circles": 7
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 90,
+          "baseline_count": 51,
+          "target_rate_pct": 34.22,
+          "baseline_rate_pct": 23.08,
+          "rate_delta_pp": 11.14,
+          "relative_risk": 1.48,
+          "p_value": 0.00467,
+          "p_value_two_sided": 0.00891,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 33,
+          "baseline_count": 22,
+          "target_rate_pct": 12.55,
+          "baseline_rate_pct": 9.95,
+          "rate_delta_pp": 2.59,
+          "relative_risk": 1.25,
+          "p_value": 0.22673,
+          "p_value_two_sided": 0.39181,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 22,
+          "baseline_count": 21,
+          "target_rate_pct": 8.37,
+          "baseline_rate_pct": 9.5,
+          "rate_delta_pp": -1.14,
+          "relative_risk": 0.88,
+          "p_value": 0.72582,
+          "p_value_two_sided": 0.74889,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 44,
+          "baseline_count": 42,
+          "target_rate_pct": 16.73,
+          "baseline_rate_pct": 19.0,
+          "rate_delta_pp": -2.27,
+          "relative_risk": 0.88,
+          "p_value": 0.77998,
+          "p_value_two_sided": 0.55147,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 7,
+          "baseline_count": 13,
+          "target_rate_pct": 2.66,
+          "baseline_rate_pct": 5.88,
+          "rate_delta_pp": -3.22,
+          "relative_risk": 0.47,
+          "p_value": 0.97764,
+          "p_value_two_sided": 0.10698,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2018-Q4",
@@ -738,6 +1150,7 @@
       "negative_rate": 13.5,
       "psi": 0.194,
       "status": "MODERATE_DRIFT",
+      "sufficient_data": true,
       "themes": {
         "Fragrance, Scent & Sensory Properties": 13,
         "Acne, Breakouts & Skin Clearing Treatments": 62,
@@ -745,17 +1158,85 @@
         "Lip Care & Balms": 34,
         "Cleansers, Face Wash & Makeup Removal": 28,
         "Eye Care & Dark Circles": 14
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 62,
+          "baseline_count": 67,
+          "target_rate_pct": 32.29,
+          "baseline_rate_pct": 25.48,
+          "rate_delta_pp": 6.82,
+          "relative_risk": 1.27,
+          "p_value": 0.06867,
+          "p_value_two_sided": 0.11547,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 28,
+          "baseline_count": 22,
+          "target_rate_pct": 14.58,
+          "baseline_rate_pct": 8.37,
+          "rate_delta_pp": 6.22,
+          "relative_risk": 1.73,
+          "p_value": 0.02662,
+          "p_value_two_sided": 0.04773,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 14,
+          "baseline_count": 7,
+          "target_rate_pct": 7.29,
+          "baseline_rate_pct": 2.66,
+          "rate_delta_pp": 4.63,
+          "relative_risk": 2.65,
+          "p_value": 0.01841,
+          "p_value_two_sided": 0.02394,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 34,
+          "baseline_count": 44,
+          "target_rate_pct": 17.71,
+          "baseline_rate_pct": 16.73,
+          "rate_delta_pp": 0.98,
+          "relative_risk": 1.06,
+          "p_value": 0.43973,
+          "p_value_two_sided": 0.80209,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 13,
+          "baseline_count": 33,
+          "target_rate_pct": 6.77,
+          "baseline_rate_pct": 12.55,
+          "rate_delta_pp": -5.78,
+          "relative_risk": 0.55,
+          "p_value": 0.98664,
+          "p_value_two_sided": 0.0579,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2019-Q1",
       "review_count": 353,
-      "negative_count": 41,
+      "negative_count": 40,
       "neutral_count": 28,
-      "positive_count": 284,
-      "negative_rate": 11.6,
+      "positive_count": 285,
+      "negative_rate": 11.3,
       "psi": 0.032,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 123,
         "Fragrance, Scent & Sensory Properties": 34,
@@ -763,17 +1244,85 @@
         "Facial Moisturizers & Dry Skin Hydration": 84,
         "Cleansers, Face Wash & Makeup Removal": 42,
         "Eye Care & Dark Circles": 20
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 34,
+          "baseline_count": 13,
+          "target_rate_pct": 9.63,
+          "baseline_rate_pct": 6.77,
+          "rate_delta_pp": 2.86,
+          "relative_risk": 1.39,
+          "p_value": 0.16448,
+          "p_value_two_sided": 0.33772,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 123,
+          "baseline_count": 62,
+          "target_rate_pct": 34.84,
+          "baseline_rate_pct": 32.29,
+          "rate_delta_pp": 2.55,
+          "relative_risk": 1.08,
+          "p_value": 0.3071,
+          "p_value_two_sided": 0.57095,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 84,
+          "baseline_count": 41,
+          "target_rate_pct": 23.8,
+          "baseline_rate_pct": 21.35,
+          "rate_delta_pp": 2.44,
+          "relative_risk": 1.11,
+          "p_value": 0.2957,
+          "p_value_two_sided": 0.59397,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 20,
+          "baseline_count": 14,
+          "target_rate_pct": 5.67,
+          "baseline_rate_pct": 7.29,
+          "rate_delta_pp": -1.63,
+          "relative_risk": 0.77,
+          "p_value": 0.82567,
+          "p_value_two_sided": 0.46267,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 42,
+          "baseline_count": 28,
+          "target_rate_pct": 11.9,
+          "baseline_rate_pct": 14.58,
+          "rate_delta_pp": -2.69,
+          "relative_risk": 0.81,
+          "p_value": 0.84819,
+          "p_value_two_sided": 0.42148,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2019-Q2",
       "review_count": 387,
-      "negative_count": 52,
-      "neutral_count": 44,
+      "negative_count": 53,
+      "neutral_count": 43,
       "positive_count": 291,
-      "negative_rate": 13.4,
+      "negative_rate": 13.7,
       "psi": 0.071,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 104,
         "Facial Moisturizers & Dry Skin Hydration": 92,
@@ -781,17 +1330,85 @@
         "Eye Care & Dark Circles": 14,
         "Fragrance, Scent & Sensory Properties": 55,
         "Cleansers, Face Wash & Makeup Removal": 43
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 79,
+          "baseline_count": 50,
+          "target_rate_pct": 20.41,
+          "baseline_rate_pct": 14.16,
+          "rate_delta_pp": 6.25,
+          "relative_risk": 1.44,
+          "p_value": 0.01586,
+          "p_value_two_sided": 0.026,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 55,
+          "baseline_count": 34,
+          "target_rate_pct": 14.21,
+          "baseline_rate_pct": 9.63,
+          "rate_delta_pp": 4.58,
+          "relative_risk": 1.47,
+          "p_value": 0.03546,
+          "p_value_two_sided": 0.06982,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 92,
+          "baseline_count": 84,
+          "target_rate_pct": 23.77,
+          "baseline_rate_pct": 23.8,
+          "rate_delta_pp": -0.02,
+          "relative_risk": 1.0,
+          "p_value": 0.53767,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 43,
+          "baseline_count": 42,
+          "target_rate_pct": 11.11,
+          "baseline_rate_pct": 11.9,
+          "rate_delta_pp": -0.79,
+          "relative_risk": 0.93,
+          "p_value": 0.6742,
+          "p_value_two_sided": 0.81759,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 14,
+          "baseline_count": 20,
+          "target_rate_pct": 3.62,
+          "baseline_rate_pct": 5.67,
+          "rate_delta_pp": -2.05,
+          "relative_risk": 0.65,
+          "p_value": 0.93397,
+          "p_value_two_sided": 0.21929,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2019-Q3",
       "review_count": 344,
       "negative_count": 44,
-      "neutral_count": 29,
-      "positive_count": 271,
+      "neutral_count": 28,
+      "positive_count": 272,
       "negative_rate": 12.8,
       "psi": 0.118,
       "status": "MODERATE_DRIFT",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 122,
         "Lip Care & Balms": 47,
@@ -799,17 +1416,85 @@
         "Cleansers, Face Wash & Makeup Removal": 30,
         "Eye Care & Dark Circles": 28,
         "Fragrance, Scent & Sensory Properties": 31
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 122,
+          "baseline_count": 104,
+          "target_rate_pct": 35.47,
+          "baseline_rate_pct": 26.87,
+          "rate_delta_pp": 8.59,
+          "relative_risk": 1.32,
+          "p_value": 0.00759,
+          "p_value_two_sided": 0.01301,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 28,
+          "baseline_count": 14,
+          "target_rate_pct": 8.14,
+          "baseline_rate_pct": 3.62,
+          "rate_delta_pp": 4.52,
+          "relative_risk": 2.21,
+          "p_value": 0.00673,
+          "p_value_two_sided": 0.01042,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 86,
+          "baseline_count": 92,
+          "target_rate_pct": 25.0,
+          "baseline_rate_pct": 23.77,
+          "rate_delta_pp": 1.23,
+          "relative_risk": 1.05,
+          "p_value": 0.38197,
+          "p_value_two_sided": 0.73017,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 30,
+          "baseline_count": 43,
+          "target_rate_pct": 8.72,
+          "baseline_rate_pct": 11.11,
+          "rate_delta_pp": -2.39,
+          "relative_risk": 0.79,
+          "p_value": 0.88508,
+          "p_value_two_sided": 0.32326,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 31,
+          "baseline_count": 55,
+          "target_rate_pct": 9.01,
+          "baseline_rate_pct": 14.21,
+          "rate_delta_pp": -5.2,
+          "relative_risk": 0.64,
+          "p_value": 0.98951,
+          "p_value_two_sided": 0.03797,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2019-Q4",
       "review_count": 263,
-      "negative_count": 44,
+      "negative_count": 43,
       "neutral_count": 31,
-      "positive_count": 188,
-      "negative_rate": 16.7,
+      "positive_count": 189,
+      "negative_rate": 16.3,
       "psi": 0.06,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 29,
         "Facial Moisturizers & Dry Skin Hydration": 76,
@@ -817,17 +1502,85 @@
         "Lip Care & Balms": 46,
         "Fragrance, Scent & Sensory Properties": 28,
         "Eye Care & Dark Circles": 17
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 76,
+          "baseline_count": 86,
+          "target_rate_pct": 28.9,
+          "baseline_rate_pct": 25.0,
+          "rate_delta_pp": 3.9,
+          "relative_risk": 1.16,
+          "p_value": 0.16277,
+          "p_value_two_sided": 0.30868,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 46,
+          "baseline_count": 47,
+          "target_rate_pct": 17.49,
+          "baseline_rate_pct": 13.66,
+          "rate_delta_pp": 3.83,
+          "relative_risk": 1.28,
+          "p_value": 0.11848,
+          "p_value_two_sided": 0.21172,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 29,
+          "baseline_count": 30,
+          "target_rate_pct": 11.03,
+          "baseline_rate_pct": 8.72,
+          "rate_delta_pp": 2.31,
+          "relative_risk": 1.26,
+          "p_value": 0.208,
+          "p_value_two_sided": 0.40696,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 28,
+          "baseline_count": 31,
+          "target_rate_pct": 10.65,
+          "baseline_rate_pct": 9.01,
+          "rate_delta_pp": 1.63,
+          "relative_risk": 1.18,
+          "p_value": 0.29508,
+          "p_value_two_sided": 0.58054,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 17,
+          "baseline_count": 28,
+          "target_rate_pct": 6.46,
+          "baseline_rate_pct": 8.14,
+          "rate_delta_pp": -1.68,
+          "relative_risk": 0.8,
+          "p_value": 0.82541,
+          "p_value_two_sided": 0.53221,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2020-Q1",
       "review_count": 504,
-      "negative_count": 72,
+      "negative_count": 71,
       "neutral_count": 60,
-      "positive_count": 372,
-      "negative_rate": 14.3,
+      "positive_count": 373,
+      "negative_rate": 14.1,
       "psi": 0.045,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 140,
         "Facial Moisturizers & Dry Skin Hydration": 145,
@@ -835,17 +1588,85 @@
         "Lip Care & Balms": 55,
         "Cleansers, Face Wash & Makeup Removal": 54,
         "Eye Care & Dark Circles": 43
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 67,
+          "baseline_count": 28,
+          "target_rate_pct": 13.29,
+          "baseline_rate_pct": 10.65,
+          "rate_delta_pp": 2.65,
+          "relative_risk": 1.24,
+          "p_value": 0.17364,
+          "p_value_two_sided": 0.35558,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 140,
+          "baseline_count": 67,
+          "target_rate_pct": 27.78,
+          "baseline_rate_pct": 25.48,
+          "rate_delta_pp": 2.3,
+          "relative_risk": 1.09,
+          "p_value": 0.27645,
+          "p_value_two_sided": 0.54875,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 43,
+          "baseline_count": 17,
+          "target_rate_pct": 8.53,
+          "baseline_rate_pct": 6.46,
+          "rate_delta_pp": 2.07,
+          "relative_risk": 1.3,
+          "p_value": 0.19286,
+          "p_value_two_sided": 0.39536,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 145,
+          "baseline_count": 76,
+          "target_rate_pct": 28.77,
+          "baseline_rate_pct": 28.9,
+          "rate_delta_pp": -0.13,
+          "relative_risk": 0.99,
+          "p_value": 0.5496,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 54,
+          "baseline_count": 29,
+          "target_rate_pct": 10.71,
+          "baseline_rate_pct": 11.03,
+          "rate_delta_pp": -0.31,
+          "relative_risk": 0.96,
+          "p_value": 0.60405,
+          "p_value_two_sided": 0.90294,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2020-Q2",
       "review_count": 625,
-      "negative_count": 103,
-      "neutral_count": 89,
-      "positive_count": 433,
-      "negative_rate": 16.5,
+      "negative_count": 97,
+      "neutral_count": 91,
+      "positive_count": 437,
+      "negative_rate": 15.5,
       "psi": 0.093,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 202,
         "Facial Moisturizers & Dry Skin Hydration": 134,
@@ -853,17 +1674,85 @@
         "Lip Care & Balms": 119,
         "Cleansers, Face Wash & Makeup Removal": 70,
         "Eye Care & Dark Circles": 35
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 119,
+          "baseline_count": 55,
+          "target_rate_pct": 19.04,
+          "baseline_rate_pct": 10.91,
+          "rate_delta_pp": 8.13,
+          "relative_risk": 1.74,
+          "p_value": 0.0001,
+          "p_value_two_sided": 0.00018,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.001"
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 202,
+          "baseline_count": 140,
+          "target_rate_pct": 32.32,
+          "baseline_rate_pct": 27.78,
+          "rate_delta_pp": 4.54,
+          "relative_risk": 1.16,
+          "p_value": 0.05618,
+          "p_value_two_sided": 0.10365,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 70,
+          "baseline_count": 54,
+          "target_rate_pct": 11.2,
+          "baseline_rate_pct": 10.71,
+          "rate_delta_pp": 0.49,
+          "relative_risk": 1.04,
+          "p_value": 0.43603,
+          "p_value_two_sided": 0.84833,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 65,
+          "baseline_count": 67,
+          "target_rate_pct": 10.4,
+          "baseline_rate_pct": 13.29,
+          "rate_delta_pp": -2.89,
+          "relative_risk": 0.78,
+          "p_value": 0.94461,
+          "p_value_two_sided": 0.13701,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 35,
+          "baseline_count": 43,
+          "target_rate_pct": 5.6,
+          "baseline_rate_pct": 8.53,
+          "rate_delta_pp": -2.93,
+          "relative_risk": 0.66,
+          "p_value": 0.9795,
+          "p_value_two_sided": 0.0591,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2020-Q3",
       "review_count": 494,
       "negative_count": 61,
-      "neutral_count": 79,
-      "positive_count": 354,
+      "neutral_count": 78,
+      "positive_count": 355,
       "negative_rate": 12.3,
       "psi": 0.063,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 65,
         "Acne, Breakouts & Skin Clearing Treatments": 142,
@@ -871,17 +1760,85 @@
         "Eye Care & Dark Circles": 21,
         "Fragrance, Scent & Sensory Properties": 75,
         "Lip Care & Balms": 63
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 75,
+          "baseline_count": 65,
+          "target_rate_pct": 15.18,
+          "baseline_rate_pct": 10.4,
+          "rate_delta_pp": 4.78,
+          "relative_risk": 1.46,
+          "p_value": 0.01064,
+          "p_value_two_sided": 0.01798,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 128,
+          "baseline_count": 134,
+          "target_rate_pct": 25.91,
+          "baseline_rate_pct": 21.44,
+          "rate_delta_pp": 4.47,
+          "relative_risk": 1.21,
+          "p_value": 0.04642,
+          "p_value_two_sided": 0.08797,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 65,
+          "baseline_count": 70,
+          "target_rate_pct": 13.16,
+          "baseline_rate_pct": 11.2,
+          "rate_delta_pp": 1.96,
+          "relative_risk": 1.18,
+          "p_value": 0.18234,
+          "p_value_two_sided": 0.35546,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 21,
+          "baseline_count": 35,
+          "target_rate_pct": 4.25,
+          "baseline_rate_pct": 5.6,
+          "rate_delta_pp": -1.35,
+          "relative_risk": 0.77,
+          "p_value": 0.87862,
+          "p_value_two_sided": 0.33569,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 142,
+          "baseline_count": 202,
+          "target_rate_pct": 28.74,
+          "baseline_rate_pct": 32.32,
+          "rate_delta_pp": -3.58,
+          "relative_risk": 0.89,
+          "p_value": 0.912,
+          "p_value_two_sided": 0.21522,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2020-Q4",
       "review_count": 336,
       "negative_count": 46,
-      "neutral_count": 35,
-      "positive_count": 255,
+      "neutral_count": 36,
+      "positive_count": 254,
       "negative_rate": 13.7,
       "psi": 0.006,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 98,
         "Lip Care & Balms": 39,
@@ -889,7 +1846,74 @@
         "Acne, Breakouts & Skin Clearing Treatments": 92,
         "Fragrance, Scent & Sensory Properties": 51,
         "Eye Care & Dark Circles": 14
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 98,
+          "baseline_count": 128,
+          "target_rate_pct": 29.17,
+          "baseline_rate_pct": 25.91,
+          "rate_delta_pp": 3.26,
+          "relative_risk": 1.13,
+          "p_value": 0.16977,
+          "p_value_two_sided": 0.30308,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 51,
+          "baseline_count": 75,
+          "target_rate_pct": 15.18,
+          "baseline_rate_pct": 15.18,
+          "rate_delta_pp": -0.0,
+          "relative_risk": 1.0,
+          "p_value": 0.53807,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 14,
+          "baseline_count": 21,
+          "target_rate_pct": 4.17,
+          "baseline_rate_pct": 4.25,
+          "rate_delta_pp": -0.08,
+          "relative_risk": 0.99,
+          "p_value": 0.58899,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 42,
+          "baseline_count": 65,
+          "target_rate_pct": 12.5,
+          "baseline_rate_pct": 13.16,
+          "rate_delta_pp": -0.66,
+          "relative_risk": 0.95,
+          "p_value": 0.64753,
+          "p_value_two_sided": 0.83319,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 39,
+          "baseline_count": 63,
+          "target_rate_pct": 11.61,
+          "baseline_rate_pct": 12.75,
+          "rate_delta_pp": -1.15,
+          "relative_risk": 0.91,
+          "p_value": 0.72498,
+          "p_value_two_sided": 0.66733,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2021-Q1",
@@ -900,6 +1924,7 @@
       "negative_rate": 12.9,
       "psi": 0.052,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 145,
         "Acne, Breakouts & Skin Clearing Treatments": 123,
@@ -907,17 +1932,85 @@
         "Cleansers, Face Wash & Makeup Removal": 60,
         "Fragrance, Scent & Sensory Properties": 56,
         "Eye Care & Dark Circles": 39
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 80,
+          "baseline_count": 39,
+          "target_rate_pct": 15.9,
+          "baseline_rate_pct": 11.61,
+          "rate_delta_pp": 4.3,
+          "relative_risk": 1.36,
+          "p_value": 0.04873,
+          "p_value_two_sided": 0.08646,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 39,
+          "baseline_count": 14,
+          "target_rate_pct": 7.75,
+          "baseline_rate_pct": 4.17,
+          "rate_delta_pp": 3.59,
+          "relative_risk": 1.82,
+          "p_value": 0.02378,
+          "p_value_two_sided": 0.04215,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 145,
+          "baseline_count": 98,
+          "target_rate_pct": 28.83,
+          "baseline_rate_pct": 29.17,
+          "rate_delta_pp": -0.34,
+          "relative_risk": 0.99,
+          "p_value": 0.57378,
+          "p_value_two_sided": 0.93816,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 60,
+          "baseline_count": 42,
+          "target_rate_pct": 11.93,
+          "baseline_rate_pct": 12.5,
+          "rate_delta_pp": -0.57,
+          "relative_risk": 0.95,
+          "p_value": 0.64079,
+          "p_value_two_sided": 0.82968,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 123,
+          "baseline_count": 92,
+          "target_rate_pct": 24.45,
+          "baseline_rate_pct": 27.38,
+          "rate_delta_pp": -2.93,
+          "relative_risk": 0.89,
+          "p_value": 0.84905,
+          "p_value_two_sided": 0.37477,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2021-Q2",
       "review_count": 569,
       "negative_count": 63,
-      "neutral_count": 75,
-      "positive_count": 431,
+      "neutral_count": 74,
+      "positive_count": 432,
       "negative_rate": 11.1,
       "psi": 0.021,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 54,
         "Facial Moisturizers & Dry Skin Hydration": 186,
@@ -925,17 +2018,85 @@
         "Acne, Breakouts & Skin Clearing Treatments": 130,
         "Lip Care & Balms": 81,
         "Eye Care & Dark Circles": 39
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 186,
+          "baseline_count": 145,
+          "target_rate_pct": 32.69,
+          "baseline_rate_pct": 28.83,
+          "rate_delta_pp": 3.86,
+          "relative_risk": 1.13,
+          "p_value": 0.09678,
+          "p_value_two_sided": 0.18536,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 79,
+          "baseline_count": 56,
+          "target_rate_pct": 13.88,
+          "baseline_rate_pct": 11.13,
+          "rate_delta_pp": 2.75,
+          "relative_risk": 1.24,
+          "p_value": 0.10316,
+          "p_value_two_sided": 0.19668,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 39,
+          "baseline_count": 39,
+          "target_rate_pct": 6.85,
+          "baseline_rate_pct": 7.75,
+          "rate_delta_pp": -0.9,
+          "relative_risk": 0.88,
+          "p_value": 0.75312,
+          "p_value_two_sided": 0.63776,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 130,
+          "baseline_count": 123,
+          "target_rate_pct": 22.85,
+          "baseline_rate_pct": 24.45,
+          "rate_delta_pp": -1.61,
+          "relative_risk": 0.93,
+          "p_value": 0.75505,
+          "p_value_two_sided": 0.56448,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 81,
+          "baseline_count": 80,
+          "target_rate_pct": 14.24,
+          "baseline_rate_pct": 15.9,
+          "rate_delta_pp": -1.67,
+          "relative_risk": 0.9,
+          "p_value": 0.80214,
+          "p_value_two_sided": 0.49329,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2021-Q3",
       "review_count": 441,
-      "negative_count": 41,
-      "neutral_count": 48,
-      "positive_count": 352,
-      "negative_rate": 9.3,
+      "negative_count": 40,
+      "neutral_count": 47,
+      "positive_count": 354,
+      "negative_rate": 9.1,
       "psi": 0.073,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 125,
         "Facial Moisturizers & Dry Skin Hydration": 115,
@@ -943,7 +2104,74 @@
         "Eye Care & Dark Circles": 57,
         "Cleansers, Face Wash & Makeup Removal": 34,
         "Fragrance, Scent & Sensory Properties": 52
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 57,
+          "baseline_count": 39,
+          "target_rate_pct": 12.93,
+          "baseline_rate_pct": 6.85,
+          "rate_delta_pp": 6.07,
+          "relative_risk": 1.88,
+          "p_value": 0.00084,
+          "p_value_two_sided": 0.00159,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.001"
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 125,
+          "baseline_count": 130,
+          "target_rate_pct": 28.34,
+          "baseline_rate_pct": 22.85,
+          "rate_delta_pp": 5.5,
+          "relative_risk": 1.24,
+          "p_value": 0.02752,
+          "p_value_two_sided": 0.04883,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 58,
+          "baseline_count": 81,
+          "target_rate_pct": 13.15,
+          "baseline_rate_pct": 14.24,
+          "rate_delta_pp": -1.08,
+          "relative_risk": 0.93,
+          "p_value": 0.721,
+          "p_value_two_sided": 0.64603,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 34,
+          "baseline_count": 54,
+          "target_rate_pct": 7.71,
+          "baseline_rate_pct": 9.49,
+          "rate_delta_pp": -1.78,
+          "relative_risk": 0.82,
+          "p_value": 0.86623,
+          "p_value_two_sided": 0.36843,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 52,
+          "baseline_count": 79,
+          "target_rate_pct": 11.79,
+          "baseline_rate_pct": 13.88,
+          "rate_delta_pp": -2.09,
+          "relative_risk": 0.85,
+          "p_value": 0.8592,
+          "p_value_two_sided": 0.34606,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2021-Q4",
@@ -954,6 +2182,7 @@
       "negative_rate": 11.7,
       "psi": 0.159,
       "status": "MODERATE_DRIFT",
+      "sufficient_data": true,
       "themes": {
         "Eye Care & Dark Circles": 22,
         "Cleansers, Face Wash & Makeup Removal": 64,
@@ -961,7 +2190,74 @@
         "Lip Care & Balms": 52,
         "Fragrance, Scent & Sensory Properties": 33,
         "Acne, Breakouts & Skin Clearing Treatments": 81
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 64,
+          "baseline_count": 34,
+          "target_rate_pct": 18.23,
+          "baseline_rate_pct": 7.71,
+          "rate_delta_pp": 10.52,
+          "relative_risk": 2.35,
+          "p_value": 1e-05,
+          "p_value_two_sided": 1e-05,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.001"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 99,
+          "baseline_count": 115,
+          "target_rate_pct": 28.21,
+          "baseline_rate_pct": 26.08,
+          "rate_delta_pp": 2.13,
+          "relative_risk": 1.08,
+          "p_value": 0.27751,
+          "p_value_two_sided": 0.51997,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 52,
+          "baseline_count": 58,
+          "target_rate_pct": 14.81,
+          "baseline_rate_pct": 13.15,
+          "rate_delta_pp": 1.66,
+          "relative_risk": 1.13,
+          "p_value": 0.28417,
+          "p_value_two_sided": 0.53546,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 33,
+          "baseline_count": 52,
+          "target_rate_pct": 9.4,
+          "baseline_rate_pct": 11.79,
+          "rate_delta_pp": -2.39,
+          "relative_risk": 0.8,
+          "p_value": 0.8843,
+          "p_value_two_sided": 0.29998,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 81,
+          "baseline_count": 125,
+          "target_rate_pct": 23.08,
+          "baseline_rate_pct": 28.34,
+          "rate_delta_pp": -5.27,
+          "relative_risk": 0.82,
+          "p_value": 0.96116,
+          "p_value_two_sided": 0.10305,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2022-Q1",
@@ -972,6 +2268,7 @@
       "negative_rate": 9.0,
       "psi": 0.161,
       "status": "MODERATE_DRIFT",
+      "sufficient_data": true,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 175,
         "Fragrance, Scent & Sensory Properties": 63,
@@ -979,17 +2276,85 @@
         "Eye Care & Dark Circles": 46,
         "Cleansers, Face Wash & Makeup Removal": 32,
         "Lip Care & Balms": 75
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 175,
+          "baseline_count": 99,
+          "target_rate_pct": 32.89,
+          "baseline_rate_pct": 28.21,
+          "rate_delta_pp": 4.69,
+          "relative_risk": 1.16,
+          "p_value": 0.08047,
+          "p_value_two_sided": 0.15788,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 141,
+          "baseline_count": 81,
+          "target_rate_pct": 26.5,
+          "baseline_rate_pct": 23.08,
+          "rate_delta_pp": 3.43,
+          "relative_risk": 1.15,
+          "p_value": 0.14234,
+          "p_value_two_sided": 0.26763,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 63,
+          "baseline_count": 33,
+          "target_rate_pct": 11.84,
+          "baseline_rate_pct": 9.4,
+          "rate_delta_pp": 2.44,
+          "relative_risk": 1.25,
+          "p_value": 0.1515,
+          "p_value_two_sided": 0.27098,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 46,
+          "baseline_count": 22,
+          "target_rate_pct": 8.65,
+          "baseline_rate_pct": 6.27,
+          "rate_delta_pp": 2.38,
+          "relative_risk": 1.36,
+          "p_value": 0.12062,
+          "p_value_two_sided": 0.24552,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 75,
+          "baseline_count": 52,
+          "target_rate_pct": 14.1,
+          "baseline_rate_pct": 14.81,
+          "rate_delta_pp": -0.72,
+          "relative_risk": 0.95,
+          "p_value": 0.65506,
+          "p_value_two_sided": 0.76962,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2022-Q2",
       "review_count": 448,
-      "negative_count": 47,
-      "neutral_count": 63,
-      "positive_count": 338,
-      "negative_rate": 10.5,
+      "negative_count": 46,
+      "neutral_count": 62,
+      "positive_count": 340,
+      "negative_rate": 10.3,
       "psi": 0.067,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 51,
         "Acne, Breakouts & Skin Clearing Treatments": 101,
@@ -997,17 +2362,85 @@
         "Lip Care & Balms": 84,
         "Eye Care & Dark Circles": 28,
         "Fragrance, Scent & Sensory Properties": 55
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 51,
+          "baseline_count": 32,
+          "target_rate_pct": 11.38,
+          "baseline_rate_pct": 6.02,
+          "rate_delta_pp": 5.37,
+          "relative_risk": 1.88,
+          "p_value": 0.00193,
+          "p_value_two_sided": 0.00376,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 84,
+          "baseline_count": 75,
+          "target_rate_pct": 18.75,
+          "baseline_rate_pct": 14.1,
+          "rate_delta_pp": 4.65,
+          "relative_risk": 1.33,
+          "p_value": 0.03016,
+          "p_value_two_sided": 0.05561,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 55,
+          "baseline_count": 63,
+          "target_rate_pct": 12.28,
+          "baseline_rate_pct": 11.84,
+          "rate_delta_pp": 0.43,
+          "relative_risk": 1.04,
+          "p_value": 0.45548,
+          "p_value_two_sided": 0.84438,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 28,
+          "baseline_count": 46,
+          "target_rate_pct": 6.25,
+          "baseline_rate_pct": 8.65,
+          "rate_delta_pp": -2.4,
+          "relative_risk": 0.73,
+          "p_value": 0.93847,
+          "p_value_two_sided": 0.18204,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 101,
+          "baseline_count": 141,
+          "target_rate_pct": 22.54,
+          "baseline_rate_pct": 26.5,
+          "rate_delta_pp": -3.96,
+          "relative_risk": 0.85,
+          "p_value": 0.93421,
+          "p_value_two_sided": 0.15833,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2022-Q3",
       "review_count": 459,
-      "negative_count": 48,
-      "neutral_count": 57,
+      "negative_count": 49,
+      "neutral_count": 56,
       "positive_count": 354,
-      "negative_rate": 10.5,
+      "negative_rate": 10.7,
       "psi": 0.045,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Cleansers, Face Wash & Makeup Removal": 45,
         "Eye Care & Dark Circles": 54,
@@ -1015,17 +2448,85 @@
         "Facial Moisturizers & Dry Skin Hydration": 139,
         "Lip Care & Balms": 72,
         "Acne, Breakouts & Skin Clearing Treatments": 96
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 54,
+          "baseline_count": 28,
+          "target_rate_pct": 11.76,
+          "baseline_rate_pct": 6.25,
+          "rate_delta_pp": 5.51,
+          "relative_risk": 1.87,
+          "p_value": 0.00257,
+          "p_value_two_sided": 0.0038,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 139,
+          "baseline_count": 129,
+          "target_rate_pct": 30.28,
+          "baseline_rate_pct": 28.79,
+          "rate_delta_pp": 1.49,
+          "relative_risk": 1.05,
+          "p_value": 0.33786,
+          "p_value_two_sided": 0.66244,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 53,
+          "baseline_count": 55,
+          "target_rate_pct": 11.55,
+          "baseline_rate_pct": 12.28,
+          "rate_delta_pp": -0.73,
+          "relative_risk": 0.94,
+          "p_value": 0.67073,
+          "p_value_two_sided": 0.75909,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 45,
+          "baseline_count": 51,
+          "target_rate_pct": 9.8,
+          "baseline_rate_pct": 11.38,
+          "rate_delta_pp": -1.58,
+          "relative_risk": 0.86,
+          "p_value": 0.81089,
+          "p_value_two_sided": 0.45183,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 96,
+          "baseline_count": 101,
+          "target_rate_pct": 20.92,
+          "baseline_rate_pct": 22.54,
+          "rate_delta_pp": -1.63,
+          "relative_risk": 0.93,
+          "p_value": 0.75036,
+          "p_value_two_sided": 0.57346,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2022-Q4",
       "review_count": 274,
-      "negative_count": 23,
-      "neutral_count": 33,
-      "positive_count": 218,
-      "negative_rate": 8.4,
+      "negative_count": 22,
+      "neutral_count": 32,
+      "positive_count": 220,
+      "negative_rate": 8.0,
       "psi": 0.067,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Facial Moisturizers & Dry Skin Hydration": 86,
         "Lip Care & Balms": 48,
@@ -1033,7 +2534,74 @@
         "Cleansers, Face Wash & Makeup Removal": 14,
         "Eye Care & Dark Circles": 28,
         "Fragrance, Scent & Sensory Properties": 22
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 76,
+          "baseline_count": 96,
+          "target_rate_pct": 27.74,
+          "baseline_rate_pct": 20.92,
+          "rate_delta_pp": 6.82,
+          "relative_risk": 1.33,
+          "p_value": 0.0223,
+          "p_value_two_sided": 0.0384,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 48,
+          "baseline_count": 72,
+          "target_rate_pct": 17.52,
+          "baseline_rate_pct": 15.69,
+          "rate_delta_pp": 1.83,
+          "relative_risk": 1.12,
+          "p_value": 0.2914,
+          "p_value_two_sided": 0.53671,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 86,
+          "baseline_count": 139,
+          "target_rate_pct": 31.39,
+          "baseline_rate_pct": 30.28,
+          "rate_delta_pp": 1.1,
+          "relative_risk": 1.04,
+          "p_value": 0.40782,
+          "p_value_two_sided": 0.80396,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 28,
+          "baseline_count": 54,
+          "target_rate_pct": 10.22,
+          "baseline_rate_pct": 11.76,
+          "rate_delta_pp": -1.55,
+          "relative_risk": 0.88,
+          "p_value": 0.77632,
+          "p_value_two_sided": 0.54719,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 22,
+          "baseline_count": 53,
+          "target_rate_pct": 8.03,
+          "baseline_rate_pct": 11.55,
+          "rate_delta_pp": -3.52,
+          "relative_risk": 0.7,
+          "p_value": 0.95198,
+          "p_value_two_sided": 0.13305,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     },
     {
       "batch_or_version": "2023-Q1",
@@ -1044,6 +2612,7 @@
       "negative_rate": 15.7,
       "psi": 0.009,
       "status": "STABLE",
+      "sufficient_data": true,
       "themes": {
         "Acne, Breakouts & Skin Clearing Treatments": 120,
         "Cleansers, Face Wash & Makeup Removal": 23,
@@ -1051,258 +2620,401 @@
         "Lip Care & Balms": 73,
         "Eye Care & Dark Circles": 38,
         "Fragrance, Scent & Sensory Properties": 45
-      }
+      },
+      "causal_attribution": [
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 45,
+          "baseline_count": 22,
+          "target_rate_pct": 10.42,
+          "baseline_rate_pct": 8.03,
+          "rate_delta_pp": 2.39,
+          "relative_risk": 1.28,
+          "p_value": 0.17834,
+          "p_value_two_sided": 0.35642,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 23,
+          "baseline_count": 14,
+          "target_rate_pct": 5.32,
+          "baseline_rate_pct": 5.11,
+          "rate_delta_pp": 0.21,
+          "relative_risk": 1.03,
+          "p_value": 0.52399,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 120,
+          "baseline_count": 76,
+          "target_rate_pct": 27.78,
+          "baseline_rate_pct": 27.74,
+          "rate_delta_pp": 0.04,
+          "relative_risk": 1.0,
+          "p_value": 0.53082,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 133,
+          "baseline_count": 86,
+          "target_rate_pct": 30.79,
+          "baseline_rate_pct": 31.39,
+          "rate_delta_pp": -0.6,
+          "relative_risk": 0.98,
+          "p_value": 0.60008,
+          "p_value_two_sided": 0.8678,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 73,
+          "baseline_count": 48,
+          "target_rate_pct": 16.9,
+          "baseline_rate_pct": 17.52,
+          "rate_delta_pp": -0.62,
+          "relative_risk": 0.96,
+          "p_value": 0.62549,
+          "p_value_two_sided": 0.83819,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ]
     }
   ],
   "alerts": [
     {
-      "severity": "CRITICAL",
-      "batch_or_version": "2008-Q4",
-      "psi_score": 2.357,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2008-Q4 (PSI: 2.36). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2009-Q1",
-      "psi_score": 1.729,
-      "surging_theme": "Lip Care & Balms",
-      "message": "Critical distribution drift detected in 2009-Q1 (PSI: 1.73). Severe surge in 'Lip Care & Balms'."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2009-Q2",
-      "psi_score": 0.213,
-      "message": "Moderate topic drift detected in 2009-Q2 (PSI: 0.21)."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2009-Q3",
-      "psi_score": 2.221,
-      "surging_theme": "Lip Care & Balms",
-      "message": "Critical distribution drift detected in 2009-Q3 (PSI: 2.22). Severe surge in 'Lip Care & Balms'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2009-Q4",
-      "psi_score": 0.67,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2009-Q4 (PSI: 0.67). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2010-Q1",
-      "psi_score": 0.613,
-      "surging_theme": "Lip Care & Balms",
-      "message": "Critical distribution drift detected in 2010-Q1 (PSI: 0.61). Severe surge in 'Lip Care & Balms'."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2010-Q2",
-      "psi_score": 0.208,
-      "message": "Moderate topic drift detected in 2010-Q2 (PSI: 0.21)."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2010-Q3",
-      "psi_score": 0.241,
-      "message": "Moderate topic drift detected in 2010-Q3 (PSI: 0.24)."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2010-Q4",
-      "psi_score": 0.171,
-      "message": "Moderate topic drift detected in 2010-Q4 (PSI: 0.17)."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2011-Q2",
-      "psi_score": 0.186,
-      "message": "Moderate topic drift detected in 2011-Q2 (PSI: 0.19)."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2011-Q3",
-      "psi_score": 0.708,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2011-Q3 (PSI: 0.71). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2011-Q4",
-      "psi_score": 0.258,
-      "surging_theme": "Lip Care & Balms",
-      "message": "Critical distribution drift detected in 2011-Q4 (PSI: 0.26). Severe surge in 'Lip Care & Balms'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2012-Q1",
-      "psi_score": 0.84,
-      "surging_theme": "Lip Care & Balms",
-      "message": "Critical distribution drift detected in 2012-Q1 (PSI: 0.84). Severe surge in 'Lip Care & Balms'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2012-Q2",
-      "psi_score": 1.59,
-      "surging_theme": "Facial Moisturizers & Dry Skin Hydration",
-      "message": "Critical distribution drift detected in 2012-Q2 (PSI: 1.59). Severe surge in 'Facial Moisturizers & Dry Skin Hydration'."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2012-Q3",
-      "psi_score": 0.224,
-      "message": "Moderate topic drift detected in 2012-Q3 (PSI: 0.22)."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2012-Q4",
-      "psi_score": 0.396,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2012-Q4 (PSI: 0.4). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2013-Q1",
-      "psi_score": 0.421,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2013-Q1 (PSI: 0.42). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2013-Q2",
-      "psi_score": 0.581,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2013-Q2 (PSI: 0.58). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2013-Q3",
-      "psi_score": 0.472,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2013-Q3 (PSI: 0.47). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2014-Q1",
-      "psi_score": 1.04,
-      "surging_theme": "Facial Moisturizers & Dry Skin Hydration",
-      "message": "Critical distribution drift detected in 2014-Q1 (PSI: 1.04). Severe surge in 'Facial Moisturizers & Dry Skin Hydration'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2014-Q2",
-      "psi_score": 1.213,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2014-Q2 (PSI: 1.21). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2014-Q3",
-      "psi_score": 0.27,
-      "surging_theme": "Cleansers, Face Wash & Makeup Removal",
-      "message": "Critical distribution drift detected in 2014-Q3 (PSI: 0.27). Severe surge in 'Cleansers, Face Wash & Makeup Removal'."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2014-Q4",
-      "psi_score": 0.199,
-      "message": "Moderate topic drift detected in 2014-Q4 (PSI: 0.2)."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2015-Q1",
-      "psi_score": 0.176,
-      "message": "Moderate topic drift detected in 2015-Q1 (PSI: 0.18)."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2015-Q2",
-      "psi_score": 0.36,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2015-Q2 (PSI: 0.36). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2015-Q3",
-      "psi_score": 0.358,
-      "surging_theme": "Cleansers, Face Wash & Makeup Removal",
-      "message": "Critical distribution drift detected in 2015-Q3 (PSI: 0.36). Severe surge in 'Cleansers, Face Wash & Makeup Removal'."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2015-Q4",
-      "psi_score": 0.307,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2015-Q4 (PSI: 0.31). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2016-Q1",
-      "psi_score": 0.189,
-      "message": "Moderate topic drift detected in 2016-Q1 (PSI: 0.19)."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2016-Q2",
-      "psi_score": 0.176,
-      "message": "Moderate topic drift detected in 2016-Q2 (PSI: 0.18)."
-    },
-    {
-      "severity": "CRITICAL",
-      "batch_or_version": "2016-Q3",
-      "psi_score": 0.262,
-      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
-      "message": "Critical distribution drift detected in 2016-Q3 (PSI: 0.26). Severe surge in 'Acne, Breakouts & Skin Clearing Treatments'."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2016-Q4",
-      "psi_score": 0.245,
-      "message": "Moderate topic drift detected in 2016-Q4 (PSI: 0.24)."
-    },
-    {
-      "severity": "WARNING",
-      "batch_or_version": "2017-Q1",
-      "psi_score": 0.179,
-      "message": "Moderate topic drift detected in 2017-Q1 (PSI: 0.18)."
-    },
-    {
       "severity": "WARNING",
       "batch_or_version": "2017-Q3",
       "psi_score": 0.172,
-      "message": "Moderate topic drift detected in 2017-Q3 (PSI: 0.17)."
+      "surging_theme": "Facial Moisturizers & Dry Skin Hydration",
+      "surging_theme_delta": 0.0976,
+      "relative_risk": 1.46,
+      "p_value": 0.08098,
+      "is_statistically_significant": false,
+      "causal_drivers": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 50,
+          "baseline_count": 14,
+          "target_rate_pct": 29.76,
+          "baseline_rate_pct": 20.0,
+          "rate_delta_pp": 9.76,
+          "relative_risk": 1.46,
+          "p_value": 0.08098,
+          "p_value_two_sided": 0.14908,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 23,
+          "baseline_count": 5,
+          "target_rate_pct": 13.69,
+          "baseline_rate_pct": 7.14,
+          "rate_delta_pp": 6.55,
+          "relative_risk": 1.79,
+          "p_value": 0.11095,
+          "p_value_two_sided": 0.18836,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 27,
+          "baseline_count": 11,
+          "target_rate_pct": 16.07,
+          "baseline_rate_pct": 15.71,
+          "rate_delta_pp": 0.36,
+          "relative_risk": 1.0,
+          "p_value": 0.55706,
+          "p_value_two_sided": 1.0,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ],
+      "review_count": 168,
+      "message": "Moderate topic drift detected in 2017-Q3 (PSI: 0.17). Largest increase: 'Facial Moisturizers & Dry Skin Hydration' (+9.8 pp, RR: 1.46x, p=0.0810)."
     },
     {
       "severity": "WARNING",
       "batch_or_version": "2017-Q4",
       "psi_score": 0.102,
-      "message": "Moderate topic drift detected in 2017-Q4 (PSI: 0.1)."
+      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
+      "surging_theme_delta": 0.0701,
+      "relative_risk": 1.31,
+      "p_value": 0.09378,
+      "is_statistically_significant": false,
+      "causal_drivers": [
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 45,
+          "baseline_count": 37,
+          "target_rate_pct": 29.03,
+          "baseline_rate_pct": 22.02,
+          "rate_delta_pp": 7.01,
+          "relative_risk": 1.31,
+          "p_value": 0.09378,
+          "p_value_two_sided": 0.1607,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 10,
+          "baseline_count": 3,
+          "target_rate_pct": 6.45,
+          "baseline_rate_pct": 1.79,
+          "rate_delta_pp": 4.67,
+          "relative_risk": 3.25,
+          "p_value": 0.03098,
+          "p_value_two_sided": 0.04553,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 22,
+          "baseline_count": 28,
+          "target_rate_pct": 14.19,
+          "baseline_rate_pct": 16.67,
+          "rate_delta_pp": -2.47,
+          "relative_risk": 0.86,
+          "p_value": 0.77841,
+          "p_value_two_sided": 0.64451,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ],
+      "review_count": 155,
+      "message": "Moderate topic drift detected in 2017-Q4 (PSI: 0.1). Largest increase: 'Acne, Breakouts & Skin Clearing Treatments' (+7.0 pp, RR: 1.31x, p=0.0938)."
     },
     {
       "severity": "WARNING",
       "batch_or_version": "2018-Q4",
       "psi_score": 0.194,
-      "message": "Moderate topic drift detected in 2018-Q4 (PSI: 0.19)."
+      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
+      "surging_theme_delta": 0.0682,
+      "relative_risk": 1.27,
+      "p_value": 0.06867,
+      "is_statistically_significant": false,
+      "causal_drivers": [
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 62,
+          "baseline_count": 67,
+          "target_rate_pct": 32.29,
+          "baseline_rate_pct": 25.48,
+          "rate_delta_pp": 6.82,
+          "relative_risk": 1.27,
+          "p_value": 0.06867,
+          "p_value_two_sided": 0.11547,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 28,
+          "baseline_count": 22,
+          "target_rate_pct": 14.58,
+          "baseline_rate_pct": 8.37,
+          "rate_delta_pp": 6.22,
+          "relative_risk": 1.73,
+          "p_value": 0.02662,
+          "p_value_two_sided": 0.04773,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 14,
+          "baseline_count": 7,
+          "target_rate_pct": 7.29,
+          "baseline_rate_pct": 2.66,
+          "rate_delta_pp": 4.63,
+          "relative_risk": 2.65,
+          "p_value": 0.01841,
+          "p_value_two_sided": 0.02394,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        }
+      ],
+      "review_count": 192,
+      "message": "Moderate topic drift detected in 2018-Q4 (PSI: 0.19). Largest increase: 'Acne, Breakouts & Skin Clearing Treatments' (+6.8 pp, RR: 1.27x, p=0.0687)."
     },
     {
       "severity": "WARNING",
       "batch_or_version": "2019-Q3",
       "psi_score": 0.118,
-      "message": "Moderate topic drift detected in 2019-Q3 (PSI: 0.12)."
+      "surging_theme": "Acne, Breakouts & Skin Clearing Treatments",
+      "surging_theme_delta": 0.0859,
+      "relative_risk": 1.32,
+      "p_value": 0.00759,
+      "is_statistically_significant": true,
+      "causal_drivers": [
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 122,
+          "baseline_count": 104,
+          "target_rate_pct": 35.47,
+          "baseline_rate_pct": 26.87,
+          "rate_delta_pp": 8.59,
+          "relative_risk": 1.32,
+          "p_value": 0.00759,
+          "p_value_two_sided": 0.01301,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Eye Care & Dark Circles",
+          "target_count": 28,
+          "baseline_count": 14,
+          "target_rate_pct": 8.14,
+          "baseline_rate_pct": 3.62,
+          "rate_delta_pp": 4.52,
+          "relative_risk": 2.21,
+          "p_value": 0.00673,
+          "p_value_two_sided": 0.01042,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.05"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 86,
+          "baseline_count": 92,
+          "target_rate_pct": 25.0,
+          "baseline_rate_pct": 23.77,
+          "rate_delta_pp": 1.23,
+          "relative_risk": 1.05,
+          "p_value": 0.38197,
+          "p_value_two_sided": 0.73017,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ],
+      "review_count": 344,
+      "message": "Moderate topic drift detected in 2019-Q3 (PSI: 0.12). Largest increase: 'Acne, Breakouts & Skin Clearing Treatments' (+8.6 pp, RR: 1.32x, p=0.0076)."
     },
     {
       "severity": "WARNING",
       "batch_or_version": "2021-Q4",
       "psi_score": 0.159,
-      "message": "Moderate topic drift detected in 2021-Q4 (PSI: 0.16)."
+      "surging_theme": "Cleansers, Face Wash & Makeup Removal",
+      "surging_theme_delta": 0.1052,
+      "relative_risk": 2.35,
+      "p_value": 1e-05,
+      "is_statistically_significant": true,
+      "causal_drivers": [
+        {
+          "theme": "Cleansers, Face Wash & Makeup Removal",
+          "target_count": 64,
+          "baseline_count": 34,
+          "target_rate_pct": 18.23,
+          "baseline_rate_pct": 7.71,
+          "rate_delta_pp": 10.52,
+          "relative_risk": 2.35,
+          "p_value": 1e-05,
+          "p_value_two_sided": 1e-05,
+          "is_statistically_significant": true,
+          "significance_tier": "p < 0.001"
+        },
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 99,
+          "baseline_count": 115,
+          "target_rate_pct": 28.21,
+          "baseline_rate_pct": 26.08,
+          "rate_delta_pp": 2.13,
+          "relative_risk": 1.08,
+          "p_value": 0.27751,
+          "p_value_two_sided": 0.51997,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Lip Care & Balms",
+          "target_count": 52,
+          "baseline_count": 58,
+          "target_rate_pct": 14.81,
+          "baseline_rate_pct": 13.15,
+          "rate_delta_pp": 1.66,
+          "relative_risk": 1.13,
+          "p_value": 0.28417,
+          "p_value_two_sided": 0.53546,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ],
+      "review_count": 351,
+      "message": "Moderate topic drift detected in 2021-Q4 (PSI: 0.16). Largest increase: 'Cleansers, Face Wash & Makeup Removal' (+10.5 pp, RR: 2.35x, p=0.0000)."
     },
     {
       "severity": "WARNING",
       "batch_or_version": "2022-Q1",
       "psi_score": 0.161,
-      "message": "Moderate topic drift detected in 2022-Q1 (PSI: 0.16)."
+      "surging_theme": "Facial Moisturizers & Dry Skin Hydration",
+      "surging_theme_delta": 0.0469,
+      "relative_risk": 1.16,
+      "p_value": 0.08047,
+      "is_statistically_significant": false,
+      "causal_drivers": [
+        {
+          "theme": "Facial Moisturizers & Dry Skin Hydration",
+          "target_count": 175,
+          "baseline_count": 99,
+          "target_rate_pct": 32.89,
+          "baseline_rate_pct": 28.21,
+          "rate_delta_pp": 4.69,
+          "relative_risk": 1.16,
+          "p_value": 0.08047,
+          "p_value_two_sided": 0.15788,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Acne, Breakouts & Skin Clearing Treatments",
+          "target_count": 141,
+          "baseline_count": 81,
+          "target_rate_pct": 26.5,
+          "baseline_rate_pct": 23.08,
+          "rate_delta_pp": 3.43,
+          "relative_risk": 1.15,
+          "p_value": 0.14234,
+          "p_value_two_sided": 0.26763,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        },
+        {
+          "theme": "Fragrance, Scent & Sensory Properties",
+          "target_count": 63,
+          "baseline_count": 33,
+          "target_rate_pct": 11.84,
+          "baseline_rate_pct": 9.4,
+          "rate_delta_pp": 2.44,
+          "relative_risk": 1.25,
+          "p_value": 0.1515,
+          "p_value_two_sided": 0.27098,
+          "is_statistically_significant": false,
+          "significance_tier": "n.s."
+        }
+      ],
+      "review_count": 532,
+      "message": "Moderate topic drift detected in 2022-Q1 (PSI: 0.16). Largest increase: 'Facial Moisturizers & Dry Skin Hydration' (+4.7 pp, RR: 1.16x, p=0.0805)."
     }
   ],
-  "batches_analyzed": 59
+  "batches_analyzed": 59,
+  "min_cohort_size": 100,
+  "thresholds": {
+    "moderate": 0.1,
+    "critical": 0.25
+  },
+  "cohorts_skipped_for_small_n": 35
 }

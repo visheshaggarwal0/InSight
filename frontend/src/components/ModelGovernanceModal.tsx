@@ -39,7 +39,11 @@ export const ModelGovernanceModal: React.FC<Props> = ({
             </h2>
           </div>
           <p style={{ fontSize: '0.82rem', color: '#6B7280', marginTop: '6px' }}>
-            Empirical evaluation on <b>{evaluation.sample_size} human-annotated gold-standard reviews</b>.
+            {evaluation.synthetic_disclaimer ? (
+              <>Empirical validation on <b>{evaluation.sample_size} template-generated benchmark reviews</b>.</>
+            ) : (
+              <>Empirical evaluation on <b>{evaluation.sample_size} real Sephora customer reviews</b> (held-out split).</>
+            )}
           </p>
         </div>
 
@@ -61,16 +65,61 @@ export const ModelGovernanceModal: React.FC<Props> = ({
         </button>
       </div>
 
+      {/* Synthetic Benchmark Disclaimer Banner */}
+      {evaluation.synthetic_disclaimer ? (
+        <div style={{
+          marginTop: '14px',
+          padding: '10px 14px',
+          backgroundColor: '#FFFBEB',
+          border: '1px solid #FCD34D',
+          borderRadius: '8px',
+          fontSize: '0.78rem',
+          color: '#92400E',
+          lineHeight: 1.45,
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'flex-start'
+        }}>
+          <span style={{ fontWeight: 700, flexShrink: 0 }}>SYNTHETIC BENCHMARK NOTICE:</span>
+          <span>{evaluation.synthetic_disclaimer}</span>
+        </div>
+      ) : (
+        <div style={{
+          marginTop: '14px',
+          padding: '8px 12px',
+          backgroundColor: '#ECFDF5',
+          border: '1px solid #A7F3D0',
+          borderRadius: '8px',
+          fontSize: '0.78rem',
+          color: '#065F46',
+          lineHeight: 1.45,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          <Award size={14} style={{ color: '#047857', flexShrink: 0 }} />
+          <span><b>Production Telemetry:</b> Evaluated on real-world customer verbatims from Sephora cosmetics dataset.</span>
+        </div>
+      )}
+
       {/* Model Spec Tag */}
-      <div style={{ margin: '18px 0', padding: '12px 16px', backgroundColor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ margin: '14px 0 18px 0', padding: '12px 16px', backgroundColor: '#F9FAFB', borderRadius: '10px', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Activity size={15} aria-hidden="true" style={{ color: '#047857', flexShrink: 0 }} />
           <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
             Architecture: <strong style={{ color: '#111827', fontFamily: "'JetBrains Mono', monospace" }}>{model_architecture}</strong>
           </span>
         </div>
-        <span style={{ fontSize: '0.75rem', backgroundColor: '#ECFDF5', color: '#065F46', padding: '3px 8px', borderRadius: '999px', border: '1px solid #A7F3D0', fontWeight: 700 }}>
-          PLATT SCALED &bull; CALIBRATED
+        <span style={{
+          fontSize: '0.75rem',
+          backgroundColor: evaluation.synthetic_disclaimer ? '#FEF3C7' : '#ECFDF5',
+          color: evaluation.synthetic_disclaimer ? '#92400E' : '#065F46',
+          padding: '3px 8px',
+          borderRadius: '999px',
+          border: `1px solid ${evaluation.synthetic_disclaimer ? '#FCD34D' : '#A7F3D0'}`,
+          fontWeight: 700
+        }}>
+          {evaluation.synthetic_disclaimer ? 'SYNTHETIC GRAMMAR TEST' : 'PLATT SCALED \u2022 CALIBRATED'}
         </span>
       </div>
 

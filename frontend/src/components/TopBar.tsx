@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut, Menu, Sparkles, FileText } from 'lucide-react';
+import { Search, Bell, ChevronDown, Database, Upload, ShieldCheck, LogIn, LogOut, Menu, Sparkles } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 import { useSession, signOut } from '../lib/auth-client';
 import { EmptyState } from './EmptyState';
 import { fmtPct } from '../lib/formatters';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const CUSTOM_DOMAIN_ID = 'custom';
 
 interface TopBarProps {
@@ -62,16 +61,14 @@ export function TopBar({
   onOpenDemoPitch,
   onOpenAuth,
   onOpenCopilot,
-  onOpenBriefing,
+  onOpenBriefing: _onOpenBriefing,
   onToggleMobileMenu,
-  onSelectTab
+  onSelectTab: _onSelectTab
 }: TopBarProps) {
   const [isDomainOpen, setIsDomainOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState(searchQuery);
-  const [exportState, setExportState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [exportError, setExportError] = useState<string | null>(null);
   const session = useSession();
 
   const domainRef = useRef<HTMLDivElement>(null);
@@ -126,28 +123,6 @@ export function TopBar({
     },
     [onUploadCsv]
   );
-
-  const handleExportPowerBi = useCallback(async () => {
-    setExportState('loading');
-    setExportError(null);
-    try {
-      const res = await fetch(`${API_BASE}/export/powerbi`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'insight_powerbi_export.csv';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setExportState('idle');
-    } catch (err) {
-      setExportState('error');
-      setExportError(`Power BI export failed: ${(err as Error).message}`);
-    }
-  }, []);
 
   const activeDatasetObj = datasets.find((d) => d.id === activeDomain);
   const domainDisplayName = activeDatasetObj?.name
@@ -265,7 +240,7 @@ export function TopBar({
             title="Launch 60-second interactive demo pitch for hackathon judges"
           >
             <Sparkles size={14} style={{ color: '#34D399' }} />
-            <span>🎯 60s Demo Story</span>
+            <span>🎯 60s Demo</span>
           </button>
         )}
 
@@ -295,39 +270,6 @@ export function TopBar({
           </button>
         )}
 
-        {/* Power BI Live Connector Bridge */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onSelectTab) {
-              onSelectTab('powerbi');
-            } else {
-              void handleExportPowerBi();
-            }
-          }}
-          disabled={exportState === 'loading'}
-          className="hide-on-mobile"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 12px',
-            borderRadius: '999px',
-            border: '1px solid #FDE68A',
-            backgroundColor: '#FFFBEB',
-            color: '#92400E',
-            fontSize: '0.78rem',
-            fontWeight: 600,
-            textDecoration: 'none',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-          title={exportError ?? 'Open Power BI Live Analytics & Telemetry Bridge'}
-        >
-          <BarChart3 size={14} style={{ color: '#D97706' }} />
-          <span>Power BI Analytics</span>
-        </button>
-
         {/* InSight AI Copilot Launch Button */}
         {onOpenCopilot && (
           <button
@@ -351,7 +293,7 @@ export function TopBar({
             title="Ask InSight AI Copilot (RAG across 10,000 reviews)"
           >
             <Sparkles size={14} style={{ color: '#059669' }} />
-            <span>Ask InSight Copilot</span>
+            <span><span className="hide-on-laptop">Ask </span>Copilot</span>
             <span
               style={{
                 fontSize: '0.64rem',
@@ -365,33 +307,6 @@ export function TopBar({
             >
               AI
             </span>
-          </button>
-        )}
-
-        {/* Executive Briefing Button */}
-        {onOpenBriefing && (
-          <button
-            type="button"
-            onClick={onOpenBriefing}
-            className="hide-on-mobile"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 12px',
-              borderRadius: '999px',
-              border: '1px solid #E5E7EB',
-              backgroundColor: '#FFFFFF',
-              color: '#374151',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
-            }}
-            title="Generate One-Pager Executive Intelligence Monograph"
-          >
-            <FileText size={14} style={{ color: '#4B5563' }} />
-            <span>Briefing</span>
           </button>
         )}
 

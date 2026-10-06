@@ -1,19 +1,27 @@
 {
   "feature_requests": [
     {
-      "request_id": 3,
-      "title": "Moisturizing & Wash Request",
+      "request_id": 2,
+      "title": "Sensitive & Acne Request",
       "keywords": [
-        "moisturizing",
-        "wash",
-        "gel",
-        "recommend dry",
-        "little extra",
-        "cover"
+        "sensitive",
+        "acne",
+        "areas",
+        "facial",
+        "redness",
+        "care"
       ],
-      "vote_count": 301,
+      "feature_themes": [
+        "sensitive",
+        "acne",
+        "areas",
+        "facial",
+        "redness",
+        "care"
+      ],
+      "vote_count": 328,
       "priority": "HIGH",
-      "medoid_quote": "I would recommend this if you have dry skin .",
+      "medoid_quote": "I would recommend this product it’s been a must in my skin care routine!",
       "sample_quotes": [
         {
           "sentence_id": "REV-SEP-00033::S007",
@@ -25,16 +33,9 @@
         {
           "sentence_id": "REV-SEP-00039::S000",
           "review_id": "REV-SEP-00039",
-          "sentence_text": "REALLY wish they left out the coconut oil :(I love facial oils and use them everyday however my skin just doesn\u2019t play nice with coconut oil of any kind.",
+          "sentence_text": "REALLY wish they left out the coconut oil :(I love facial oils and use them everyday however my skin just doesn’t play nice with coconut oil of any kind.",
           "start": 0,
           "end": 153
-        },
-        {
-          "sentence_id": "REV-SEP-00053::S000",
-          "review_id": "REV-SEP-00053",
-          "sentence_text": "when you see the words \u201cultra\u201c and \u201ccream\u201c you expect some deep moisture, but this was very thin and not emollient as the title would suggest.",
-          "start": 0,
-          "end": 142
         },
         {
           "sentence_id": "REV-SEP-00086::S001",
@@ -42,6 +43,13 @@
           "sentence_text": "I have very very dry skin in the winter, I also live in Chicago which has harsh weather for skin, so I need a great face cream.",
           "start": 68,
           "end": 195
+        },
+        {
+          "sentence_id": "REV-SEP-00102::S002",
+          "review_id": "REV-SEP-00102",
+          "sentence_text": "I’ve always had dry skin with blemishes, and I get way less blemishes now and I’ve seen a huge improvement in my skins texture.",
+          "start": 116,
+          "end": 243
         },
         {
           "sentence_id": "REV-SEP-00103::S004",
@@ -53,26 +61,94 @@
       ]
     },
     {
-      "request_id": 0,
-      "title": "Larger & Jar Request",
+      "request_id": 1,
+      "title": "Improvement Fine & Makeup Request",
+      "keywords": [
+        "improvement fine",
+        "makeup",
+        "bed",
+        "improvement need",
+        "clear improvement",
+        "improvement"
+      ],
+      "feature_themes": [
+        "improvement fine",
+        "makeup",
+        "bed",
+        "improvement need",
+        "clear improvement",
+        "improvement"
+      ],
+      "vote_count": 241,
+      "priority": "MEDIUM",
+      "medoid_quote": "After using the product for only a few days, a visible improvement was noted.",
+      "sample_quotes": [
+        {
+          "sentence_id": "REV-SEP-00008::S002",
+          "review_id": "REV-SEP-00008",
+          "sentence_text": "After using the product for only a few days, a visible improvement was noted.",
+          "start": 175,
+          "end": 252
+        },
+        {
+          "sentence_id": "REV-SEP-00053::S000",
+          "review_id": "REV-SEP-00053",
+          "sentence_text": "when you see the words “ultra“ and “cream“ you expect some deep moisture, but this was very thin and not emollient as the title would suggest.",
+          "start": 0,
+          "end": 142
+        },
+        {
+          "sentence_id": "REV-SEP-00064::S000",
+          "review_id": "REV-SEP-00064",
+          "sentence_text": "I got a sample of this as a birthday gift maybe 2 weeks ago and I’ve been using this twice a day where I’ve been developing wrinkles (specifically my smile lines and in between my eyebrows cause I’m notorious for both frowning a lot and smiling) and I can honestly say I’ve been seeing an improvement even in this ’short’ time, id defiantly get this again",
+          "start": 0,
+          "end": 355
+        },
+        {
+          "sentence_id": "REV-SEP-00090::S001",
+          "review_id": "REV-SEP-00090",
+          "sentence_text": "I haven’t seen much of an improvement but I’m sure it takes some time.",
+          "start": 48,
+          "end": 118
+        },
+        {
+          "sentence_id": "REV-SEP-00151::S010",
+          "review_id": "REV-SEP-00151",
+          "sentence_text": "I wish they had just left it with the enzymatic scrubbing properties instead of adding the texture.",
+          "start": 759,
+          "end": 858
+        }
+      ]
+    },
+    {
+      "request_id": 3,
+      "title": "Larger & Refill Request",
       "keywords": [
         "larger",
-        "jar",
         "refill",
+        "wish weren",
+        "weren",
         "wish bigger",
-        "wish pump",
-        "weren"
+        "wish pump"
       ],
-      "vote_count": 247,
-      "priority": "HIGH",
-      "medoid_quote": "I love that I only need a small amount of product to achieve results.",
+      "feature_themes": [
+        "larger",
+        "refill",
+        "wish weren",
+        "weren",
+        "wish bigger",
+        "wish pump"
+      ],
+      "vote_count": 191,
+      "priority": "MEDIUM",
+      "medoid_quote": "My only caveat is that I wish it came in a large jar or tube.",
       "sample_quotes": [
         {
           "sentence_id": "REV-SEP-00004::S002",
           "review_id": "REV-SEP-00004",
-          "sentence_text": "I didn\u2019t put 5 stars because I wish it was a little bit bigger for the price.",
-          "start": 125,
-          "end": 202
+          "sentence_text": "I didn’t put 5 stars because I wish it was a little bit bigger for the price.",
+          "start": 121,
+          "end": 198
         },
         {
           "sentence_id": "REV-SEP-00022::S000",
@@ -89,85 +165,41 @@
           "end": 386
         },
         {
-          "sentence_id": "REV-SEP-00151::S000",
-          "review_id": "REV-SEP-00151",
-          "sentence_text": "I would like to start by saying I love the jet lag mask.",
-          "start": 0,
-          "end": 56
+          "sentence_id": "REV-SEP-00253::S004",
+          "review_id": "REV-SEP-00253",
+          "sentence_text": "It would be better if product is in a pump.",
+          "start": 326,
+          "end": 369
         },
         {
-          "sentence_id": "REV-SEP-00151::S010",
-          "review_id": "REV-SEP-00151",
-          "sentence_text": "I wish they had just left it with the enzymatic scrubbing properties instead of adding the texture.",
-          "start": 759,
-          "end": 858
+          "sentence_id": "REV-SEP-00286::S004",
+          "review_id": "REV-SEP-00286",
+          "sentence_text": "I do wish it was in a pump versus a jar because it is pretty thin and hard to pick up with the fingers in the jar.",
+          "start": 189,
+          "end": 303
         }
       ]
     },
     {
-      "request_id": 1,
-      "title": "Weeks & Noticed Improvement Request",
+      "request_id": 0,
+      "title": "Recommend Recommend & Purchasing Request",
       "keywords": [
-        "weeks",
-        "noticed improvement",
-        "improvement texture",
-        "area",
-        "visible",
-        "saw improvement"
-      ],
-      "vote_count": 230,
-      "priority": "MEDIUM",
-      "medoid_quote": "I notice an immediate improvement with the way my skin looks after use.",
-      "sample_quotes": [
-        {
-          "sentence_id": "REV-SEP-00008::S002",
-          "review_id": "REV-SEP-00008",
-          "sentence_text": "After using the product for only a few days, a visible improvement was noted.",
-          "start": 175,
-          "end": 252
-        },
-        {
-          "sentence_id": "REV-SEP-00064::S000",
-          "review_id": "REV-SEP-00064",
-          "sentence_text": "I got a sample of this as a birthday gift maybe 2 weeks ago and I\u2019ve been using this twice a day where I\u2019ve been developing wrinkles (specifically my smile lines and in between my eyebrows cause I\u2019m notorious for both frowning a lot and smiling) and I can honestly say I\u2019ve been seeing an improvement even in this \u2019short\u2019 time, id defiantly get this again",
-          "start": 0,
-          "end": 355
-        },
-        {
-          "sentence_id": "REV-SEP-00090::S001",
-          "review_id": "REV-SEP-00090",
-          "sentence_text": "I haven\u2019t seen much of an improvement but I\u2019m sure it takes some time.",
-          "start": 48,
-          "end": 118
-        },
-        {
-          "sentence_id": "REV-SEP-00102::S002",
-          "review_id": "REV-SEP-00102",
-          "sentence_text": "I\u2019ve always had dry skin with blemishes, and I get way less blemishes now and I\u2019ve seen a huge improvement in my skins texture.",
-          "start": 116,
-          "end": 243
-        },
-        {
-          "sentence_id": "REV-SEP-00135::S003",
-          "review_id": "REV-SEP-00135",
-          "sentence_text": "I wasn\u2019t expecting Marianna skin since we all know that she has access to everything and anything, but I was expecting some improvement on my skin.",
-          "start": 198,
-          "end": 345
-        }
-      ]
-    },
-    {
-      "request_id": 2,
-      "title": "Recommend Overall & Recommend Recommend Request",
-      "keywords": [
-        "recommend overall",
         "recommend recommend",
-        "recommend definitely",
         "recommend 10",
-        "trying recommend",
-        "recommend"
+        "purchasing",
+        "recommend far",
+        "recommend",
+        "user"
       ],
-      "vote_count": 102,
+      "feature_themes": [
+        "recommend recommend",
+        "recommend 10",
+        "purchasing",
+        "recommend far",
+        "recommend",
+        "user"
+      ],
+      "vote_count": 118,
       "priority": "LOW",
       "medoid_quote": "I would recommend this product.",
       "sample_quotes": [
@@ -193,22 +225,22 @@
           "end": 257
         },
         {
+          "sentence_id": "REV-SEP-00151::S000",
+          "review_id": "REV-SEP-00151",
+          "sentence_text": "I would like to start by saying I love the jet lag mask.",
+          "start": 0,
+          "end": 56
+        },
+        {
           "sentence_id": "REV-SEP-00304::S007",
           "review_id": "REV-SEP-00304",
           "sentence_text": "I highly recommend this product and hope it works as great for you as it has for me!",
           "start": 593,
           "end": 677
-        },
-        {
-          "sentence_id": "REV-SEP-00315::S003",
-          "review_id": "REV-SEP-00315",
-          "sentence_text": "It probably won\u2019t work as well for everybody but I would recommend trying it",
-          "start": 358,
-          "end": 434
         }
       ]
     }
   ],
-  "total_recommendations": 880,
+  "total_recommendations": 878,
   "n_clusters_actual": 4
 }

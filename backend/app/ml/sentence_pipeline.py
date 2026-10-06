@@ -103,7 +103,9 @@ _COMPLAINT_PATTERN = re.compile(
 # These are a SECONDARY TIER: they never trigger COMPLAINT by themselves.
 _WEAK_TRIGGER_PATTERN = re.compile(
     r"\b(?:"
-    r"return|returns|returned|returning|refund|refunded|replacement|exchange|"
+    r"return(?!\s+to\b)|returns(?!\s+to\b)|returned(?!\s+to\b)|returning(?!\s+to\b)|"
+    r"refund|refunded|replacement|"
+    r"exchange(?!\s+for\s+(?:an?\s+)?(?:honest|unbiased|complimentary|free|my|this)\b)|"
     r"money back|"
     r"fake|fakes|counterfeit|knockoff|"
     r"error|errors|bug|bugs|"
@@ -113,16 +115,26 @@ _WEAK_TRIGGER_PATTERN = re.compile(
 )
 
 # Context required to promote a weak trigger to a real complaint signal.
+# Removed generic e-commerce words (received, bought, order, always, again) which caused false complaints.
 _WEAK_TRIGGER_CONTEXT = re.compile(
     r"\b(?:"
-    r"can't|cannot|couldn't|could not|won't|will not|still|never|"
+    r"can't|cannot|couldn't|could not|won't|will not|never arrived|"
     r"waiting|waited|refuse|refused|refusing|denied|deny|"
-    r"twice|second time|again|another|every time|constantly|always|"
     r"broken|damaged|defective|cracked|leaked|jammed|"
-    r"arrived|arrival|received|delivery|delivered|package|parcel|shipment|box|"
-    r"order|ordered|purchase|purchased|bought|"
     r"terrible|horrible|awful|worst|useless|disappointed|angry|furious|"
     r"unusable|immediately"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Promotional and incentivized review boilerplate (FTC disclosures, PR samples)
+_PROMOTIONAL_BOILERPLATE = re.compile(
+    r"\b(?:"
+    r"in exchange for (?:an? )?(?:honest|unbiased|free|complimentary) review|"
+    r"received (?:this )?(?:product )?(?:complimentary|free)|"
+    r"complimentary from \w+|"
+    r"gifted by \w+|"
+    r"influenster|trywithtopbox|bzzagent|pr package"
     r")\b",
     re.IGNORECASE,
 )
@@ -157,48 +169,31 @@ _PRAISE_PATTERN = re.compile(
 )
 
 # NEGATION & SYMPTOM MITIGATION guards: e.g. "isn't drying", "never irritated", "no breakouts", "removes redness", "without feeling stripped"
-#
-# The previous version allowed a 9-token look-ahead between the negation and the
-# symptom, so ANY negation anywhere in a sentence suppressed the WHOLE sentence.
-# Three unambiguous complaints were routed to PRAISE/NOISE and dropped from the
-# complaint pool that drives the entire complaint dashboard:
-#     "I have no breakouts but my skin is raw and burning badly."
-#     "No redness at all, but the pump is jammed solid."
-#     "Not worth it, the serum did not stop my irritation."
-#
-# Two changes fix this:
-#   1. The window is 2 tokens, so the negation must actually MODIFY the symptom
-#      rather than merely sharing a sentence with it.
-#   2. The guard is evaluated PER CLAUSE (see _CLAUSE_SPLITTER) rather than per
-#      sentence, so a negated first clause no longer cancels the defect stated in
-#      the clause after "but".
-# Trade-off: a genuinely negated clause whose symptom sits further than 2 tokens
-# away ("I did not, after two weeks, see any reduction in redness") can still
-# leak into the complaint pool. The 2-token window plus clause scoping is the
-# compromise that keeps precision on "no breakouts" without eating real
-# complaints; widening the window again reintroduces the bug above.
+# Evaluated per clause (see _CLAUSE_SPLITTER) with up to 8 tokens window so genuine subordinate negation
+# ("without feeling like all the moisture is being stripped") is caught without leaking across clauses.
 _NEGATION_TOKENS = (
-    r"never|didn't|did not|not|no|wasn't|was not|isn't|is not|doesn't|does not|"
-    r"without|zero|barely|hardly|scarcely"
+    r"never|didn'?t|did not|not|no|wasn'?t|was not|isn'?t|is not|doesn'?t|does not|"
+    r"without|zero|barely|hardly|scarcely|won'?t|wont|can'?t|cant|cannot|couldn'?t|couldnt"
 )
 _MITIGATION_TOKENS = (
     r"stop(?:ped|s)?|decrease in|decreased|prevented|prevents|removes?|reduces?|"
-    r"soothes?|clears?|cures?|calms?|won't|wont|relieves?"
+    r"soothes?|clears?|cures?|calms?|won'?t|wont|relieves?"
 )
 _SYMPTOM_TERMS = (
-    r"irritat\w*|burn\w*|breakout\w*|acne|rash\w*|peel\w*|sting\w*|pill\w*|"
+    r"irritat\w*|burn\w*|break\s*out\w*|breakout\w*|acne|rash\w*|peel\w*|sting\w*|pill\w*|"
     r"problem\w*|issue\w*|defect\w*|clog\w*|leak\w*|dry\w*|crash\w*|shrink\w*|"
-    r"strip\w*|redness|tightness|puffiness|wrinkle\w*|greas\w*|stick\w*|residue"
+    r"strip\w*|redness|tight\w*|puffiness|wrinkle\w*|greas\w*|stick\w*|residue|"
+    r"disappoint\w*|bad|worst|terrible|horrible|awful|waste|harsh|heavy"
 )
 _NEGATION_FILTER = re.compile(
-    # "<negation> ... <symptom>"  (≤2 tokens apart)
-    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _SYMPTOM_TERMS + r")"
+    # "<negation> ... <symptom>"  (≤8 tokens apart within clause)
+    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,8}\s+(?:" + _SYMPTOM_TERMS + r")"
     r"|"
-    # "<symptom> ... <negation>"  (≤2 tokens apart)
-    r"\b(?:" + _SYMPTOM_TERMS + r")\b(?:\s+\w+){0,2}\s+(?:" + _NEGATION_TOKENS + r")\b"
+    # "<symptom> ... <negation>"  (≤8 tokens apart within clause)
+    r"\b(?:" + _SYMPTOM_TERMS + r")\b(?:\s+\w+){0,8}\s+(?:" + _NEGATION_TOKENS + r")\b"
     r"|"
-    # "<mitigation verb> ... <symptom>"  (≤2 tokens apart)
-    r"\b(?:" + _MITIGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _SYMPTOM_TERMS + r")",
+    # "<mitigation verb> ... <symptom>"  (≤8 tokens apart within clause)
+    r"\b(?:" + _MITIGATION_TOKENS + r")\b(?:\s+\w+){0,8}\s+(?:" + _SYMPTOM_TERMS + r")",
     re.IGNORECASE,
 )
 
@@ -206,7 +201,7 @@ _NEGATION_FILTER = re.compile(
 # evidence of relief: "did not stop my irritation" means the irritation
 # persisted. Checked before _NEGATION_FILTER so such a clause is NOT suppressed.
 _FAILED_MITIGATION = re.compile(
-    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _MITIGATION_TOKENS + r")",
+    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,4}\s+(?:" + _MITIGATION_TOKENS + r")",
     re.IGNORECASE,
 )
 
@@ -624,6 +619,20 @@ def _classify_sentence(sentence_text: str) -> Tuple[str, float]:
     if not text:
         # Blank input carries no evidence in either direction.
         return LABEL_NOISE, _NO_EVIDENCE_CONFIDENCE
+
+    # 0. Promotional disclosures (FTC boilerplate / PR samples) without explicit physical defects
+    #    must never be classified as complaints.
+    if _PROMOTIONAL_BOILERPLATE.search(text):
+        explicit_defect = bool(re.search(
+            r"\b(?:cracked|broke|broken|shattered|leaked|leaking|spilled|exploded|jammed|stuck|clogged|"
+            r"burning|burns|burned|stinging|stings|stung|itching|itchy|rash|hives|dermatitis|allergic|allergy|"
+            r"cystic|blisters|crash|crashes|crashed|freeze|freezes|frozen)\b",
+            text, re.IGNORECASE
+        ))
+        if not explicit_defect:
+            if _PRAISE_PATTERN.search(text):
+                return LABEL_PRAISE, _PRAISE_CONFIDENCE
+            return LABEL_NOISE, _NO_EVIDENCE_CONFIDENCE
 
     # 1. Recommendation: suggestions, requests, wishes take precedence
     recommendation_matches = _RECOMMENDATION_PATTERN.findall(text)

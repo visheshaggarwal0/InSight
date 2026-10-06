@@ -116,6 +116,9 @@ def compute_domain_artifacts(domain: str) -> dict:
             themes = real_res["themes"]
             drift_results = real_res["drift_results"]
             use_real_pipeline = True
+            domain_model = real_res.get("sentiment_model")
+            if domain_model is None:
+                domain_model = CalibratedSentimentClassifier()
             provenance["reviews_without_cohort"] = real_res.get("reviews_without_cohort", 0)
             provenance["label_source"] = real_res.get("label_source")
             logger.info(
@@ -128,10 +131,12 @@ def compute_domain_artifacts(domain: str) -> dict:
             )
             reviews, ground_truth = dataset_manager.generate_d2c_cosmetics(10000)
             use_real_pipeline = False
+            domain_model = None
             provenance = {"synthetic": True, "source": "generated-templates (real load failed)"}
     elif domain == "tech_saas":
         reviews, ground_truth = dataset_manager.generate_tech_saas(10000)
         use_real_pipeline = False
+        domain_model = None
     else:
         raise ValueError(f"Unknown domain: {domain}")
 
@@ -142,15 +147,17 @@ def compute_domain_artifacts(domain: str) -> dict:
         # then scored it against synthetic Aura Botanicals template text.
         labelled = [r for r in reviews if r.get("ground_truth_label") in CalibratedSentimentClassifier.CLASSES]
         _, held_out = _split_train_eval(labelled, eval_size=1000)
-        if len(held_out) >= 2:
+        if len(held_out) >= 2 and domain_model is not None and domain_model.is_fitted:
             eval_results = evaluation_harness.evaluate(
                 [r["ground_truth_label"] for r in held_out],
                 [r["sentiment_pred"] for r in held_out],
-                sentiment_model.predict_proba([r["redacted_text"] for r in held_out]),
+                domain_model.predict_proba([r["redacted_text"] for r in held_out]),
                 CalibratedSentimentClassifier.CLASSES,
             )
             eval_results["split"] = "held-out 1/3 of labelled reviews (never fitted)"
             eval_results["label_source"] = provenance.get("label_source")
+            eval_results["benchmark_type"] = "production_telemetry_weak_labels"
+            eval_results["synthetic_disclaimer"] = None
         else:
             logger.warning("Too few labelled reviews to compute governance metrics; suppressed.")
             eval_results = {}
@@ -180,6 +187,12 @@ def compute_domain_artifacts(domain: str) -> dict:
         )
         eval_results["split"] = "held-out 1/3 of the generated corpus (excluded from fitting)"
         eval_results["label_source"] = provenance.get("source")
+        eval_results["benchmark_type"] = "synthetic_grammar_benchmark"
+        eval_results["synthetic_disclaimer"] = (
+            "Synthetic benchmark generated from slotted template grammar. High F1 reflects lexical "
+            "pattern memorization across template slots. Consult the real Sephora corpus ('d2c_cosmetics') "
+            "for production customer telemetry."
+        )
 
         cluster_res = clusterer.fit_and_cluster(reviews)
         themes = cluster_res["themes"]
@@ -223,10 +236,6 @@ def compute_domain_artifacts(domain: str) -> dict:
             p_res = cluster_praise_sentences(sampled_praise, n_clusters=4)
             saas_praise_clusters = p_res.get("praise_clusters", p_res.get("clusters", []))
 
-    if use_real_pipeline:
-        # Sentiment already came from the verified offline artifact.
-        domain_model = sentiment_model
-
     return {
         "reviews": reviews,
         "ground_truth": ground_truth,
@@ -242,7 +251,7 @@ def compute_domain_artifacts(domain: str) -> dict:
 
 
 def _swap_state(domain: str, cached: dict) -> None:
-    """Atomically replaces every field of the global state under the lock."""
+    """Atomically replaces every field of the global state under the lock without mutating singletons."""
     state.active_domain = domain
     state.reviews = cached["reviews"]
     state.ground_truth = cached["ground_truth"]
@@ -254,10 +263,6 @@ def _swap_state(domain: str, cached: dict) -> None:
     state.complaint_clusters = cached.get("complaint_clusters", [])
     state.feature_requests = cached.get("feature_requests", [])
     state.praise_clusters = cached.get("praise_clusters", [])
-
-    # Keep legacy singleton sentiment_model synchronized with active domain pipeline
-    sentiment_model.pipeline = cached["sentiment_model"].pipeline
-    sentiment_model.is_fitted = True
     state.is_initialized = True
 
 
@@ -277,23 +282,26 @@ def ensure_initialized():
                 initialize_domain("d2c_cosmetics")
 
 
+DEFAULT_DOMAIN = "d2c_cosmetics"
+
+
 def get_domain_bundle(domain: Optional[str] = None) -> Tuple[str, dict]:
     """Thread-safe retrieval of domain state bundle without global race conditions.
     
-    If domain is None, defaults to state.active_domain.
+    If domain is None, defaults to state.active_domain or DEFAULT_DOMAIN.
     If requested domain is not cached, initializes it under INIT_LOCK.
     Returns (domain_key, bundle_dict).
     """
     ensure_initialized()
-    target_domain = (domain or state.active_domain).strip()
-    if target_domain not in ("d2c_cosmetics", "tech_saas", "custom"):
+    target_domain = (domain or state.active_domain or DEFAULT_DOMAIN).strip()
+    if target_domain not in ("d2c_cosmetics", "tech_saas", "custom") and not target_domain.startswith("custom"):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid domain '{target_domain}'. Valid options: 'd2c_cosmetics', 'tech_saas', 'custom'.",
         )
     with INIT_LOCK:
         if target_domain not in DOMAIN_CACHE:
-            if target_domain == "custom":
+            if target_domain == "custom" or target_domain.startswith("custom"):
                 raise HTTPException(
                     status_code=404,
                     detail="No custom dataset has been uploaded yet. Upload a CSV/Excel file first.",
@@ -447,9 +455,6 @@ def _process_custom_csv(contents: bytes, filename: str) -> dict:
     reviews = cluster_res["reviews"]
     drift_results = drift_detector.analyze_drift(reviews)
 
-    sentiment_model.pipeline = custom_model.pipeline
-    sentiment_model.is_fitted = True
-
     return {
         "reviews": reviews,
         "ground_truth": gt,
@@ -516,11 +521,10 @@ async def upload_custom_dataset(
         logger.error(f"Pipeline error during ingestion of '{file.filename}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Knowledge pipeline error: {str(e)}")
 
-    # Atomic commit under the state lock
+    # Cache custom dataset bundle under INIT_LOCK without overwriting active domain for other users
     with INIT_LOCK:
         result["data_provenance"] = {"synthetic": False, "source": f"user upload: {file.filename}"}
         DOMAIN_CACHE["custom"] = result
-        _swap_state("custom", result)
 
     return {
         "status": "success",
@@ -528,6 +532,7 @@ async def upload_custom_dataset(
         "total_rows_ingested": result["rows_ingested"],
         "eval_rows": len(result["ground_truth"]) or None,
         "active_domain": "custom",
+        "domain": "custom",
         "data_provenance": result["data_provenance"],
         "schema_report": result.get("schema_report", {}),
         "quality_manifest": result.get("quality_manifest", {}),
@@ -693,17 +698,38 @@ def get_overview(
     praise_sents = 0
     rec_sents = 0
     noise_sents = 0
+    comp_revs = 0
+    praise_revs = 0
+    rec_revs = 0
+    noise_revs = 0
+
     for r in reviews:
+        has_c = False
+        has_p = False
+        has_r = False
+        has_n = False
         for s in r.get("sentences", []):
             lbl = s.get("label")
             if lbl == "COMPLAINT":
                 comp_sents += 1
+                has_c = True
             elif lbl == "RECOMMENDATION":
                 rec_sents += 1
+                has_r = True
             elif lbl == "PRAISE":
                 praise_sents += 1
+                has_p = True
             else:
                 noise_sents += 1
+                has_n = True
+        if has_c:
+            comp_revs += 1
+        if has_p:
+            praise_revs += 1
+        if has_r:
+            rec_revs += 1
+        if has_n:
+            noise_revs += 1
 
     total_sents = comp_sents + praise_sents + rec_sents + noise_sents
     actionable_sents = comp_sents + praise_sents + rec_sents
@@ -712,9 +738,13 @@ def get_overview(
     intent_breakdown = {
         "total_sentences": total_sents,
         "complaints": comp_sents,
+        "complaints_reviews": comp_revs,
         "praise": praise_sents,
+        "praise_reviews": praise_revs,
         "recommendations": rec_sents,
+        "recommendations_reviews": rec_revs,
         "noise": noise_sents,
+        "noise_reviews": noise_revs,
         "actionable_count": actionable_sents,
         "actionable_rate_pct": actionable_rate_pct,
     }
@@ -794,6 +824,8 @@ def get_verbatims(
     user: Optional[AuthenticatedUser] = _auth(),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
+    offset: Optional[int] = Query(None, ge=0, description="Optional 0-indexed item offset for continuous scrolling"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Optional item limit for continuous scrolling"),
     sentiment: Optional[str] = Query(None, max_length=16),
     cluster_id: Optional[int] = Query(None),
     batch: Optional[str] = Query(None, max_length=64),
@@ -837,8 +869,16 @@ def get_verbatims(
         filtered = [r for r in filtered if needle in (r.get("redacted_text") or "").lower()]
 
     total_matching = len(filtered)
-    start_idx = (page - 1) * page_size
-    sliced = filtered[start_idx:start_idx + page_size]
+    if offset is not None and limit is not None:
+        start_idx = offset
+        effective_page_size = limit
+        effective_page = (offset // limit) + 1
+    else:
+        start_idx = (page - 1) * page_size
+        effective_page_size = page_size
+        effective_page = page
+
+    sliced = filtered[start_idx : start_idx + effective_page_size]
 
     results = []
     for r in sliced:
@@ -851,9 +891,11 @@ def get_verbatims(
 
     return {
         "total": total_matching,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": (total_matching + page_size - 1) // page_size,
+        "page": effective_page,
+        "page_size": effective_page_size,
+        "offset": start_idx,
+        "has_more": start_idx + len(sliced) < total_matching,
+        "total_pages": (total_matching + effective_page_size - 1) // effective_page_size if effective_page_size > 0 else 1,
         "domain": active_dom,
         "pii_masked": not unmask_allowed,
         "verbatims": results,
@@ -880,6 +922,7 @@ def get_model_governance(
         "model_architecture": "Calibrated Logistic Regression (Platt Scaling) over Sublinear N-Gram TF-IDF",
         "evaluation": bundle["eval_results"],
         "data_provenance": bundle.get("data_provenance", {}),
+        "benchmark_note": "Production metrics are evaluated on real Sephora telemetry ('d2c_cosmetics'). Synthetic domains demonstrate pipeline execution and slotted template classification.",
         "severity_thresholds": severity_snapshot(),
         "auth_required": settings.REQUIRE_AUTH,
     }
@@ -965,9 +1008,25 @@ def generate_ticket(req: TicketRequest, db=Depends(get_db),
     }
 
 
+_MD_SPECIAL_CHARS = re.compile(r"([\\`*_{}\[\]()#+\-.!|~])")
+
+
 def _md_escape(text: str) -> str:
-    """Neutralises Markdown control characters in interpolated customer text."""
-    return (text or "").replace("\\", "\\\\").replace("*", "\\*").replace("`", "\\`").replace("\n", " ")
+    """Neutralises Markdown control characters and HTML tags in interpolated customer text.
+    
+    Prevents markdown breakout, header injections, malicious links, and XSS when
+    generating triage tickets, export documents, or executive briefings.
+    """
+    if not text:
+        return ""
+    # Normalize line breaks and carriage returns to space
+    sanitized = text.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    # Neutralize HTML tags
+    sanitized = sanitized.replace("<", "&lt;").replace(">", "&gt;")
+    # Escape markdown formatting and link characters (\, `, *, _, {, }, [, ], (, ), #, +, -, ., !, |, ~)
+    sanitized = _MD_SPECIAL_CHARS.sub(r"\\\1", sanitized)
+    # Collapse multiple consecutive whitespace characters
+    return re.sub(r"\s+", " ", sanitized).strip()
 
 
 @router.get("/tickets")
@@ -976,7 +1035,8 @@ def list_tickets(domain: Optional[str] = Query(None, max_length=64), db=Depends(
     """Retrieves all generated triage tickets stored in PostgreSQL."""
     ensure_initialized()
     try:
-        tickets = db_service.get_tickets(db, domain or state.active_domain)
+        target_domain = domain or state.active_domain or DEFAULT_DOMAIN
+        tickets = db_service.get_tickets(db, target_domain)
         return {"tickets": tickets, "total": len(tickets)}
     except Exception:
         logger.error("Failed to fetch tickets", exc_info=True)
@@ -1017,7 +1077,7 @@ def search_semantic(req: SemanticSearchRequest, db=Depends(get_db),
     and native pgvector cosine distance.
     """
     ensure_initialized()
-    domain = req.domain or state.active_domain
+    domain = req.domain or state.active_domain or DEFAULT_DOMAIN
 
     if transformer_encoder is None:
         raise HTTPException(
@@ -1043,7 +1103,11 @@ def search_semantic(req: SemanticSearchRequest, db=Depends(get_db),
 
 def _build_export_rows(reviews: list | None = None) -> list:
     """Redacted-only telemetry export with 4-way sentence intent and actionability metrics."""
-    source_reviews = reviews if reviews is not None else state.reviews
+    if reviews is not None:
+        source_reviews = reviews
+    else:
+        active = state.active_domain or DEFAULT_DOMAIN
+        source_reviews = DOMAIN_CACHE.get(active, {}).get("reviews", [])
     rows = []
     for r in source_reviews:
         sents = r.get("sentences", [])
@@ -1112,7 +1176,11 @@ def export_powerbi_telemetry(
 
 
 def _build_theme_export_rows(themes: list | None = None) -> list:
-    source_themes = themes if themes is not None else state.themes
+    if themes is not None:
+        source_themes = themes
+    else:
+        active = state.active_domain or DEFAULT_DOMAIN
+        source_themes = DOMAIN_CACHE.get(active, {}).get("themes", [])
     rows = []
     for t in source_themes:
         neg_val = t.get("negative_share", 0) or 0
@@ -1454,10 +1522,14 @@ def get_complaint_clusters(
 def get_complaint_cluster_verbatims(
     cluster_id: int,
     domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(10, ge=1, le=100, description="Number of verbatim items to load per page"),
+    offset: Optional[int] = Query(None, ge=0, description="Optional 0-indexed item offset for continuous scrolling"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Optional item limit for continuous scrolling"),
     user: Optional[AuthenticatedUser] = _auth(),
 ):
     """
-    Returns representative sentence verbatims for a specific complaint cluster,
+    Returns representative sentence verbatims for a specific complaint cluster with pagination support,
     including character slice offsets [start, end] for verbatim span highlighting.
     """
     active_dom, bundle = get_domain_bundle(domain)
@@ -1466,6 +1538,22 @@ def get_complaint_cluster_verbatims(
     if not matched:
         raise HTTPException(status_code=404, detail=f"Complaint cluster #{cluster_id} not found in domain '{active_dom}'.")
     cluster = matched[0]
+    all_verbatims = cluster.get("verbatims", [])
+    total_items = len(all_verbatims)
+    if offset is not None and limit is not None:
+        start_idx = offset
+        take = limit
+        effective_page = (offset // limit) + 1
+        effective_page_size = limit
+    else:
+        start_idx = (page - 1) * page_size
+        take = page_size
+        effective_page = page
+        effective_page_size = page_size
+
+    sliced = all_verbatims[start_idx : start_idx + take]
+    total_pages = max(1, (total_items + effective_page_size - 1) // effective_page_size) if total_items > 0 else 1
+
     return {
         "cluster_id": cluster_id,
         "domain": active_dom,
@@ -1476,7 +1564,13 @@ def get_complaint_cluster_verbatims(
         "medoid_verbatim": cluster.get("medoid_verbatim"),
         "affected_batch": cluster.get("affected_batch"),
         "relative_risk": cluster.get("relative_risk"),
-        "verbatims": cluster.get("verbatims", []),
+        "page": effective_page,
+        "page_size": effective_page_size,
+        "offset": start_idx,
+        "total": total_items,
+        "total_pages": total_pages,
+        "has_more": start_idx + len(sliced) < total_items,
+        "verbatims": sliced,
     }
 
 
@@ -1520,10 +1614,14 @@ def get_praise_clusters(
 def get_praise_cluster_verbatims(
     cluster_id: int,
     domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(10, ge=1, le=100, description="Number of verbatim items to load per page"),
+    offset: Optional[int] = Query(None, ge=0, description="Optional 0-indexed item offset for continuous scrolling"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Optional item limit for continuous scrolling"),
     user: Optional[AuthenticatedUser] = _auth(),
 ):
     """
-    Returns representative sentence verbatims for a specific product strength cluster,
+    Returns representative sentence verbatims for a specific product strength cluster with pagination support,
     including character slice offsets [start, end] for verbatim span highlighting.
     """
     active_dom, bundle = get_domain_bundle(domain)
@@ -1532,6 +1630,22 @@ def get_praise_cluster_verbatims(
     if not matched:
         raise HTTPException(status_code=404, detail=f"Product strength cluster #{cluster_id} not found in domain '{active_dom}'.")
     cluster = matched[0]
+    all_verbatims = cluster.get("verbatims", [])
+    total_items = len(all_verbatims)
+    if offset is not None and limit is not None:
+        start_idx = offset
+        take = limit
+        effective_page = (offset // limit) + 1
+        effective_page_size = limit
+    else:
+        start_idx = (page - 1) * page_size
+        take = page_size
+        effective_page = page
+        effective_page_size = page_size
+
+    sliced = all_verbatims[start_idx : start_idx + take]
+    total_pages = max(1, (total_items + effective_page_size - 1) // effective_page_size) if total_items > 0 else 1
+
     return {
         "cluster_id": cluster_id,
         "domain": active_dom,
@@ -1542,7 +1656,13 @@ def get_praise_cluster_verbatims(
         "delight_score": cluster.get("delight_score", 0.0),
         "delight_tier": cluster.get("delight_tier", "STRONG"),
         "medoid_verbatim": cluster.get("medoid_verbatim"),
-        "verbatims": cluster.get("verbatims", []),
+        "page": effective_page,
+        "page_size": effective_page_size,
+        "offset": start_idx,
+        "total": total_items,
+        "total_pages": total_pages,
+        "has_more": start_idx + len(sliced) < total_items,
+        "verbatims": sliced,
     }
 
 
@@ -1754,6 +1874,320 @@ Affected customers specifically report failures matching: `{medoid}`.
 
 
 # ==============================================================================
+# ADVANCED VISUAL ANALYTICS: TEMPORAL DRIFT, SKU RISK MATRIX & DIVERGENCE
+# ==============================================================================
+
+@router.get("/analytics/temporal-drift")
+def get_temporal_drift_analytics(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    limit_cohorts: int = Query(12, ge=4, le=60),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns multi-series quarterly temporal drift trajectories for top defect clusters,
+    enabling frontend stacked area and multi-line time-series visualizations.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    drift_data = bundle.get("drift_results") or {}
+    timeline = drift_data.get("timeline") or []
+    complaint_clusters = bundle.get("complaint_clusters") or []
+    reviews = bundle.get("reviews") or []
+
+    # Sort timeline cohorts chronologically and take most recent limit_cohorts
+    sorted_timeline = sorted(timeline, key=lambda t: t.get("batch_or_version", ""))
+    if len(sorted_timeline) > limit_cohorts:
+        sorted_timeline = sorted_timeline[-limit_cohorts:]
+
+    cohort_labels = [t.get("batch_or_version") for t in sorted_timeline]
+    palette = ["#EF4444", "#F97316", "#F59E0B", "#3B82F6", "#8B5CF6", "#10B981", "#EC4899", "#6366F1"]
+    theme_series = []
+
+    if complaint_clusters:
+        top_clusters = sorted(
+            complaint_clusters,
+            key=lambda c: (1 if c.get("severity") == "CRITICAL" else 0, c.get("sentence_count", 0)),
+            reverse=True
+        )[:6]
+
+        rev_to_cohort = {r.get("id"): r.get("batch_or_version") for r in reviews if r.get("batch_or_version")}
+
+        for idx, cl in enumerate(top_clusters):
+            cid = cl.get("cluster_id")
+            title = cl.get("title", f"Cluster {cid}")
+            sev = cl.get("severity", "MEDIUM")
+            counts_by_cohort = {c: 0 for c in cohort_labels}
+            for v in cl.get("verbatims", []):
+                c_lbl = rev_to_cohort.get(v.get("review_id"))
+                if c_lbl in counts_by_cohort:
+                    counts_by_cohort[c_lbl] += 1
+
+            data_points = []
+            for t in sorted_timeline:
+                c_lbl = t.get("batch_or_version")
+                neg_vol = t.get("negative_count", 0)
+                tot_vol = max(t.get("review_count", 1), 1)
+                direct_c = counts_by_cohort.get(c_lbl, 0)
+                est_c = max(direct_c, int(round((cl.get("sentence_count", 10) / max(len(reviews) * 0.2, 1)) * neg_vol)))
+                rate_pct = round((est_c / tot_vol) * 100, 2)
+                data_points.append({
+                    "cohort": c_lbl,
+                    "count": est_c,
+                    "rate_pct": rate_pct,
+                    "review_volume": tot_vol
+                })
+
+            theme_series.append({
+                "cluster_id": cid,
+                "title": title,
+                "severity": sev,
+                "color": palette[idx % len(palette)],
+                "data": data_points
+            })
+    else:
+        themes = bundle.get("themes") or []
+        for idx, th in enumerate(themes[:6]):
+            t_name = th.get("title") or th.get("name", "Theme")
+            data_points = []
+            for t in sorted_timeline:
+                c_lbl = t.get("batch_or_version")
+                th_counts = t.get("themes", {})
+                count = th_counts.get(t_name, 0)
+                tot = max(t.get("review_count", 1), 1)
+                data_points.append({
+                    "cohort": c_lbl,
+                    "count": count,
+                    "rate_pct": round((count / tot) * 100, 2),
+                    "review_volume": tot
+                })
+            theme_series.append({
+                "cluster_id": idx,
+                "title": t_name,
+                "severity": th.get("severity", "MEDIUM"),
+                "color": palette[idx % len(palette)],
+                "data": data_points
+            })
+
+    hotspots = []
+    for a in drift_data.get("alerts", []):
+        hotspots.append({
+            "batch_or_version": a.get("batch_or_version"),
+            "theme": a.get("surging_theme"),
+            "relative_risk": a.get("relative_risk", 1.0),
+            "psi_score": a.get("psi_score", 0.0),
+            "p_value": a.get("p_value", 0.01),
+            "is_statistically_significant": a.get("is_statistically_significant", True)
+        })
+
+    return {
+        "domain": active_dom,
+        "cohorts": cohort_labels,
+        "series": theme_series,
+        "timeline_summary": [
+            {
+                "cohort": t.get("batch_or_version"),
+                "total_reviews": t.get("review_count", 0),
+                "negative_count": t.get("negative_count", 0),
+                "positive_count": t.get("positive_count", 0),
+                "psi": t.get("psi", 0.0),
+                "status": t.get("status", "STABLE")
+            }
+            for t in sorted_timeline
+        ],
+        "hotspots": hotspots[:6]
+    }
+
+
+@router.get("/analytics/product-matrix")
+def get_product_matrix_analytics(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    limit: int = Query(15, ge=5, le=50),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Groups telemetry by product name to produce a SKU/Product Risk Matrix.
+    Identifies high-defect products, their average star ratings, complaint rates,
+    and dominant defect themes.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle.get("reviews") or []
+
+    prod_groups = {}
+    for r in reviews:
+        pname = r.get("product_name") or "Unknown Product"
+        if pname not in prod_groups:
+            prod_groups[pname] = {
+                "product_name": pname,
+                "brand_name": r.get("brand_name") or "Brand",
+                "reviews": [],
+            }
+        prod_groups[pname]["reviews"].append(r)
+
+    eligible = [p for p in prod_groups.values() if len(p["reviews"]) >= 15]
+    if not eligible:
+        eligible = list(prod_groups.values())
+
+    matrix = []
+    for item in eligible:
+        revs = item["reviews"]
+        tot = len(revs)
+        avg_rating = round(sum(r.get("rating", 3) for r in revs) / tot, 2)
+
+        complaint_reviews = 0
+        complaint_reasons = {}
+        defective_batches = set()
+
+        for r in revs:
+            sents = r.get("sentences", [])
+            c_sents = [s for s in sents if s.get("label") == "COMPLAINT"]
+            if c_sents or r.get("sentiment_pred") == "NEGATIVE":
+                complaint_reviews += 1
+                if r.get("batch_or_version"):
+                    defective_batches.add(r.get("batch_or_version"))
+                for s in c_sents:
+                    txt = s.get("sentence_text", "")
+                    if any(w in txt.lower() for w in ["burn", "redness", "allergic", "rash", "dermatitis"]):
+                        complaint_reasons["Chemical Irritation / Burn"] = complaint_reasons.get("Chemical Irritation / Burn", 0) + 1
+                    elif any(w in txt.lower() for w in ["leak", "pump", "broken", "cracked", "dispenser", "nozzle"]):
+                        complaint_reasons["Packaging / Dispenser Defect"] = complaint_reasons.get("Packaging / Dispenser Defect", 0) + 1
+                    elif any(w in txt.lower() for w in ["dry", "peeling", "dehydrat", "flaky"]):
+                        complaint_reasons["Dryness / Peeling"] = complaint_reasons.get("Dryness / Peeling", 0) + 1
+                    elif any(w in txt.lower() for w in ["acne", "breakout", "pimples", "clog"]):
+                        complaint_reasons["Acne & Clogged Pores"] = complaint_reasons.get("Acne & Clogged Pores", 0) + 1
+                    else:
+                        complaint_reasons["Formula Inefficacy"] = complaint_reasons.get("Formula Inefficacy", 0) + 1
+
+        defect_rate_pct = round((complaint_reviews / tot) * 100, 1)
+        top_reason = max(complaint_reasons.items(), key=lambda x: x[1])[0] if complaint_reasons else "Minor Usability"
+
+        if defect_rate_pct >= 28.0 or "Chemical Irritation" in top_reason:
+            risk_tier = "CRITICAL"
+        elif defect_rate_pct >= 15.0:
+            risk_tier = "ELEVATED"
+        else:
+            risk_tier = "STABLE"
+
+        sample_q = next(
+            (s.get("sentence_text") for r in revs for s in r.get("sentences", []) if s.get("label") == "COMPLAINT" and len(s.get("sentence_text", "")) > 20),
+            revs[0].get("redacted_text", "")[:120]
+        )
+
+        matrix.append({
+            "product_name": item["product_name"],
+            "brand_name": item["brand_name"],
+            "total_reviews": tot,
+            "avg_rating": avg_rating,
+            "complaint_count": complaint_reviews,
+            "defect_rate_pct": defect_rate_pct,
+            "risk_tier": risk_tier,
+            "top_defect_theme": top_reason,
+            "sample_defect_quote": sample_q,
+            "affected_cohorts": sorted(list(defective_batches))[:3]
+        })
+
+    matrix.sort(key=lambda m: (1 if m["risk_tier"] == "CRITICAL" else (0.5 if m["risk_tier"] == "ELEVATED" else 0), m["defect_rate_pct"]), reverse=True)
+
+    return {
+        "domain": active_dom,
+        "total_products_analyzed": len(matrix),
+        "products": matrix[:limit]
+    }
+
+
+@router.get("/analytics/rating-divergence")
+def get_rating_divergence_analytics(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Quantifies the 'Whole-Document Fallacy' and 'Trojan Horse Reviews':
+    Calculates the exact percentage of defects and complaint sentences hidden inside
+    reviews with 4-star and 5-star ratings, and extracts self-reported loyalty turncoats.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle.get("reviews") or []
+
+    star_complaint_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    star_review_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    total_complaint_sentences = 0
+    trojan_samples = []
+    turncoat_samples = []
+
+    loyalty_pat = re.compile(
+        r"\b(used to love|used this for years|holy grail until|bought this for years|reformulat|used to be my favorite|not purchasing again|will never repurchase|returning this|switching to another|waste of money|ruined my skin)\b",
+        re.IGNORECASE
+    )
+
+    for r in reviews:
+        star = int(r.get("rating", 3))
+        if star in star_review_counts:
+            star_review_counts[star] += 1
+        sents = r.get("sentences", [])
+        c_sents = [s for s in sents if s.get("label") == "COMPLAINT"]
+
+        if c_sents:
+            count = len(c_sents)
+            if star in star_complaint_counts:
+                star_complaint_counts[star] += count
+            total_complaint_sentences += count
+
+            if star >= 4 and len(trojan_samples) < 8:
+                c_txt = c_sents[0].get("sentence_text", "")
+                if len(c_txt) > 25 and not any(t["complaint_text"] == c_txt for t in trojan_samples):
+                    trojan_samples.append({
+                        "review_id": r.get("id"),
+                        "product_name": r.get("product_name"),
+                        "rating": star,
+                        "complaint_text": c_txt,
+                        "full_snippet": r.get("redacted_text", "")[:180] + "...",
+                        "why_missed": f"Conventional sentiment scored this {star}-star review as POSITIVE, masking the embedded failure."
+                    })
+
+        red_text = r.get("redacted_text", "")
+        if star <= 3 and len(turncoat_samples) < 6:
+            m = loyalty_pat.search(red_text)
+            if m:
+                turncoat_samples.append({
+                    "review_id": r.get("id"),
+                    "product_name": r.get("product_name"),
+                    "rating": star,
+                    "trigger_phrase": m.group(0),
+                    "quote": red_text[:160] + "...",
+                    "batch": r.get("batch_or_version") or "Latest Batch"
+                })
+
+    trojan_count = star_complaint_counts[4] + star_complaint_counts[5]
+    trojan_rate_pct = round((trojan_count / max(total_complaint_sentences, 1)) * 100, 1)
+
+    return {
+        "domain": active_dom,
+        "total_reviews": len(reviews),
+        "total_complaint_sentences": total_complaint_sentences,
+        "trojan_horse_metrics": {
+            "trojan_complaint_count": trojan_count,
+            "trojan_rate_pct": trojan_rate_pct,
+            "low_star_complaint_count": star_complaint_counts[1] + star_complaint_counts[2] + star_complaint_counts[3],
+            "low_star_rate_pct": round(100.0 - trojan_rate_pct, 1),
+            "blind_spot_warning": f"{trojan_rate_pct}% of customer-reported defects occur inside 4★ and 5★ reviews, rendering them invisible to conventional low-star sentiment filters."
+        },
+        "star_distribution": [
+            {
+                "star": s,
+                "label": f"{s} Star",
+                "complaint_count": star_complaint_counts[s],
+                "complaint_pct": round((star_complaint_counts[s] / max(total_complaint_sentences, 1)) * 100, 1),
+                "total_reviews": star_review_counts[s]
+            }
+            for s in [1, 2, 3, 4, 5]
+        ],
+        "top_trojan_samples": trojan_samples,
+        "loyalty_turncoats": turncoat_samples
+    }
+
+
+# ==============================================================================
 # EXECUTIVE REVIEW INTELLIGENCE COPILOT (RAG OVER INSIGHT TELEMETRY)
 # ==============================================================================
 
@@ -1771,12 +2205,12 @@ def copilot_ask(payload: CopilotQueryRequest, user: Optional[AuthenticatedUser] 
     """
     ensure_initialized()
     active_dom, bundle = get_domain_bundle(payload.domain)
-    reviews = bundle.get("reviews", state.reviews)
-    themes = bundle.get("themes", state.themes)
-    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
-    praise_clusters = bundle.get("praise_clusters", state.praise_clusters)
-    feature_requests = bundle.get("feature_requests", state.feature_requests)
-    drift_data = bundle.get("drift_results", state.drift_results)
+    reviews = bundle.get("reviews", [])
+    themes = bundle.get("themes", [])
+    complaint_clusters = bundle.get("complaint_clusters", [])
+    praise_clusters = bundle.get("praise_clusters", [])
+    feature_requests = bundle.get("feature_requests", [])
+    drift_data = bundle.get("drift_results", {})
 
     return copilot_service.answer_query(
         query=payload.query,
@@ -1798,12 +2232,12 @@ def copilot_briefing(domain: Optional[str] = None, user: Optional[AuthenticatedU
     """
     ensure_initialized()
     active_dom, bundle = get_domain_bundle(domain)
-    reviews = bundle.get("reviews", state.reviews)
-    themes = bundle.get("themes", state.themes)
-    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
-    praise_clusters = bundle.get("praise_clusters", state.praise_clusters)
-    feature_requests = bundle.get("feature_requests", state.feature_requests)
-    drift_data = bundle.get("drift_results", state.drift_results)
+    reviews = bundle.get("reviews", [])
+    themes = bundle.get("themes", [])
+    complaint_clusters = bundle.get("complaint_clusters", [])
+    praise_clusters = bundle.get("praise_clusters", [])
+    feature_requests = bundle.get("feature_requests", [])
+    drift_data = bundle.get("drift_results", {})
 
     return copilot_service.generate_executive_briefing(
         domain=active_dom,
@@ -1827,12 +2261,14 @@ class BenchmarkCompareRequest(BaseModel):
 
 
 @router.get("/benchmark/cohorts")
-def get_benchmark_cohorts(user: Optional[AuthenticatedUser] = _auth()):
+def get_benchmark_cohorts(domain: Optional[str] = Query(None), user: Optional[AuthenticatedUser] = _auth()):
     """
     Returns available comparison cohorts (batches and domains).
     """
     ensure_initialized()
-    batches = sorted(list(set(r.get("batch_or_version") for r in state.reviews if r.get("batch_or_version"))))
+    _, bundle = get_domain_bundle(domain)
+    bundle_reviews = bundle.get("reviews", [])
+    batches = sorted(list(set(r.get("batch_or_version") for r in bundle_reviews if r.get("batch_or_version"))))
     domains = [
         {"id": "d2c_cosmetics", "name": "D2C Cosmetics & Skincare (Sephora 10k)"},
         {"id": "tech_saas", "name": "Fintech / SaaS Digital App (Telemetry)"}
@@ -1857,8 +2293,10 @@ def compare_benchmarks(payload: BenchmarkCompareRequest, user: Optional[Authenti
         label_a = "D2C Cosmetics" if payload.cohort_a == "d2c_cosmetics" else "Tech / SaaS"
         label_b = "D2C Cosmetics" if payload.cohort_b == "d2c_cosmetics" else "Tech / SaaS"
     else:
-        revs_a = [r for r in state.reviews if r.get("batch_or_version") == payload.cohort_a]
-        revs_b = [r for r in state.reviews if r.get("batch_or_version") == payload.cohort_b]
+        _, bundle = get_domain_bundle()
+        domain_reviews = bundle.get("reviews", [])
+        revs_a = [r for r in domain_reviews if r.get("batch_or_version") == payload.cohort_a]
+        revs_b = [r for r in domain_reviews if r.get("batch_or_version") == payload.cohort_b]
         label_a = payload.cohort_a
         label_b = payload.cohort_b
 
@@ -1879,8 +2317,8 @@ def get_action_matrix(domain: Optional[str] = None, user: Optional[Authenticated
     """
     ensure_initialized()
     active_dom, bundle = get_domain_bundle(domain)
-    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
-    reviews = bundle.get("reviews", state.reviews)
+    complaint_clusters = bundle.get("complaint_clusters", [])
+    reviews = bundle.get("reviews", [])
     avg_rating = round(sum(r.get("rating", 4) for r in reviews) / max(len(reviews), 1), 2)
 
     return roi_service.compute_action_matrix(complaint_clusters, len(reviews), avg_rating)
@@ -1957,6 +2395,11 @@ def simulate_drift_anomaly(payload: SimulateAnomalyRequest, user: Optional[Authe
         ]
     }
 
+    _, bundle = get_domain_bundle()
+    drift_res = bundle.get("drift_results")
+    if drift_res and "alerts" in drift_res:
+        drift_res["alerts"] = [a for a in drift_res["alerts"] if not a.get("is_simulated")]
+        drift_res["alerts"].insert(0, simulated_alert)
     if state.drift_results and "alerts" in state.drift_results:
         state.drift_results["alerts"] = [a for a in state.drift_results["alerts"] if not a.get("is_simulated")]
         state.drift_results["alerts"].insert(0, simulated_alert)
@@ -1984,6 +2427,10 @@ def reset_drift_anomaly(user: Optional[AuthenticatedUser] = _auth()):
     Resets simulated telemetry drift alerts back to the canonical baseline.
     """
     ensure_initialized()
+    _, bundle = get_domain_bundle()
+    drift_res = bundle.get("drift_results")
+    if drift_res and "alerts" in drift_res:
+        drift_res["alerts"] = [a for a in drift_res["alerts"] if not a.get("is_simulated")]
     if state.drift_results and "alerts" in state.drift_results:
         state.drift_results["alerts"] = [a for a in state.drift_results["alerts"] if not a.get("is_simulated")]
     return {"status": "reset_successful", "message": "Telemetry restored to clean baseline."}

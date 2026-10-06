@@ -882,7 +882,7 @@ def cluster_praise_sentences(
                 "end": s.end,
                 "confidence": s.confidence,
             }
-            for s in ordered_sents[:10]
+            for s in ordered_sents[:100]
         ]
 
         praise_clusters.append({

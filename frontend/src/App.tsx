@@ -24,12 +24,11 @@ import { ExecutiveIncidentBriefing } from './components/ExecutiveIncidentBriefin
 import { ClauseDeconstructionVisualizer } from './components/ClauseDeconstructionVisualizer';
 import { DemoPitchModal } from './components/DemoPitchModal';
 import { NoiseQuarantineView } from './components/NoiseQuarantineView';
-import { PowerBIView } from './components/PowerBIView';
 import { CopilotModal } from './components/CopilotModal';
 import { ExecutiveBriefingModal } from './components/ExecutiveBriefingModal';
 import { BenchmarkCompareView } from './components/BenchmarkCompareView';
 import { ActionMatrixView } from './components/ActionMatrixView';
-import { AnomalySimulatorBanner } from './components/AnomalySimulatorBanner';
+import { AnalyticsHubView } from './components/AnalyticsHubView';
 import { Skeleton } from './components/EmptyState';
 import { validateStoredSession, apiFetch } from './lib/auth-client';
 import type {
@@ -81,6 +80,8 @@ export function App() {
   const [featureRequests, setFeatureRequests] = useState<FeatureRequestItem[]>([]);
   const [praiseClusters, setPraiseClusters] = useState<PraiseClusterItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isWarmingUp, setIsWarmingUp] = useState<boolean>(true);
+  const [warmupAttempt, setWarmupAttempt] = useState<number>(1);
   const [errors, setErrors] = useState<EndpointErrors>({});
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -109,7 +110,7 @@ export function App() {
   const generationRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
-  const loadAllData = useCallback(async () => {
+  const loadAllData = useCallback(async (isStartup = false, attempt = 1) => {
     const generation = ++generationRef.current;
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -117,6 +118,10 @@ export function App() {
 
     setIsLoading(true);
     setErrors({});
+    if (isStartup) {
+      setIsWarmingUp(true);
+      setWarmupAttempt(attempt);
+    }
 
     const settled = await Promise.allSettled(
       ENDPOINTS.map(([, path]) => apiFetch(path, { signal: controller.signal }))
@@ -150,6 +155,20 @@ export function App() {
     );
 
     if (generation !== generationRef.current) return;
+
+    // Check if core endpoints failed during startup warmup
+    const isCriticalFailure = Boolean(nextErrors.overview || nextErrors.themes);
+    if (isCriticalFailure && isStartup && attempt < 5) {
+      setWarmupAttempt(attempt + 1);
+      setTimeout(() => {
+        if (generation === generationRef.current) {
+          void loadAllData(true, attempt + 1);
+        }
+      }, 2500);
+      return;
+    }
+
+    setIsWarmingUp(false);
 
     const [ds, ov, th, dr, gov, comp, feat, praise] = parsed;
 
@@ -198,7 +217,7 @@ export function App() {
 
     void (async () => {
       await validateStoredSession();
-      if (!cancelled) await loadAllData();
+      if (!cancelled) await loadAllData(true, 1);
     })();
 
     return () => {
@@ -455,35 +474,127 @@ export function App() {
 
         {/* Dynamic View Body */}
         <main className="main-body">
-          {criticalError && (
+          {isWarmingUp ? (
             <div
-              role="alert"
               style={{
-                marginBottom: '24px',
-                padding: '20px 22px',
-                borderRadius: '12px',
-                border: '1px solid #FECACA',
-                backgroundColor: '#FEF2F2',
-                color: '#991B1B',
+                minHeight: '440px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '10px'
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '48px 24px',
+                textAlign: 'center',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1px solid #E5E7EB',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                margin: '20px 0'
               }}
             >
-              <strong style={{ fontSize: '0.95rem' }}>
-                Could not load dashboard data{errors.overview && errors.themes ? ' (/overview and /themes)' : errors.overview ? ' (/overview)' : ' (/themes)'}
-              </strong>
-              <span style={{ fontSize: '0.82rem' }}>{criticalError}</span>
-              <span style={{ fontSize: '0.78rem' }}>
-                No figures are shown in place of missing data.
-              </span>
+              <div style={{ position: 'relative', width: '72px', height: '72px', marginBottom: '20px' }}>
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+                    animation: 'pulse 1.8s cubic-bezier(0, 0, 0.2, 1) infinite'
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '72px',
+                    height: '72px',
+                    borderRadius: '50%',
+                    backgroundColor: '#ECFDF5',
+                    border: '2px solid #10B981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.8rem'
+                  }}
+                >
+                  ⚡
+                </div>
+              </div>
+
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>
+                Initializing InSight Telemetry Engine
+              </h2>
+              <p style={{ maxWidth: '520px', fontSize: '0.86rem', color: '#6B7280', lineHeight: 1.5, marginBottom: '20px' }}>
+                The backend is calibrating MiniLM semantic embeddings, clustering feedback with HDBSCAN, and deconstructing customer reviews into atomic proposition clauses...
+              </p>
+
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  backgroundColor: '#F3F4F6',
+                  padding: '6px 14px',
+                  borderRadius: '999px',
+                  border: '1px solid #E5E7EB',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  color: '#374151',
+                  marginBottom: '20px'
+                }}
+              >
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10B981',
+                    animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite'
+                  }}
+                />
+                Connecting to Telemetry Server (Attempt {warmupAttempt} of 5)
+              </div>
+
               <div>
-                <button type="button" className="btn-primary" onClick={() => void loadAllData()}>
-                  Retry
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => void loadAllData(true, 1)}
+                  style={{ fontSize: '0.8rem', padding: '6px 16px' }}
+                >
+                  Probe Backend Now ↻
                 </button>
               </div>
             </div>
-          )}
+          ) : (
+            <>
+              {criticalError && (
+                <div
+                  role="alert"
+                  style={{
+                    marginBottom: '24px',
+                    padding: '20px 22px',
+                    borderRadius: '12px',
+                    border: '1px solid #FECACA',
+                    backgroundColor: '#FEF2F2',
+                    color: '#991B1B',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px'
+                  }}
+                >
+                  <strong style={{ fontSize: '0.95rem' }}>
+                    Could not load dashboard data{errors.overview && errors.themes ? ' (/overview and /themes)' : errors.overview ? ' (/overview)' : ' (/themes)'}
+                  </strong>
+                  <span style={{ fontSize: '0.82rem' }}>{criticalError}</span>
+                  <span style={{ fontSize: '0.78rem' }}>
+                    Backend connection was not established after multiple retry attempts.
+                  </span>
+                  <div>
+                    <button type="button" className="btn-primary" onClick={() => void loadAllData(false)}>
+                      Retry
+                    </button>
+                  </div>
+                </div>
+              )}
 
           {actionError && (
             <div
@@ -580,7 +691,7 @@ export function App() {
                       gap: '8px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span
                         style={{
                           fontSize: '0.72rem',
@@ -594,13 +705,35 @@ export function App() {
                       >
                         ACTIONABLE SIGNAL FUNNEL
                       </span>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#111827' }}>
-                        4-Way Sentence Intent Deconstruction
+                      <span style={{ fontSize: '0.84rem', fontWeight: 600, color: '#111827' }}>
+                        {(overview.total_reviews || 10000).toLocaleString()} Customer Reviews Ingested &rarr; {overview.intent_breakdown.total_sentences.toLocaleString()} Atomic Proposition Clauses
                       </span>
                     </div>
                     <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>
                       ⚡ {overview.intent_breakdown.actionable_rate_pct}% Actionable Customer Telemetry
                     </div>
+                  </div>
+
+                  {/* Granularity & Multi-Clause Intent Explanation */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      marginBottom: '14px',
+                      fontSize: '0.76rem',
+                      color: '#475569',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span style={{ fontSize: '0.95rem', flexShrink: 0 }}>💡</span>
+                    <span>
+                      <strong>Why do clause counts exceed 10k reviews?</strong> Customer reviews contain multiple sentiments in a single submission (e.g. <em>&quot;Loved the hydrating formula, but the pump broke on day 3&quot;</em>). InSight deconstructs each multi-clause review into atomic proposition clauses so critical defects are never masked by 4-star ratings or praise.
+                    </span>
                   </div>
 
                   {/* Funnel Pools Bar */}
@@ -639,9 +772,13 @@ export function App() {
                           fontFamily: "'JetBrains Mono', monospace",
                         }}
                       >
-                        {overview.intent_breakdown.complaints.toLocaleString()}
+                        {overview.intent_breakdown.complaints.toLocaleString()} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#991B1B' }}>clauses</span>
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#7F1D1D' }}>Defects &amp; friction radar &rarr;</div>
+                      <div style={{ fontSize: '0.72rem', color: '#7F1D1D', marginTop: '2px' }}>
+                        {overview.intent_breakdown.complaints_reviews
+                          ? `${overview.intent_breakdown.complaints_reviews.toLocaleString()} reviews (${((overview.intent_breakdown.complaints_reviews / (overview.total_reviews || 1)) * 100).toFixed(1)}% coverage)`
+                          : 'Defects & friction radar \u2192'}
+                      </div>
                     </div>
 
                     {/* Praise / Product Strengths */}
@@ -672,9 +809,13 @@ export function App() {
                           fontFamily: "'JetBrains Mono', monospace",
                         }}
                       >
-                        {overview.intent_breakdown.praise.toLocaleString()}
+                        {overview.intent_breakdown.praise.toLocaleString()} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#065F46' }}>clauses</span>
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#064E3B' }}>Sensory delight &amp; efficacy &rarr;</div>
+                      <div style={{ fontSize: '0.72rem', color: '#064E3B', marginTop: '2px' }}>
+                        {overview.intent_breakdown.praise_reviews
+                          ? `${overview.intent_breakdown.praise_reviews.toLocaleString()} reviews (${((overview.intent_breakdown.praise_reviews / (overview.total_reviews || 1)) * 100).toFixed(1)}% coverage)`
+                          : 'Sensory delight & efficacy \u2192'}
+                      </div>
                     </div>
 
                     {/* Recommendations / Feature Requests */}
@@ -705,9 +846,13 @@ export function App() {
                           fontFamily: "'JetBrains Mono', monospace",
                         }}
                       >
-                        {overview.intent_breakdown.recommendations.toLocaleString()}
+                        {overview.intent_breakdown.recommendations.toLocaleString()} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#4338CA' }}>clauses</span>
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#312E81' }}>Customer wishlist &amp; backlog &rarr;</div>
+                      <div style={{ fontSize: '0.72rem', color: '#312E81', marginTop: '2px' }}>
+                        {overview.intent_breakdown.recommendations_reviews
+                          ? `${overview.intent_breakdown.recommendations_reviews.toLocaleString()} reviews (${((overview.intent_breakdown.recommendations_reviews / (overview.total_reviews || 1)) * 100).toFixed(1)}% coverage)`
+                          : 'Customer wishlist & backlog \u2192'}
+                      </div>
                     </div>
 
                     {/* Noise / Quarantined */}
@@ -738,9 +883,11 @@ export function App() {
                           fontFamily: "'JetBrains Mono', monospace",
                         }}
                       >
-                        {overview.intent_breakdown.noise.toLocaleString()}
+                        {overview.intent_breakdown.noise.toLocaleString()} <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#6B7280' }}>clauses</span>
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>Quarantined ambient chatter &rarr;</div>
+                      <div style={{ fontSize: '0.72rem', color: '#6B7280', marginTop: '2px' }}>
+                        Quarantined routines &amp; ambient chatter \u2192
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -949,13 +1096,33 @@ export function App() {
             </div>
           )}
 
-          {currentTab === 'powerbi' && (
-            <PowerBIView
+          {(currentTab === 'analytics' ||
+            currentTab === 'visual-analytics' ||
+            currentTab === 'powerbi' ||
+            currentTab === 'trends') && (
+            <AnalyticsHubView
+              activeDomain={activeDomain}
               overview={overview}
               themes={themes}
               driftData={driftData}
-              activeDomain={activeDomain}
-              onInspectVerbatims={handleInspectVerbatims}
+              isLoading={isLoading}
+              initialSubTab={
+                currentTab === 'powerbi'
+                  ? 'powerbi'
+                  : currentTab === 'trends'
+                  ? 'drift'
+                  : 'curves'
+              }
+              onInspectVerbatims={(clusterId, title, searchOverride) => {
+                setSelectedClusterId(clusterId);
+                setSelectedClusterTitle(title);
+                if (searchOverride) setSearchQuery(searchOverride);
+                setIsVerbatimDrawerOpen(true);
+              }}
+              onDispatchTicket={(clusterId, severity) => {
+                void handleDispatchIncidentTicket(clusterId, severity);
+              }}
+              onRefreshData={() => void loadAllData()}
             />
           )}
 
@@ -963,33 +1130,6 @@ export function App() {
             <ActionMatrixView
               onDispatchTicket={(item) => void handleDispatchIncidentTicket(item.id)}
             />
-          )}
-
-          {currentTab === 'trends' && (
-            <div style={{ paddingTop: '32px' }}>
-              <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
-                  Statistical Drift Monitoring &amp; Anomaly Radar
-                </h2>
-                <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px' }}>
-                  Population Stability Index (PSI) tracking distribution shifts between reference batches and production telemetry.
-                </p>
-              </div>
-
-              {/* Interactive Hackathon Defect Injection Simulator */}
-              <AnomalySimulatorBanner
-                onAnomalyInjected={() => void loadAllData()}
-                onReset={() => void loadAllData()}
-              />
-
-              {driftData ? (
-                <DriftTimeline driftData={driftData} />
-              ) : (
-                <p style={{ fontSize: '0.84rem', color: '#6B7280' }}>
-                  {isLoading ? 'Loading drift telemetry…' : 'No drift telemetry is available.'}
-                </p>
-              )}
-            </div>
           )}
 
           {currentTab === 'compare' && (
@@ -1023,6 +1163,8 @@ export function App() {
                 />
               </div>
             </div>
+          )}
+            </>
           )}
         </main>
       </div>

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Search, Shield, Star, Filter, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Search, Shield, Star, Filter, Eye, ArrowUp, Loader2 } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import type { VerbatimItem } from '../types/telemetry';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
-const PAGE_SIZE = 20;
+const INITIAL_LIMIT = 10;
+const SUBSEQUENT_LIMIT = 20;
 
 interface Props {
   isOpen: boolean;
@@ -30,34 +31,194 @@ export const VerbatimDrawer: React.FC<Props> = ({
 }) => {
   const [reviews, setReviews] = useState<VerbatimItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [page, setPage] = useState(1);
   const [showRawPii, setShowRawPii] = useState(false);
   const [search, setSearch] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const generationRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
   // Reset all paging/filter state when the drawer is re-opened for a different scope.
-  // Done during render (React's derived-state pattern) so it does not cascade an extra
-  // render pass, and the fetch effect below only sees the settled state.
   const scopeKey = isOpen
     ? `${isSilentDefects ? 'silent' : isComplaintCluster ? 'complaint' : isPraiseCluster ? 'praise' : 'verbatim'}|${clusterId ?? 'all'}|${externalSearch ?? ''}`
     : 'closed';
   const [lastScopeKey, setLastScopeKey] = useState<string>('closed');
   if (scopeKey !== lastScopeKey) {
     setLastScopeKey(scopeKey);
-    setPage(1);
     setSentimentFilter('');
     setShowRawPii(false);
     setSearch(externalSearch ?? '');
     setSearchDraft(externalSearch ?? '');
   }
 
+  const fetchChunk = useCallback(async (
+    offset: number,
+    limit: number,
+    signal?: AbortSignal
+  ): Promise<{ items: VerbatimItem[]; total: number; hasMore: boolean }> => {
+    if (isSilentDefects) {
+      const res = await fetch(`${API_BASE}/reviews/silent-defects?limit=200`, { signal });
+      if (!res.ok) throw new Error(`Silent defects query failed (HTTP ${res.status}).`);
+      const data = await res.json();
+      const all: VerbatimItem[] = ((data.silent_defects || []) as Array<{
+        id?: string;
+        display_text?: string;
+        rating?: number;
+        sentiment_pred?: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE';
+        batch_or_version?: string;
+        product_name?: string;
+        sku_or_module?: string;
+        highlight_span?: { text: string; start: number; end: number };
+      }>).map((s) => ({
+        id: s.id || 'REV-DEFECT',
+        domain: 'd2c',
+        raw_text: s.display_text || '',
+        redacted_text: s.display_text || '',
+        display_text: s.display_text || '',
+        rating: s.rating ?? 4,
+        sentiment_pred: s.sentiment_pred || 'POSITIVE',
+        sentiment_confidence: 0.95,
+        cluster_id: 0,
+        theme_title: 'Silent Defect (Trojan Horse)',
+        channel: 'Trojan Horse 4-5★ Review',
+        batch_or_version: s.batch_or_version || 'Production',
+        product_name: s.product_name || 'Verified Product',
+        sku_or_module: s.sku_or_module || 'Standard SKU',
+        highlight_span: s.highlight_span?.text ? s.highlight_span : undefined
+      }));
+      const sliced = all.slice(offset, offset + limit);
+      return {
+        items: sliced,
+        total: all.length,
+        hasMore: offset + limit < all.length
+      };
+    }
+
+    if (isComplaintCluster && clusterId !== null && clusterId !== undefined) {
+      const res = await fetch(`${API_BASE}/complaint-clusters/${clusterId}/verbatims?offset=${offset}&limit=${limit}`, {
+        signal
+      });
+      if (!res.ok) throw new Error(`Complaint verbatims query failed (HTTP ${res.status}).`);
+      const data = await res.json();
+      const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
+        sentence_id?: string;
+        review_id?: string;
+        sentence_text?: string;
+        start?: number;
+        end?: number;
+        confidence?: number;
+      }>).map((v) => {
+        const txt = v.sentence_text || '';
+        return {
+          id: v.sentence_id || v.review_id || 'SENT-COMPLAINT',
+          domain: 'd2c',
+          raw_text: txt,
+          redacted_text: txt,
+          display_text: txt,
+          rating: 1,
+          sentiment_pred: 'NEGATIVE' as const,
+          sentiment_confidence: v.confidence ?? 0.95,
+          cluster_id: clusterId ?? 0,
+          theme_title: (data.title as string) || 'Complaint Driver',
+          channel: 'Sentence Deconstructor',
+          batch_or_version: (data.affected_batch as string) || 'Extracted Sentence',
+          product_name: (data.title as string) || 'Complaint Driver',
+          sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
+          highlight_span: {
+            text: txt,
+            start: 0,
+            end: txt.length
+          }
+        };
+      });
+      const tot = typeof data.total === 'number' ? data.total : items.length;
+      return {
+        items,
+        total: tot,
+        hasMore: Boolean(data.has_more ?? (offset + items.length < tot))
+      };
+    }
+
+    if (isPraiseCluster && clusterId !== null && clusterId !== undefined) {
+      const res = await fetch(`${API_BASE}/praise-clusters/${clusterId}/verbatims?offset=${offset}&limit=${limit}`, {
+        signal
+      });
+      if (!res.ok) throw new Error(`Product strength verbatims query failed (HTTP ${res.status}).`);
+      const data = await res.json();
+      const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
+        sentence_id?: string;
+        review_id?: string;
+        sentence_text?: string;
+        start?: number;
+        end?: number;
+        confidence?: number;
+      }>).map((v) => {
+        const txt = v.sentence_text || '';
+        return {
+          id: v.sentence_id || v.review_id || 'SENT-PRAISE',
+          domain: 'd2c',
+          raw_text: txt,
+          redacted_text: txt,
+          display_text: txt,
+          rating: 5,
+          sentiment_pred: 'POSITIVE' as const,
+          sentiment_confidence: v.confidence ?? 0.95,
+          cluster_id: clusterId ?? 0,
+          theme_title: (data.title as string) || 'Product Strength',
+          channel: 'Praise Medoid',
+          batch_or_version: 'Extracted Sentence',
+          product_name: (data.title as string) || 'Product Strength',
+          sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
+          highlight_span: {
+            text: txt,
+            start: 0,
+            end: txt.length
+          }
+        };
+      });
+      const tot = typeof data.total === 'number' ? data.total : items.length;
+      return {
+        items,
+        total: tot,
+        hasMore: Boolean(data.has_more ?? (offset + items.length < tot))
+      };
+    }
+
+    const params = new URLSearchParams({
+      offset: offset.toString(),
+      limit: limit.toString(),
+      show_raw_pii: showRawPii ? 'true' : 'false'
+    });
+    if (clusterId !== null && clusterId !== undefined) {
+      params.append('cluster_id', clusterId.toString());
+    }
+    if (sentimentFilter) {
+      params.append('sentiment', sentimentFilter);
+    }
+    if (search) {
+      params.append('search', search);
+    }
+
+    const res = await fetch(`${API_BASE}/verbatims?${params.toString()}`, { signal });
+    if (!res.ok) throw new Error(`Verbatim query failed (HTTP ${res.status}).`);
+    const data = await res.json();
+    const items = Array.isArray(data.verbatims) ? data.verbatims : [];
+    const tot = typeof data.total === 'number' ? data.total : 0;
+    return {
+      items,
+      total: tot,
+      hasMore: Boolean(data.has_more ?? (offset + items.length < tot))
+    };
+  }, [isSilentDefects, isComplaintCluster, isPraiseCluster, clusterId, showRawPii, sentimentFilter, search]);
+
+  // Initial load: 10 items
   useEffect(() => {
     if (!isOpen) return;
     const generation = ++generationRef.current;
@@ -65,184 +226,62 @@ export const VerbatimDrawer: React.FC<Props> = ({
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const load = async () => {
+    const loadInitial = async () => {
       setLoading(true);
       setError(null);
       try {
-        if (isSilentDefects) {
-          const res = await fetch(`${API_BASE}/reviews/silent-defects?limit=100`, {
-            signal: controller.signal
-          });
-          if (!res.ok) {
-            setError(`Silent defects query failed (HTTP ${res.status}).`);
-            return;
-          }
-          const data = await res.json();
-          if (generation !== generationRef.current) return;
-          const items: VerbatimItem[] = ((data.silent_defects || []) as Array<{
-            id?: string;
-            display_text?: string;
-            rating?: number;
-            sentiment_pred?: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE';
-            batch_or_version?: string;
-            product_name?: string;
-            sku_or_module?: string;
-            highlight_span?: { text: string; start: number; end: number };
-          }>).map((s) => ({
-            id: s.id || 'REV-DEFECT',
-            domain: 'd2c',
-            raw_text: s.display_text || '',
-            redacted_text: s.display_text || '',
-            display_text: s.display_text || '',
-            rating: s.rating ?? 4,
-            sentiment_pred: s.sentiment_pred || 'POSITIVE',
-            sentiment_confidence: 0.95,
-            cluster_id: 0,
-            theme_title: 'Silent Defect (Trojan Horse)',
-            channel: 'Trojan Horse 4-5★ Review',
-            batch_or_version: s.batch_or_version || 'Production',
-            product_name: s.product_name || 'Verified Product',
-            sku_or_module: s.sku_or_module || 'Standard SKU',
-            highlight_span: s.highlight_span?.text ? s.highlight_span : undefined
-          }));
-          setReviews(items);
-          setTotal(typeof data.total_found === 'number' ? data.total_found : items.length);
-          setTotalPages(1);
-          return;
-        }
-
-        if (isComplaintCluster && clusterId !== null && clusterId !== undefined) {
-          const res = await fetch(`${API_BASE}/complaint-clusters/${clusterId}/verbatims`, {
-            signal: controller.signal
-          });
-          if (!res.ok) {
-            setError(`Complaint verbatims query failed (HTTP ${res.status}).`);
-            return;
-          }
-          const data = await res.json();
-          if (generation !== generationRef.current) return;
-          const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
-            sentence_id?: string;
-            review_id?: string;
-            sentence_text?: string;
-            start?: number;
-            end?: number;
-            confidence?: number;
-          }>).map((v) => {
-            const txt = v.sentence_text || '';
-            return {
-              id: v.sentence_id || v.review_id || 'SENT-COMPLAINT',
-              domain: 'd2c',
-              raw_text: txt,
-              redacted_text: txt,
-              display_text: txt,
-              rating: 1,
-              sentiment_pred: 'NEGATIVE' as const,
-              sentiment_confidence: v.confidence ?? 0.95,
-              cluster_id: clusterId ?? 0,
-              theme_title: (data.title as string) || 'Complaint Driver',
-              channel: 'Sentence Deconstructor',
-              batch_or_version: (data.affected_batch as string) || 'Extracted Sentence',
-              product_name: (data.title as string) || 'Complaint Driver',
-              sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
-              highlight_span: {
-                text: txt,
-                start: 0,
-                end: txt.length
-              }
-            };
-          });
-          setReviews(items);
-          setTotal(items.length);
-          setTotalPages(1);
-          return;
-        }
-
-        if (isPraiseCluster && clusterId !== null && clusterId !== undefined) {
-          const res = await fetch(`${API_BASE}/praise-clusters/${clusterId}/verbatims`, {
-            signal: controller.signal
-          });
-          if (!res.ok) {
-            setError(`Product strength verbatims query failed (HTTP ${res.status}).`);
-            return;
-          }
-          const data = await res.json();
-          if (generation !== generationRef.current) return;
-          const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
-            sentence_id?: string;
-            review_id?: string;
-            sentence_text?: string;
-            start?: number;
-            end?: number;
-            confidence?: number;
-          }>).map((v) => {
-            const txt = v.sentence_text || '';
-            return {
-              id: v.sentence_id || v.review_id || 'SENT-PRAISE',
-              domain: 'd2c',
-              raw_text: txt,
-              redacted_text: txt,
-              display_text: txt,
-              rating: 5,
-              sentiment_pred: 'POSITIVE' as const,
-              sentiment_confidence: v.confidence ?? 0.95,
-              cluster_id: clusterId ?? 0,
-              theme_title: (data.title as string) || 'Product Strength',
-              channel: 'Praise Medoid',
-              batch_or_version: 'Extracted Sentence',
-              product_name: (data.title as string) || 'Product Strength',
-              sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
-              highlight_span: {
-                text: txt,
-                start: 0,
-                end: txt.length
-              }
-            };
-          });
-          setReviews(items);
-          setTotal(items.length);
-          setTotalPages(1);
-          return;
-        }
-
-        const params = new URLSearchParams({
-          page: page.toString(),
-          page_size: PAGE_SIZE.toString(),
-          show_raw_pii: showRawPii ? 'true' : 'false'
-        });
-        if (clusterId !== null && clusterId !== undefined) {
-          params.append('cluster_id', clusterId.toString());
-        }
-        if (sentimentFilter) {
-          params.append('sentiment', sentimentFilter);
-        }
-        if (search) {
-          params.append('search', search);
-        }
-
-        const res = await fetch(`${API_BASE}/verbatims?${params.toString()}`, {
-          signal: controller.signal
-        });
-        if (!res.ok) {
-          setError(`Verbatim query failed (HTTP ${res.status}).`);
-          return;
-        }
-        const data = await res.json();
+        const result = await fetchChunk(0, INITIAL_LIMIT, controller.signal);
         if (generation !== generationRef.current) return;
-        setReviews(Array.isArray(data.verbatims) ? data.verbatims : []);
-        setTotal(typeof data.total === 'number' ? data.total : 0);
-        setTotalPages(typeof data.total_pages === 'number' ? data.total_pages : 0);
+        setReviews(result.items);
+        setTotal(result.total);
+        setHasMore(result.hasMore);
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return;
         if (generation !== generationRef.current) return;
-        setError(`Verbatim query failed: ${(err as Error).message}`);
+        setError((err as Error).message);
       } finally {
         if (generation === generationRef.current) setLoading(false);
       }
     };
 
-    void load();
-  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search, isComplaintCluster, isPraiseCluster, isSilentDefects]);
+    void loadInitial();
+  }, [isOpen, scopeKey, showRawPii, sentimentFilter, search, fetchChunk]);
+
+  // Load more: 20 items appended
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore) return;
+    const generation = generationRef.current;
+    setLoadingMore(true);
+    try {
+      const currentOffset = reviews.length;
+      const result = await fetchChunk(currentOffset, SUBSEQUENT_LIMIT);
+      if (generation !== generationRef.current) return;
+      setReviews((prev) => [...prev, ...result.items]);
+      setHasMore(result.hasMore);
+    } catch (err) {
+      console.error('Failed to load more verbatims:', err);
+    } finally {
+      if (generation === generationRef.current) setLoadingMore(false);
+    }
+  }, [loading, loadingMore, hasMore, reviews.length, fetchChunk]);
+
+  // IntersectionObserver on sentinel at the end of the list
+  useEffect(() => {
+    const target = sentinelRef.current;
+    if (!target || !hasMore || loading || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          void loadMore();
+        }
+      },
+      { root: listContainerRef.current, threshold: 0.1 }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, loadMore]);
 
   // Unmount cleanup: abort any in-flight request so no response lands after teardown.
   useEffect(() => {
@@ -252,22 +291,15 @@ export const VerbatimDrawer: React.FC<Props> = ({
 
   const handleSearchSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    const next = searchDraft;
-    // A single request: paging state and the query term are updated together and
-    // the fetch effect performs exactly one request for the new combination.
-    setSearch(next);
-    setPage(1);
+    setSearch(searchDraft);
   }, [searchDraft]);
 
   const handleClearSearch = useCallback(() => {
     setSearchDraft('');
     setSearch('');
-    setPage(1);
   }, []);
 
   if (!isOpen) return null;
-
-  const pageCount = Math.max(1, totalPages || Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="overlay-backdrop" style={{ justifyContent: 'flex-end' }}>
@@ -382,7 +414,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
             <Filter size={13} style={{ color: '#6B7280' }} />
             <select
               value={sentimentFilter}
-              onChange={(e) => { setSentimentFilter(e.target.value); setPage(1); }}
+              onChange={(e) => setSentimentFilter(e.target.value)}
               aria-label="Filter by sentiment"
               style={{
                 backgroundColor: '#FFFFFF',
@@ -404,7 +436,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
           {/* PII request toggle — the server decides what is actually returned. */}
           <button
             type="button"
-            onClick={() => { setShowRawPii(!showRawPii); setPage(1); }}
+            onClick={() => setShowRawPii(!showRawPii)}
             aria-pressed={showRawPii}
             style={{
               display: 'flex',
@@ -428,7 +460,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
         </div>
 
         {/* Verbatims List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div ref={listContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {error ? (
             <EmptyState label={error} hint="Retry by changing a filter or reopening the drawer." />
           ) : loading ? (
@@ -556,9 +588,52 @@ export const VerbatimDrawer: React.FC<Props> = ({
               </div>
             ))
           )}
+
+          {/* Infinite Scroll Sentinel */}
+          {hasMore && (
+            <div
+              ref={sentinelRef}
+              style={{
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#6B7280',
+                fontSize: '0.8rem',
+                gap: '8px'
+              }}
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" style={{ color: '#10B981' }} />
+                  <span>Loading 20 more verbatims...</span>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void loadMore()}
+                  style={{
+                    background: '#F3F4F6',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: '#374151',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  Load 20 More Quotes &darr;
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Pagination Bar */}
+        {/* Dynamic Continuous Scroll Footer */}
         <div style={{
           padding: '14px 24px',
           borderTop: '1px solid #E5E7EB',
@@ -568,47 +643,51 @@ export const VerbatimDrawer: React.FC<Props> = ({
           backgroundColor: '#FAFAFA'
         }}>
           <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
-            Page {Math.min(page, pageCount)} of {pageCount}
+            Loaded <b>{reviews.length.toLocaleString()}</b> of <b>{total.toLocaleString()}</b> matched verbatims
+            {hasMore ? ` (${total - reviews.length} more available)` : ' (All quotes loaded)'}
           </span>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {hasMore && (
+              <button
+                type="button"
+                disabled={loadingMore}
+                onClick={() => void loadMore()}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  border: '1px solid #10B981',
+                  backgroundColor: '#ECFDF5',
+                  color: '#065F46',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: loadingMore ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loadingMore ? 'Loading 20 more...' : 'Load 20 More Quotes ↓'}
+              </button>
+            )}
             <button
               type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => listContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                padding: '5px 12px',
+                padding: '6px 12px',
                 borderRadius: '6px',
                 border: '1px solid #E5E7EB',
                 backgroundColor: '#FFFFFF',
-                color: page <= 1 ? '#D1D5DB' : '#374151',
+                color: '#374151',
                 fontSize: '0.76rem',
-                cursor: page <= 1 ? 'not-allowed' : 'pointer'
+                cursor: 'pointer'
               }}
+              title="Scroll to top of verbatim list"
             >
-              <ChevronLeft size={14} /> Prev
-            </button>
-            <button
-              type="button"
-              disabled={page >= pageCount}
-              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: '1px solid #E5E7EB',
-                backgroundColor: '#FFFFFF',
-                color: page >= pageCount ? '#D1D5DB' : '#374151',
-                fontSize: '0.76rem',
-                cursor: page >= pageCount ? 'not-allowed' : 'pointer'
-              }}
-            >
-              Next <ChevronRight size={14} />
+              <ArrowUp size={13} /> Top
             </button>
           </div>
         </div>

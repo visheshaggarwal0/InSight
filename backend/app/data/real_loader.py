@@ -411,6 +411,12 @@ class RealDataLoader:
             if "sentences" not in r:
                 r["sentences"] = []
 
+        # Return domain-isolated classifier without mutating global singletons
+        from app.ml.sentiment import CalibratedSentimentClassifier
+        sentiment_classifier = CalibratedSentimentClassifier()
+        sentiment_classifier.pipeline = sentiment_pipeline
+        sentiment_classifier.is_fitted = True
+
         return {
             "reviews": reviews,
             "themes": themes,
@@ -418,6 +424,7 @@ class RealDataLoader:
             "complaint_clusters": complaint_clusters,
             "feature_requests": feature_requests,
             "praise_clusters": praise_clusters,
+            "sentiment_model": sentiment_classifier,
             "row_count": total_rows,
             "reviews_without_cohort": len(reviews) - len(dated_reviews),
             "label_source": "weak_sentiment" if weak_labels else None,

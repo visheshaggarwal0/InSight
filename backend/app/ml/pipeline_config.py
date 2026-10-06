@@ -235,8 +235,8 @@ COMPLAINT_CLUSTERING = {
     # c-TF-IDF: number of root-cause keywords per cluster
     "top_keywords": 8,
 
-    # Number of verbatim sentences to surface per cluster in the dashboard
-    "n_verbatims": 5,
+    # Number of verbatim sentences to surface per cluster in the dashboard (for pagination & infinite scroll)
+    "n_verbatims": 100,
 
     # Severity thresholds (by complaint sentence count — NOT negative fraction)
     # Scaled to account for granular defect clusters across larger pools.

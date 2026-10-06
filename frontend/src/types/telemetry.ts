@@ -191,7 +191,14 @@ export interface PerClassMetrics {
 }
 
 export interface ModelGovernanceData {
+  domain?: string;
   model_architecture: string;
+  benchmark_note?: string;
+  data_provenance?: {
+    synthetic?: boolean | null;
+    source?: string;
+    label_source?: string;
+  };
   evaluation: {
     sample_size: number;
     accuracy: number;
@@ -202,6 +209,10 @@ export interface ModelGovernanceData {
     classes: string[];
     confusion_matrix: number[][];
     per_class: Record<string, PerClassMetrics>;
+    split?: string;
+    label_source?: string;
+    benchmark_type?: string;
+    synthetic_disclaimer?: string | null;
   };
 }
 
@@ -294,9 +305,13 @@ export interface PraiseClusterItem {
 export interface IntentBreakdown {
   total_sentences: number;
   complaints: number;
+  complaints_reviews?: number;
   praise: number;
+  praise_reviews?: number;
   recommendations: number;
+  recommendations_reviews?: number;
   noise: number;
+  noise_reviews?: number;
   actionable_count: number;
   actionable_rate_pct: number;
 }
@@ -483,6 +498,106 @@ export interface AnomalySimulationResponse {
     blast_radius: string;
     action_required: string;
   };
+}
+
+export interface TemporalDataPoint {
+  cohort: string;
+  count: number;
+  rate_pct: number;
+  review_volume: number;
+}
+
+export interface TemporalSeries {
+  cluster_id: number;
+  title: string;
+  severity: string;
+  color: string;
+  data: TemporalDataPoint[];
+}
+
+export interface TemporalDriftResponse {
+  domain: string;
+  cohorts: string[];
+  series: TemporalSeries[];
+  timeline_summary: Array<{
+    cohort: string;
+    total_reviews: number;
+    negative_count: number;
+    positive_count: number;
+    psi: number;
+    status: string;
+  }>;
+  hotspots: Array<{
+    batch_or_version: string;
+    theme: string;
+    relative_risk: number;
+    psi_score: number;
+    p_value: number;
+    is_statistically_significant: boolean;
+  }>;
+}
+
+export interface ProductMatrixItem {
+  product_name: string;
+  brand_name: string;
+  total_reviews: number;
+  avg_rating: number;
+  complaint_count: number;
+  defect_rate_pct: number;
+  risk_tier: 'CRITICAL' | 'ELEVATED' | 'STABLE';
+  top_defect_theme: string;
+  sample_defect_quote: string;
+  affected_cohorts: string[];
+}
+
+export interface ProductMatrixResponse {
+  domain: string;
+  total_products_analyzed: number;
+  products: ProductMatrixItem[];
+}
+
+export interface TrojanHorseMetrics {
+  trojan_complaint_count: number;
+  trojan_rate_pct: number;
+  low_star_complaint_count: number;
+  low_star_rate_pct: number;
+  blind_spot_warning: string;
+}
+
+export interface StarDistributionItem {
+  star: number;
+  label: string;
+  complaint_count: number;
+  complaint_pct: number;
+  total_reviews: number;
+}
+
+export interface TrojanSampleItem {
+  review_id: string;
+  product_name: string;
+  rating: number;
+  complaint_text: string;
+  full_snippet: string;
+  why_missed: string;
+}
+
+export interface LoyaltyTurncoatItem {
+  review_id: string;
+  product_name: string;
+  rating: number;
+  trigger_phrase: string;
+  quote: string;
+  batch: string;
+}
+
+export interface RatingDivergenceResponse {
+  domain: string;
+  total_reviews: number;
+  total_complaint_sentences: number;
+  trojan_horse_metrics: TrojanHorseMetrics;
+  star_distribution: StarDistributionItem[];
+  top_trojan_samples: TrojanSampleItem[];
+  loyalty_turncoats: LoyaltyTurncoatItem[];
 }
 
 

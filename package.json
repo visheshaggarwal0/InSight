@@ -8,9 +8,5 @@
     "dev:frontend": "npm --prefix frontend run dev:vite",
     "dev:backend": "python -m uvicorn app.main:app --app-dir backend --reload-dir backend --host 127.0.0.1 --port 8000 --reload",
     "build": "npm --prefix frontend run build"
-  },
-  "dependencies": {
-    "@neondatabase/neon-js": "^0.7.0-beta",
-    "react-router-dom": "^7.18.4"
   }
 }
