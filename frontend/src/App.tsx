@@ -24,6 +24,12 @@ import { ExecutiveIncidentBriefing } from './components/ExecutiveIncidentBriefin
 import { ClauseDeconstructionVisualizer } from './components/ClauseDeconstructionVisualizer';
 import { DemoPitchModal } from './components/DemoPitchModal';
 import { NoiseQuarantineView } from './components/NoiseQuarantineView';
+import { PowerBIView } from './components/PowerBIView';
+import { CopilotModal } from './components/CopilotModal';
+import { ExecutiveBriefingModal } from './components/ExecutiveBriefingModal';
+import { BenchmarkCompareView } from './components/BenchmarkCompareView';
+import { ActionMatrixView } from './components/ActionMatrixView';
+import { AnomalySimulatorBanner } from './components/AnomalySimulatorBanner';
 import { Skeleton } from './components/EmptyState';
 import { validateStoredSession, apiFetch } from './lib/auth-client';
 import type {
@@ -96,6 +102,8 @@ export function App() {
   const [isDriftModalOpen, setIsDriftModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isDemoPitchOpen, setIsDemoPitchOpen] = useState<boolean>(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
+  const [isBriefingOpen, setIsBriefingOpen] = useState<boolean>(false);
 
   // Monotonic request generation: responses from superseded loads are discarded.
   const generationRef = useRef(0);
@@ -198,6 +206,18 @@ export function App() {
       controller.abort();
     };
   }, [loadAllData]);
+
+  // Global Ctrl+K / ⌘K shortcut for instant AI Copilot
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsCopilotOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleSelectDomain = useCallback(
     async (domainId: string) => {
@@ -395,6 +415,7 @@ export function App() {
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
         onOpenGovernance={handleOpenGovernance}
+        onOpenCopilot={() => setIsCopilotOpen(true)}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
       />
@@ -413,7 +434,10 @@ export function App() {
           onOpenGovernance={handleOpenGovernance}
           onOpenDemoPitch={() => setIsDemoPitchOpen(true)}
           onOpenAuth={handleOpenAuth}
+          onOpenCopilot={() => setIsCopilotOpen(true)}
+          onOpenBriefing={() => setIsBriefingOpen(true)}
           onToggleMobileMenu={handleToggleMobileMenu}
+          onSelectTab={setCurrentTab}
         />
 
         {/* Global Loading Bar */}
@@ -925,16 +949,39 @@ export function App() {
             </div>
           )}
 
+          {currentTab === 'powerbi' && (
+            <PowerBIView
+              overview={overview}
+              themes={themes}
+              driftData={driftData}
+              activeDomain={activeDomain}
+              onInspectVerbatims={handleInspectVerbatims}
+            />
+          )}
+
+          {currentTab === 'actionmatrix' && (
+            <ActionMatrixView
+              onDispatchTicket={(item) => void handleDispatchIncidentTicket(item.id)}
+            />
+          )}
+
           {currentTab === 'trends' && (
             <div style={{ paddingTop: '32px' }}>
               <div style={{ marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
-                  Statistical Drift Monitoring (PSI)
+                  Statistical Drift Monitoring &amp; Anomaly Radar
                 </h2>
                 <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px' }}>
-                  Population Stability Index tracking distribution shifts between reference batches and production telemetry.
+                  Population Stability Index (PSI) tracking distribution shifts between reference batches and production telemetry.
                 </p>
               </div>
+
+              {/* Interactive Hackathon Defect Injection Simulator */}
+              <AnomalySimulatorBanner
+                onAnomalyInjected={() => void loadAllData()}
+                onReset={() => void loadAllData()}
+              />
+
               {driftData ? (
                 <DriftTimeline driftData={driftData} />
               ) : (
@@ -946,38 +993,7 @@ export function App() {
           )}
 
           {currentTab === 'compare' && (
-            <div style={{ paddingTop: '32px' }}>
-              <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
-                Domain &amp; Cross-Dataset Benchmark
-              </h2>
-              <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px', marginBottom: '24px' }}>
-                Compare customer sentiment and defect frequencies across multiple product verticals.
-              </p>
-              {safeDatasets.length === 0 ? (
-                <p style={{ fontSize: '0.84rem', color: '#6B7280' }}>
-                  {isLoading ? 'Loading datasets…' : 'No datasets are available.'}
-                </p>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-                  {safeDatasets.map((d) => (
-                    <div key={d.id} className="dashboard-card" style={{ padding: '24px' }}>
-                      <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#111827' }}>{d.name}</h3>
-                      <p style={{ fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>Category: {d.category}</p>
-                      <div style={{ marginTop: '16px', fontSize: '1.5rem', fontWeight: 700, color: '#0F382E' }}>
-                        {d.review_count?.toLocaleString()} reviews
-                      </div>
-                      <button
-                        onClick={() => void handleSelectDomain(d.id)}
-                        className="btn-outline"
-                        style={{ marginTop: '16px', width: '100%', justifyContent: 'center' }}
-                      >
-                        {activeDomain === d.id ? 'Active Dataset' : 'Switch to this Domain'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <BenchmarkCompareView />
           )}
 
           {currentTab === 'settings' && (
@@ -1084,6 +1100,30 @@ export function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={() => void loadAllData()}
+      />
+
+      {/* InSight AI Copilot Modal */}
+      <CopilotModal
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        onOpenBriefing={() => {
+          setIsCopilotOpen(false);
+          setIsBriefingOpen(true);
+        }}
+        onInspectVerbatim={(citation) => {
+          setIsCopilotOpen(false);
+          setSelectedClusterId(null);
+          setSelectedClusterTitle(citation.product_name);
+          setSearchQuery(citation.review_id);
+          setIsVerbatimDrawerOpen(true);
+        }}
+      />
+
+      {/* Executive Briefing Modal */}
+      <ExecutiveBriefingModal
+        isOpen={isBriefingOpen}
+        onClose={() => setIsBriefingOpen(false)}
+        domain={activeDomain}
       />
     </div>
   );

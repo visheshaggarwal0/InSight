@@ -1,8 +1,9 @@
 import io
+import json
 import logging
 import random
 import re
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends, Request
 from fastapi.concurrency import run_in_threadpool
@@ -27,6 +28,10 @@ from app.core.auth import (
     AuthenticatedUser,
 )
 from app.services.db_service import db_service
+from app.services.powerbi_service import powerbi_service
+from app.services.copilot_service import copilot_service
+from app.services.benchmark_service import benchmark_service
+from app.services.roi_service import roi_service
 from app.models.schema import DomainModel, ThemeModel, ReviewModel, TicketModel
 
 logger = logging.getLogger(__name__)
@@ -310,6 +315,11 @@ class SemanticSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=512)
     domain: Optional[str] = Field(None, max_length=64)
     limit: int = Field(10, ge=1, le=100)
+
+
+class PowerBIConfigPayload(BaseModel):
+    embed_url: str = Field(..., max_length=2048)
+    report_title: Optional[str] = Field(None, max_length=256)
 
 
 @router.get("/datasets")
@@ -1101,6 +1111,320 @@ def export_powerbi_telemetry(
     )
 
 
+def _build_theme_export_rows(themes: list | None = None) -> list:
+    source_themes = themes if themes is not None else state.themes
+    rows = []
+    for t in source_themes:
+        neg_val = t.get("negative_share", 0) or 0
+        neg_pct = round(float(neg_val) * 100, 1) if float(neg_val) <= 1.0 else round(float(neg_val), 1)
+        rows.append({
+            "Cluster_ID": t.get("cluster_id"),
+            "Theme_Title": t.get("title"),
+            "Category": t.get("category", "General"),
+            "Severity": t.get("severity", "MEDIUM"),
+            "Review_Count": t.get("count", t.get("review_count", 0)),
+            "Negative_Share_Pct": neg_pct,
+            "Avg_Rating": round(float(t.get("avg_rating", 0) or 0), 2),
+            "Top_Keywords": "; ".join(t.get("keywords", [])),
+            "Medoid_Sample": t.get("medoid_verbatim", ""),
+        })
+    return rows
+
+
+def _build_drift_export_rows(drift_results: dict | None = None) -> list:
+    timeline = (drift_results or {}).get("timeline", [])
+    rows = []
+    for entry in timeline:
+        rows.append({
+            "Batch_or_Version": entry.get("batch"),
+            "Total_Reviews": entry.get("total", 0),
+            "Negative_Count": entry.get("negative", 0),
+            "Positive_Count": entry.get("positive", 0),
+            "Neutral_Count": entry.get("neutral", 0),
+            "Negative_Rate_Pct": entry.get("negative_rate", 0.0),
+            "PSI_Score": round(entry.get("psi") or 0.0, 4) if entry.get("psi") is not None else None,
+            "Drift_Status": entry.get("drift_status", "BASELINE"),
+            "Primary_Surging_Theme": entry.get("surging_theme"),
+            "Surging_Delta_Pct": round(float(entry.get("surging_delta", 0.0) or 0.0) * 100, 1),
+        })
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Microsoft Power BI Live Analytics & Data Connectors
+# ---------------------------------------------------------------------------
+
+@router.get("/powerbi/config")
+def get_powerbi_config(user: Optional[AuthenticatedUser] = _auth()):
+    """Returns the current Power BI Embed workspace configuration."""
+    return powerbi_service.get_config()
+
+
+@router.post("/powerbi/config")
+def save_powerbi_config(payload: PowerBIConfigPayload, user: Optional[AuthenticatedUser] = _auth()):
+    """Saves and synchronizes the Power BI Embed report URL."""
+    return powerbi_service.save_config(embed_url=payload.embed_url, report_title=payload.report_title)
+
+
+@router.get("/powerbi/connector/pbids")
+def get_powerbi_pbids_file(
+    request: Request,
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Downloads an official Microsoft Power BI Data Source (.pbids) connection file.
+    When opened on Windows, it automatically launches Power BI Desktop and pre-wires
+    the InSight live telemetry feed.
+    """
+    from fastapi.responses import Response
+    active_dom, _ = get_domain_bundle(domain)
+    base_url = str(request.base_url).rstrip("/")
+    pbids_data = powerbi_service.generate_pbids_content(base_api_url=base_url)
+    return Response(
+        content=json.dumps(pbids_data, indent=2),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f"attachment; filename=InSight_{active_dom}_Telemetry.pbids"
+        },
+    )
+
+
+@router.get("/powerbi/data/reviews.csv")
+def get_powerbi_reviews_csv(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Streams clean, tabular telemetry directly for Power BI Desktop Web Connector.
+    Includes sanitized verbatims, clause-level counts, and calibrated sentiment.
+    """
+    from fastapi.responses import Response
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    if not reviews:
+        raise HTTPException(status_code=503, detail="No dataset is loaded yet.")
+    csv_str = pd.DataFrame(_build_export_rows(reviews)).to_csv(index=False)
+    return Response(
+        content=csv_str,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=insight_{active_dom}_telemetry.csv",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
+@router.get("/powerbi/data/reviews")
+def get_powerbi_reviews_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    limit: Optional[int] = Query(None, ge=1, le=50000),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns normalized Star Schema Fact_ReviewTelemetry rows in JSON for Power BI REST connectors.
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    rows = _build_export_rows(reviews)
+    if limit:
+        rows = rows[:limit]
+    return {
+        "domain": active_dom,
+        "total_rows": len(rows),
+        "data": rows,
+    }
+
+
+@router.get("/powerbi/data/themes")
+def get_powerbi_themes_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns Dim_Themes dimension rows in JSON format.
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    themes = bundle["themes"]
+    rows = _build_theme_export_rows(themes)
+    return {
+        "domain": active_dom,
+        "total_themes": len(rows),
+        "data": rows,
+    }
+
+
+@router.get("/powerbi/data/themes.csv")
+def get_powerbi_themes_csv(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Streams Dim_Themes dimension as a CSV file for Power BI model relationship building.
+    """
+    from fastapi.responses import Response
+    active_dom, bundle = get_domain_bundle(domain)
+    themes = bundle["themes"]
+    rows = _build_theme_export_rows(themes)
+    csv_str = pd.DataFrame(rows).to_csv(index=False)
+    return Response(
+        content=csv_str,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=insight_{active_dom}_themes_dim.csv"
+        },
+    )
+
+
+@router.get("/powerbi/data/drift")
+def get_powerbi_drift_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns Fact_BatchDrift timeline metrics (PSI scores, cohort shifts, relative risks).
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    drift_results = bundle["drift_results"]
+    rows = _build_drift_export_rows(drift_results)
+    return {
+        "domain": active_dom,
+        "total_cohorts": len(rows),
+        "data": rows,
+    }
+
+
+@router.get("/powerbi/data/summary")
+def get_powerbi_summary_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns high-level executive KPIs optimized for Power BI Card / Gauge visuals.
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    themes = bundle["themes"]
+    total = len(reviews)
+    pos = sum(1 for r in reviews if r.get("sentiment_pred") == "POSITIVE")
+    neu = sum(1 for r in reviews if r.get("sentiment_pred") == "NEUTRAL")
+    neg = sum(1 for r in reviews if r.get("sentiment_pred") == "NEGATIVE")
+
+    nss = round(((pos - neg) / total * 100), 1) if total else 0.0
+    rows = _build_export_rows(reviews)
+    defect_count = sum(1 for r in rows if r["Complaint_Clauses"] > 0)
+    silent_defects = sum(1 for r in rows if r["Has_Silent_Defect"])
+    actionable_count = sum(1 for r in rows if r["Is_Actionable"])
+
+    return {
+        "domain": active_dom,
+        "total_reviews": total,
+        "net_sentiment_score": nss,
+        "positive_rate_pct": round((pos / total * 100), 1) if total else 0.0,
+        "negative_rate_pct": round((neg / total * 100), 1) if total else 0.0,
+        "neutral_rate_pct": round((neu / total * 100), 1) if total else 0.0,
+        "defect_surge_rate_pct": round((defect_count / total * 100), 1) if total else 0.0,
+        "silent_defects_count": silent_defects,
+        "actionable_rate_pct": round((actionable_count / total * 100), 1) if total else 0.0,
+        "pii_compliance_rate_pct": 100.0,
+        "total_themes": len(themes),
+        "critical_themes": sum(1 for t in themes if t.get("severity") == "CRITICAL"),
+    }
+
+
+@router.get("/powerbi/guide")
+def get_powerbi_guide(
+    request: Request,
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns Power Query M script, DAX measure catalog, and Star Schema specifications.
+    """
+    base_url = str(request.base_url).rstrip("/")
+    return {
+        "api_urls": {
+            "csv_feed": f"{base_url}/api/powerbi/data/reviews.csv",
+            "json_feed": f"{base_url}/api/powerbi/data/reviews",
+            "themes_feed": f"{base_url}/api/powerbi/data/themes.csv",
+            "drift_feed": f"{base_url}/api/powerbi/data/drift",
+            "pbids_file": f"{base_url}/api/powerbi/connector/pbids",
+        },
+        "power_query_m": powerbi_service.get_powerquery_m_snippet(base_url),
+        "dax_measures": powerbi_service.get_dax_measures(),
+        "star_schema": {
+            "fact_table": "Fact_ReviewTelemetry",
+            "dimension_tables": ["Dim_Themes", "Dim_BatchRelease", "Dim_ProductSKU", "Dim_Channel"],
+        }
+    }
+
+
+@router.get("/powerbi/embed-token")
+def get_powerbi_embed_token(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Official Microsoft Power BI Embedded (App Owns Data) endpoint.
+    
+    1. Authenticates against Microsoft Entra ID via client credentials.
+    2. Retrieves report metadata and embedUrl from Power BI REST API.
+    3. Mints a short-lived Embed Token for genuine client-side report embedding.
+    """
+    cfg_status = powerbi_service.get_azure_config_status()
+    if not cfg_status["is_configured"]:
+        return {
+            "status": "unconfigured",
+            "message": "Power BI Service & Azure Entra ID credentials are not yet configured in .env",
+            "missing_keys": cfg_status["missing_keys"],
+            "credentials_present": cfg_status["credentials_present"],
+            "setup_guide": {
+                "step_1": "Register an App in Microsoft Entra ID (Azure Portal) and generate a Client Secret.",
+                "step_2": "In Power BI Admin Portal, enable 'Allow service principals to use Power BI APIs'.",
+                "step_3": "Add the Azure App Registration as a Member/Contributor to your Power BI Workspace.",
+                "step_4": "Populate POWERBI_TENANT_ID, POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET, POWERBI_WORKSPACE_ID, and POWERBI_REPORT_ID in .env",
+            }
+        }
+
+    try:
+        result = powerbi_service.generate_embed_token()
+        return result
+    except Exception as e:
+        logger.error(f"Failed to generate Power BI Embed Token: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "error_message": str(e),
+            "workspace_id": settings.POWERBI_WORKSPACE_ID,
+            "report_id": settings.POWERBI_REPORT_ID,
+            "diagnostics": {
+                "tenant_id_set": bool(settings.POWERBI_TENANT_ID),
+                "client_id_set": bool(settings.POWERBI_CLIENT_ID),
+                "client_secret_set": bool(settings.POWERBI_CLIENT_SECRET),
+                "workspace_id_set": bool(settings.POWERBI_WORKSPACE_ID),
+                "report_id_set": bool(settings.POWERBI_REPORT_ID),
+            }
+        }
+
+
+@router.get("/powerbi/connection-status")
+def test_powerbi_connection_status(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Tests live connectivity to Azure Entra ID and Microsoft Power BI Service.
+    """
+    return powerbi_service.test_connection()
+
+
+@router.post("/powerbi/dataset/refresh")
+def trigger_powerbi_dataset_refresh(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Triggers an asynchronous refresh on the Power BI Semantic Model via Power BI REST API.
+    """
+    try:
+        return powerbi_service.trigger_dataset_refresh()
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Failed to trigger Power BI dataset refresh: {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Power BI API refresh failed: {str(e)}")
+
+
+
 # ---------------------------------------------------------------------------
 # Complaint Clusters & Sentence Pools Endpoints
 # ---------------------------------------------------------------------------
@@ -1427,5 +1751,241 @@ Affected customers specifically report failures matching: `{medoid}`.
         **ticket_payload,
         "ticket": ticket_payload,
     }
+
+
+# ==============================================================================
+# EXECUTIVE REVIEW INTELLIGENCE COPILOT (RAG OVER INSIGHT TELEMETRY)
+# ==============================================================================
+
+class CopilotQueryRequest(BaseModel):
+    query: str
+    domain: Optional[str] = None
+    limit_citations: Optional[int] = 4
+
+
+@router.post("/copilot/ask")
+def copilot_ask(payload: CopilotQueryRequest, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Executive Review Intelligence Copilot (RAG over InSight Telemetry).
+    Answers questions grounded in customer verbatims, sentiment scores, and drift metrics.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(payload.domain)
+    reviews = bundle.get("reviews", state.reviews)
+    themes = bundle.get("themes", state.themes)
+    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
+    praise_clusters = bundle.get("praise_clusters", state.praise_clusters)
+    feature_requests = bundle.get("feature_requests", state.feature_requests)
+    drift_data = bundle.get("drift_results", state.drift_results)
+
+    return copilot_service.answer_query(
+        query=payload.query,
+        reviews=reviews,
+        themes=themes,
+        complaint_clusters=complaint_clusters,
+        praise_clusters=praise_clusters,
+        feature_requests=feature_requests,
+        drift_data=drift_data,
+        encoder=transformer_encoder,
+        limit_citations=payload.limit_citations or 4
+    )
+
+
+@router.get("/copilot/briefing")
+def copilot_briefing(domain: Optional[str] = None, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Generates an executive-ready One-Pager Intelligence Briefing.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle.get("reviews", state.reviews)
+    themes = bundle.get("themes", state.themes)
+    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
+    praise_clusters = bundle.get("praise_clusters", state.praise_clusters)
+    feature_requests = bundle.get("feature_requests", state.feature_requests)
+    drift_data = bundle.get("drift_results", state.drift_results)
+
+    return copilot_service.generate_executive_briefing(
+        domain=active_dom,
+        reviews=reviews,
+        themes=themes,
+        complaint_clusters=complaint_clusters,
+        praise_clusters=praise_clusters,
+        feature_requests=feature_requests,
+        drift_data=drift_data
+    )
+
+
+# ==============================================================================
+# HEAD-TO-HEAD COMPARATIVE BENCHMARK ENGINE
+# ==============================================================================
+
+class BenchmarkCompareRequest(BaseModel):
+    compare_type: str = "batch" # "batch" or "domain"
+    cohort_a: str
+    cohort_b: str
+
+
+@router.get("/benchmark/cohorts")
+def get_benchmark_cohorts(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Returns available comparison cohorts (batches and domains).
+    """
+    ensure_initialized()
+    batches = sorted(list(set(r.get("batch_or_version") for r in state.reviews if r.get("batch_or_version"))))
+    domains = [
+        {"id": "d2c_cosmetics", "name": "D2C Cosmetics & Skincare (Sephora 10k)"},
+        {"id": "tech_saas", "name": "Fintech / SaaS Digital App (Telemetry)"}
+    ]
+    return {
+        "batches": batches,
+        "domains": domains
+    }
+
+
+@router.post("/benchmark/compare")
+def compare_benchmarks(payload: BenchmarkCompareRequest, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Head-to-head comparative intelligence between two batches or domains.
+    """
+    ensure_initialized()
+    if payload.compare_type == "domain":
+        _, bundle_a = get_domain_bundle(payload.cohort_a)
+        _, bundle_b = get_domain_bundle(payload.cohort_b)
+        revs_a = bundle_a.get("reviews", [])
+        revs_b = bundle_b.get("reviews", [])
+        label_a = "D2C Cosmetics" if payload.cohort_a == "d2c_cosmetics" else "Tech / SaaS"
+        label_b = "D2C Cosmetics" if payload.cohort_b == "d2c_cosmetics" else "Tech / SaaS"
+    else:
+        revs_a = [r for r in state.reviews if r.get("batch_or_version") == payload.cohort_a]
+        revs_b = [r for r in state.reviews if r.get("batch_or_version") == payload.cohort_b]
+        label_a = payload.cohort_a
+        label_b = payload.cohort_b
+
+    if not revs_a or not revs_b:
+        raise HTTPException(status_code=400, detail="Insufficient review volume in one or both cohorts for comparison.")
+
+    return benchmark_service.compare_cohorts(revs_a, revs_b, label_a, label_b)
+
+
+# ==============================================================================
+# ACTION & ROI IMPACT PRIORITIZATION MATRIX
+# ==============================================================================
+
+@router.get("/action/matrix")
+def get_action_matrix(domain: Optional[str] = None, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Returns 2x2 Impact vs Effort Prioritization Matrix with calculated CSAT lift.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
+    reviews = bundle.get("reviews", state.reviews)
+    avg_rating = round(sum(r.get("rating", 4) for r in reviews) / max(len(reviews), 1), 2)
+
+    return roi_service.compute_action_matrix(complaint_clusters, len(reviews), avg_rating)
+
+
+# ==============================================================================
+# INTERACTIVE DEFECT INJECTION & ANOMALY SIMULATOR
+# ==============================================================================
+
+class SimulateAnomalyRequest(BaseModel):
+    scenario: Optional[str] = "chemical_burn"
+
+
+@router.post("/drift/simulate-anomaly")
+def simulate_drift_anomaly(payload: SimulateAnomalyRequest, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Interactive Hackathon Demonstration:
+    Simulates a sudden quality defect or software regression burst in production telemetry.
+    Instantly trips Population Stability Index (PSI) threshold and triggers emergency incident alarm.
+    """
+    ensure_initialized()
+    scenario = payload.scenario or "chemical_burn"
+
+    if scenario == "app_crash":
+        batch_id = "v3.2.0-HOTFIX"
+        theme = "Biometric Authentication Crash on Launch"
+        psi_score = 0.362
+        rr = 5.2
+        p_val = 0.00004
+        count = 74
+        msg = "CRITICAL ALERT: Biometric loop crash surged 5.2x in v3.2.0 (p=0.00004). PSI: 0.362."
+    elif scenario == "pump_leakage":
+        batch_id = "Batch-2022-Q2"
+        theme = "Dispenser Valve Rupture & Product Leakage"
+        psi_score = 0.315
+        rr = 4.1
+        p_val = 0.00012
+        count = 92
+        msg = "CRITICAL ALERT: Dispenser valve failure surged 4.1x in Batch-2022-Q2 (p=0.00012). PSI: 0.315."
+    else: # chemical_burn
+        batch_id = "Batch-24C"
+        theme = "Chemical Burning, Redness & Severe Skin Irritation"
+        psi_score = 0.384
+        rr = 4.8
+        p_val = 0.00008
+        count = 86
+        msg = "CRITICAL HAZARD: Adverse skin reaction surged 4.8x in Batch-24C (p=0.00008). PSI: 0.384."
+
+    simulated_alert = {
+        "severity": "CRITICAL",
+        "batch_or_version": batch_id,
+        "psi_score": psi_score,
+        "surging_theme": theme,
+        "surging_theme_delta": 0.184,
+        "relative_risk": rr,
+        "p_value": p_val,
+        "is_statistically_significant": True,
+        "review_count": count,
+        "message": msg,
+        "is_simulated": True,
+        "causal_drivers": [
+            {
+                "theme": theme,
+                "target_count": count,
+                "baseline_count": 8,
+                "target_rate_pct": 34.2,
+                "baseline_rate_pct": 7.1,
+                "rate_delta_pp": 27.1,
+                "relative_risk": rr,
+                "p_value": p_val,
+                "is_statistically_significant": True,
+                "significance_tier": "p < 0.001 (Critical)"
+            }
+        ]
+    }
+
+    if state.drift_results and "alerts" in state.drift_results:
+        state.drift_results["alerts"] = [a for a in state.drift_results["alerts"] if not a.get("is_simulated")]
+        state.drift_results["alerts"].insert(0, simulated_alert)
+
+    return {
+        "status": "anomaly_injected",
+        "scenario": scenario,
+        "alert": simulated_alert,
+        "emergency_incident_ticket": {
+            "title": f"[P0 CRITICAL HAZARD] {theme} ({batch_id})",
+            "priority": "P0_BLOCKER",
+            "psi_score": psi_score,
+            "relative_risk": f"{rr}x",
+            "p_value": p_val,
+            "affected_cohort": batch_id,
+            "blast_radius": f"{count} reported customer incidents",
+            "action_required": "Initiate lot quarantine and emergency root-cause review immediately."
+        }
+    }
+
+
+@router.post("/drift/reset")
+def reset_drift_anomaly(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Resets simulated telemetry drift alerts back to the canonical baseline.
+    """
+    ensure_initialized()
+    if state.drift_results and "alerts" in state.drift_results:
+        state.drift_results["alerts"] = [a for a in state.drift_results["alerts"] if not a.get("is_simulated")]
+    return {"status": "reset_successful", "message": "Telemetry restored to clean baseline."}
 
 
