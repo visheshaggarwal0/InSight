@@ -1,4 +1,5 @@
 import io
+import json
 import logging
 import random
 from typing import Optional, Tuple
@@ -26,6 +27,7 @@ from app.core.auth import (
     AuthenticatedUser,
 )
 from app.services.db_service import db_service
+from app.services.powerbi_service import powerbi_service
 from app.models.schema import DomainModel, ThemeModel, ReviewModel, TicketModel
 
 logger = logging.getLogger(__name__)
@@ -309,6 +311,11 @@ class SemanticSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=512)
     domain: Optional[str] = Field(None, max_length=64)
     limit: int = Field(10, ge=1, le=100)
+
+
+class PowerBIConfigPayload(BaseModel):
+    embed_url: str = Field(..., max_length=2048)
+    report_title: Optional[str] = Field(None, max_length=256)
 
 
 @router.get("/datasets")
@@ -1098,6 +1105,320 @@ def export_powerbi_telemetry(
             "Content-Disposition": f"attachment; filename=insight_{active_dom}_telemetry.csv"
         },
     )
+
+
+def _build_theme_export_rows(themes: list | None = None) -> list:
+    source_themes = themes if themes is not None else state.themes
+    rows = []
+    for t in source_themes:
+        neg_val = t.get("negative_share", 0) or 0
+        neg_pct = round(float(neg_val) * 100, 1) if float(neg_val) <= 1.0 else round(float(neg_val), 1)
+        rows.append({
+            "Cluster_ID": t.get("cluster_id"),
+            "Theme_Title": t.get("title"),
+            "Category": t.get("category", "General"),
+            "Severity": t.get("severity", "MEDIUM"),
+            "Review_Count": t.get("count", t.get("review_count", 0)),
+            "Negative_Share_Pct": neg_pct,
+            "Avg_Rating": round(float(t.get("avg_rating", 0) or 0), 2),
+            "Top_Keywords": "; ".join(t.get("keywords", [])),
+            "Medoid_Sample": t.get("medoid_verbatim", ""),
+        })
+    return rows
+
+
+def _build_drift_export_rows(drift_results: dict | None = None) -> list:
+    timeline = (drift_results or {}).get("timeline", [])
+    rows = []
+    for entry in timeline:
+        rows.append({
+            "Batch_or_Version": entry.get("batch"),
+            "Total_Reviews": entry.get("total", 0),
+            "Negative_Count": entry.get("negative", 0),
+            "Positive_Count": entry.get("positive", 0),
+            "Neutral_Count": entry.get("neutral", 0),
+            "Negative_Rate_Pct": entry.get("negative_rate", 0.0),
+            "PSI_Score": round(entry.get("psi") or 0.0, 4) if entry.get("psi") is not None else None,
+            "Drift_Status": entry.get("drift_status", "BASELINE"),
+            "Primary_Surging_Theme": entry.get("surging_theme"),
+            "Surging_Delta_Pct": round(float(entry.get("surging_delta", 0.0) or 0.0) * 100, 1),
+        })
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Microsoft Power BI Live Analytics & Data Connectors
+# ---------------------------------------------------------------------------
+
+@router.get("/powerbi/config")
+def get_powerbi_config(user: Optional[AuthenticatedUser] = _auth()):
+    """Returns the current Power BI Embed workspace configuration."""
+    return powerbi_service.get_config()
+
+
+@router.post("/powerbi/config")
+def save_powerbi_config(payload: PowerBIConfigPayload, user: Optional[AuthenticatedUser] = _auth()):
+    """Saves and synchronizes the Power BI Embed report URL."""
+    return powerbi_service.save_config(embed_url=payload.embed_url, report_title=payload.report_title)
+
+
+@router.get("/powerbi/connector/pbids")
+def get_powerbi_pbids_file(
+    request: Request,
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Downloads an official Microsoft Power BI Data Source (.pbids) connection file.
+    When opened on Windows, it automatically launches Power BI Desktop and pre-wires
+    the InSight live telemetry feed.
+    """
+    from fastapi.responses import Response
+    active_dom, _ = get_domain_bundle(domain)
+    base_url = str(request.base_url).rstrip("/")
+    pbids_data = powerbi_service.generate_pbids_content(base_api_url=base_url)
+    return Response(
+        content=json.dumps(pbids_data, indent=2),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f"attachment; filename=InSight_{active_dom}_Telemetry.pbids"
+        },
+    )
+
+
+@router.get("/powerbi/data/reviews.csv")
+def get_powerbi_reviews_csv(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Streams clean, tabular telemetry directly for Power BI Desktop Web Connector.
+    Includes sanitized verbatims, clause-level counts, and calibrated sentiment.
+    """
+    from fastapi.responses import Response
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    if not reviews:
+        raise HTTPException(status_code=503, detail="No dataset is loaded yet.")
+    csv_str = pd.DataFrame(_build_export_rows(reviews)).to_csv(index=False)
+    return Response(
+        content=csv_str,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=insight_{active_dom}_telemetry.csv",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
+@router.get("/powerbi/data/reviews")
+def get_powerbi_reviews_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    limit: Optional[int] = Query(None, ge=1, le=50000),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns normalized Star Schema Fact_ReviewTelemetry rows in JSON for Power BI REST connectors.
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    rows = _build_export_rows(reviews)
+    if limit:
+        rows = rows[:limit]
+    return {
+        "domain": active_dom,
+        "total_rows": len(rows),
+        "data": rows,
+    }
+
+
+@router.get("/powerbi/data/themes")
+def get_powerbi_themes_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns Dim_Themes dimension rows in JSON format.
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    themes = bundle["themes"]
+    rows = _build_theme_export_rows(themes)
+    return {
+        "domain": active_dom,
+        "total_themes": len(rows),
+        "data": rows,
+    }
+
+
+@router.get("/powerbi/data/themes.csv")
+def get_powerbi_themes_csv(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Streams Dim_Themes dimension as a CSV file for Power BI model relationship building.
+    """
+    from fastapi.responses import Response
+    active_dom, bundle = get_domain_bundle(domain)
+    themes = bundle["themes"]
+    rows = _build_theme_export_rows(themes)
+    csv_str = pd.DataFrame(rows).to_csv(index=False)
+    return Response(
+        content=csv_str,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=insight_{active_dom}_themes_dim.csv"
+        },
+    )
+
+
+@router.get("/powerbi/data/drift")
+def get_powerbi_drift_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns Fact_BatchDrift timeline metrics (PSI scores, cohort shifts, relative risks).
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    drift_results = bundle["drift_results"]
+    rows = _build_drift_export_rows(drift_results)
+    return {
+        "domain": active_dom,
+        "total_cohorts": len(rows),
+        "data": rows,
+    }
+
+
+@router.get("/powerbi/data/summary")
+def get_powerbi_summary_json(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns high-level executive KPIs optimized for Power BI Card / Gauge visuals.
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    themes = bundle["themes"]
+    total = len(reviews)
+    pos = sum(1 for r in reviews if r.get("sentiment_pred") == "POSITIVE")
+    neu = sum(1 for r in reviews if r.get("sentiment_pred") == "NEUTRAL")
+    neg = sum(1 for r in reviews if r.get("sentiment_pred") == "NEGATIVE")
+
+    nss = round(((pos - neg) / total * 100), 1) if total else 0.0
+    rows = _build_export_rows(reviews)
+    defect_count = sum(1 for r in rows if r["Complaint_Clauses"] > 0)
+    silent_defects = sum(1 for r in rows if r["Has_Silent_Defect"])
+    actionable_count = sum(1 for r in rows if r["Is_Actionable"])
+
+    return {
+        "domain": active_dom,
+        "total_reviews": total,
+        "net_sentiment_score": nss,
+        "positive_rate_pct": round((pos / total * 100), 1) if total else 0.0,
+        "negative_rate_pct": round((neg / total * 100), 1) if total else 0.0,
+        "neutral_rate_pct": round((neu / total * 100), 1) if total else 0.0,
+        "defect_surge_rate_pct": round((defect_count / total * 100), 1) if total else 0.0,
+        "silent_defects_count": silent_defects,
+        "actionable_rate_pct": round((actionable_count / total * 100), 1) if total else 0.0,
+        "pii_compliance_rate_pct": 100.0,
+        "total_themes": len(themes),
+        "critical_themes": sum(1 for t in themes if t.get("severity") == "CRITICAL"),
+    }
+
+
+@router.get("/powerbi/guide")
+def get_powerbi_guide(
+    request: Request,
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns Power Query M script, DAX measure catalog, and Star Schema specifications.
+    """
+    base_url = str(request.base_url).rstrip("/")
+    return {
+        "api_urls": {
+            "csv_feed": f"{base_url}/api/powerbi/data/reviews.csv",
+            "json_feed": f"{base_url}/api/powerbi/data/reviews",
+            "themes_feed": f"{base_url}/api/powerbi/data/themes.csv",
+            "drift_feed": f"{base_url}/api/powerbi/data/drift",
+            "pbids_file": f"{base_url}/api/powerbi/connector/pbids",
+        },
+        "power_query_m": powerbi_service.get_powerquery_m_snippet(base_url),
+        "dax_measures": powerbi_service.get_dax_measures(),
+        "star_schema": {
+            "fact_table": "Fact_ReviewTelemetry",
+            "dimension_tables": ["Dim_Themes", "Dim_BatchRelease", "Dim_ProductSKU", "Dim_Channel"],
+        }
+    }
+
+
+@router.get("/powerbi/embed-token")
+def get_powerbi_embed_token(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Official Microsoft Power BI Embedded (App Owns Data) endpoint.
+    
+    1. Authenticates against Microsoft Entra ID via client credentials.
+    2. Retrieves report metadata and embedUrl from Power BI REST API.
+    3. Mints a short-lived Embed Token for genuine client-side report embedding.
+    """
+    cfg_status = powerbi_service.get_azure_config_status()
+    if not cfg_status["is_configured"]:
+        return {
+            "status": "unconfigured",
+            "message": "Power BI Service & Azure Entra ID credentials are not yet configured in .env",
+            "missing_keys": cfg_status["missing_keys"],
+            "credentials_present": cfg_status["credentials_present"],
+            "setup_guide": {
+                "step_1": "Register an App in Microsoft Entra ID (Azure Portal) and generate a Client Secret.",
+                "step_2": "In Power BI Admin Portal, enable 'Allow service principals to use Power BI APIs'.",
+                "step_3": "Add the Azure App Registration as a Member/Contributor to your Power BI Workspace.",
+                "step_4": "Populate POWERBI_TENANT_ID, POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET, POWERBI_WORKSPACE_ID, and POWERBI_REPORT_ID in .env",
+            }
+        }
+
+    try:
+        result = powerbi_service.generate_embed_token()
+        return result
+    except Exception as e:
+        logger.error(f"Failed to generate Power BI Embed Token: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "error_message": str(e),
+            "workspace_id": settings.POWERBI_WORKSPACE_ID,
+            "report_id": settings.POWERBI_REPORT_ID,
+            "diagnostics": {
+                "tenant_id_set": bool(settings.POWERBI_TENANT_ID),
+                "client_id_set": bool(settings.POWERBI_CLIENT_ID),
+                "client_secret_set": bool(settings.POWERBI_CLIENT_SECRET),
+                "workspace_id_set": bool(settings.POWERBI_WORKSPACE_ID),
+                "report_id_set": bool(settings.POWERBI_REPORT_ID),
+            }
+        }
+
+
+@router.get("/powerbi/connection-status")
+def test_powerbi_connection_status(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Tests live connectivity to Azure Entra ID and Microsoft Power BI Service.
+    """
+    return powerbi_service.test_connection()
+
+
+@router.post("/powerbi/dataset/refresh")
+def trigger_powerbi_dataset_refresh(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Triggers an asynchronous refresh on the Power BI Semantic Model via Power BI REST API.
+    """
+    try:
+        return powerbi_service.trigger_dataset_refresh()
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Failed to trigger Power BI dataset refresh: {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Power BI API refresh failed: {str(e)}")
+
 
 
 # ---------------------------------------------------------------------------

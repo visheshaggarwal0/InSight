@@ -133,9 +133,12 @@ InSight/
         │   ├── VerbatimDrawer.tsx        # Deep-dive review inspector
         │   ├── DriftTimeline.tsx         # Batch / release drift monitor
         │   ├── ModelGovernanceModal.tsx  # Ground-truth evaluation metrics
-        │   └── TicketModal.tsx           # Jira / QA Incident report generator
+        │   ├── TicketModal.tsx           # Jira / QA Incident report generator
+        │   ├── PowerBIView.tsx           # Embedded Power BI & Native BI Simulator
+        │   └── PowerBIConfigModal.tsx    # Power BI Service Embed URL configurator
         └── types/
-            └── telemetry.ts              # TypeScript domain schemas
+            ├── telemetry.ts              # TypeScript domain schemas
+            └── powerbi.ts                # Power BI integration & DAX types
 ```
 
 ---

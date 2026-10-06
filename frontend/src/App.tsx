@@ -20,6 +20,7 @@ import { AuthModal } from './components/AuthModal';
 import { ComplaintClusterDashboard } from './components/ComplaintClusterDashboard';
 import { ProductStrengthsView } from './components/ProductStrengthsView';
 import { FeatureRequestsView } from './components/FeatureRequestsView';
+import { PowerBIView } from './components/PowerBIView';
 import { Skeleton } from './components/EmptyState';
 import { validateStoredSession, apiFetch } from './lib/auth-client';
 import type {
@@ -406,6 +407,7 @@ export function App() {
           onOpenGovernance={handleOpenGovernance}
           onOpenAuth={handleOpenAuth}
           onToggleMobileMenu={handleToggleMobileMenu}
+          onSelectTab={setCurrentTab}
         />
 
         {/* Global Loading Bar */}
@@ -890,6 +892,16 @@ export function App() {
                 Inspect Empirical Confusion Matrix &amp; Calibration Curve
               </button>
             </div>
+          )}
+
+          {currentTab === 'powerbi' && (
+            <PowerBIView
+              overview={overview}
+              themes={themes}
+              driftData={driftData}
+              activeDomain={activeDomain}
+              onInspectVerbatims={handleInspectVerbatims}
+            />
           )}
 
           {currentTab === 'trends' && (

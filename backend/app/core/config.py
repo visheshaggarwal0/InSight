@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     # emits non-reversible placeholders (no surrogate tag).
     PII_VAULT_SECRET: Optional[str] = None
 
+    # Microsoft Power BI Service & Azure Entra ID Embedded Integration
+    POWERBI_TENANT_ID: Optional[str] = None
+    POWERBI_CLIENT_ID: Optional[str] = None
+    POWERBI_CLIENT_SECRET: Optional[str] = None
+    POWERBI_WORKSPACE_ID: Optional[str] = None
+    POWERBI_REPORT_ID: Optional[str] = None
+    POWERBI_DATASET_ID: Optional[str] = None
+    POWERBI_AUTHORITY_URL: str = "https://login.microsoftonline.com"
+    POWERBI_SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
+    POWERBI_API_URL: str = "https://api.powerbi.com/v1.0/myorg"
+
     # CORS Allowed Origins
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",

@@ -20,6 +20,7 @@ interface TopBarProps {
   onOpenGovernance?: () => void;
   onOpenAuth?: () => void;
   onToggleMobileMenu?: () => void;
+  onSelectTab?: (tab: string) => void;
 }
 
 function useDismissable(
@@ -56,7 +57,8 @@ export function TopBar({
   governanceAccuracy,
   onOpenGovernance,
   onOpenAuth,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  onSelectTab
 }: TopBarProps) {
   const [isDomainOpen, setIsDomainOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -261,7 +263,13 @@ export function TopBar({
         {/* Power BI Live Connector Bridge */}
         <button
           type="button"
-          onClick={() => void handleExportPowerBi()}
+          onClick={() => {
+            if (onSelectTab) {
+              onSelectTab('powerbi');
+            } else {
+              void handleExportPowerBi();
+            }
+          }}
           disabled={exportState === 'loading'}
           className="hide-on-mobile"
           style={{
@@ -276,13 +284,13 @@ export function TopBar({
             fontSize: '0.78rem',
             fontWeight: 600,
             textDecoration: 'none',
-            cursor: exportState === 'loading' ? 'wait' : 'pointer',
+            cursor: 'pointer',
             transition: 'all 0.15s ease'
           }}
-          title={exportError ?? 'Download live relational telemetry dataset formatted for Microsoft Power BI'}
+          title={exportError ?? 'Open Power BI Live Analytics & Telemetry Bridge'}
         >
           <BarChart3 size={14} style={{ color: '#D97706' }} />
-          <span>{exportState === 'loading' ? 'Exporting…' : 'Power BI Feed'}</span>
+          <span>Power BI Analytics</span>
         </button>
 
         {/* Domain Switcher */}
