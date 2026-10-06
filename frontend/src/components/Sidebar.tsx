@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Lightbulb,
   BarChart3,
+  Kanban,
   X
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ interface SidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
   onOpenGovernance?: () => void;
+  onOpenCopilot?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -39,6 +41,7 @@ export function Sidebar({
   currentTab,
   onSelectTab,
   onOpenGovernance,
+  onOpenCopilot,
   isOpen = false,
   onClose
 }: SidebarProps) {
@@ -49,18 +52,18 @@ export function Sidebar({
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'copilot', label: 'AI Review Copilot', icon: Sparkles, badge: 'AI', action: onOpenCopilot },
     { id: 'complaints', label: 'Complaint Radar', icon: ShieldAlert, badge: 'P0-P3' },
+    { id: 'actionmatrix', label: 'Action & ROI Matrix', icon: Kanban, badge: 'CSAT' },
     { id: 'strengths', label: 'Product Strengths', icon: Sparkles, badge: 'Delight' },
     { id: 'features', label: 'Feature Requests', icon: Lightbulb, badge: 'New' },
     { id: 'reviews', label: 'Reviews', icon: MessageSquare },
     { id: 'themes', label: 'Themes', icon: Layers },
     { id: 'sentiment', label: 'Sentiment', icon: Smile },
     { id: 'powerbi', label: 'Power BI Analytics', icon: BarChart3, badge: 'Live' },
-    // Wired to the real handler. It used to be declared on the props and then
-    // silently dropped, so the governance report was unreachable from the nav.
     { id: 'governance', label: 'Model Governance', icon: Award, action: onOpenGovernance },
-    { id: 'trends', label: 'Trends', icon: TrendingUp },
-    { id: 'compare', label: 'Compare', icon: GitCompare },
+    { id: 'trends', label: 'Drift & Anomaly Radar', icon: TrendingUp, badge: 'PSI' },
+    { id: 'compare', label: 'Head-to-Head Compare', icon: GitCompare, badge: 'Delta' },
     { id: 'settings', label: 'Data & Settings', icon: Settings }
   ];
 

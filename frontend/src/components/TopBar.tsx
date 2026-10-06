@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut, Menu } from 'lucide-react';
+import { Search, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut, Menu, Sparkles, FileText } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 import { useSession, signOut } from '../lib/auth-client';
 import { EmptyState } from './EmptyState';
@@ -19,6 +19,8 @@ interface TopBarProps {
   governanceAccuracy?: number;
   onOpenGovernance?: () => void;
   onOpenAuth?: () => void;
+  onOpenCopilot?: () => void;
+  onOpenBriefing?: () => void;
   onToggleMobileMenu?: () => void;
   onSelectTab?: (tab: string) => void;
 }
@@ -57,6 +59,8 @@ export function TopBar({
   governanceAccuracy,
   onOpenGovernance,
   onOpenAuth,
+  onOpenCopilot,
+  onOpenBriefing,
   onToggleMobileMenu,
   onSelectTab
 }: TopBarProps) {
@@ -292,6 +296,73 @@ export function TopBar({
           <BarChart3 size={14} style={{ color: '#D97706' }} />
           <span>Power BI Analytics</span>
         </button>
+
+        {/* InSight AI Copilot Launch Button */}
+        {onOpenCopilot && (
+          <button
+            type="button"
+            onClick={onOpenCopilot}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 13px',
+              borderRadius: '999px',
+              border: '1px solid #10B981',
+              background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+              color: '#065F46',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(16, 185, 129, 0.2)',
+              transition: 'all 0.15s ease'
+            }}
+            title="Ask InSight AI Copilot (RAG across 10,000 reviews)"
+          >
+            <Sparkles size={14} style={{ color: '#059669' }} />
+            <span>Ask InSight Copilot</span>
+            <span
+              style={{
+                fontSize: '0.64rem',
+                backgroundColor: '#FFFFFF',
+                color: '#047857',
+                padding: '1px 5px',
+                borderRadius: '4px',
+                border: '1px solid #A7F3D0',
+                fontWeight: 800
+              }}
+            >
+              AI
+            </span>
+          </button>
+        )}
+
+        {/* Executive Briefing Button */}
+        {onOpenBriefing && (
+          <button
+            type="button"
+            onClick={onOpenBriefing}
+            className="hide-on-mobile"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 12px',
+              borderRadius: '999px',
+              border: '1px solid #E5E7EB',
+              backgroundColor: '#FFFFFF',
+              color: '#374151',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            title="Generate One-Pager Executive Intelligence Monograph"
+          >
+            <FileText size={14} style={{ color: '#4B5563' }} />
+            <span>Briefing</span>
+          </button>
+        )}
 
         {/* Domain Switcher */}
         <div style={{ position: 'relative' }} ref={domainRef}>

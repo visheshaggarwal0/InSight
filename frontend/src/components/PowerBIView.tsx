@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as pbi from 'powerbi-client';
 import {
   BarChart3,
-  ExternalLink,
   Copy,
   Check,
   Download,
@@ -10,18 +9,12 @@ import {
   Minimize2,
   RefreshCw,
   Layers,
-  Sparkles,
   Database,
   Code2,
-  Filter,
-  AlertTriangle,
   FileSpreadsheet,
   CheckCircle2,
   AlertCircle,
-  Key,
-  ShieldCheck,
-  Server,
-  ArrowRight
+  Key
 } from 'lucide-react';
 import type { OverviewMetrics, ThemeCluster, DriftData } from '../types/telemetry';
 import type { PowerBIConfig, PowerBIGuide, PowerBIEmbedResponse } from '../types/powerbi';
@@ -39,10 +32,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export function PowerBIView({
   overview,
-  themes,
-  driftData,
   activeDomain,
-  onInspectVerbatims
 }: PowerBIViewProps) {
   const [activeSubTab, setActiveSubTab] = useState<'report' | 'connectors' | 'dax' | 'schema'>('report');
   const [config, setConfig] = useState<PowerBIConfig | null>(null);
@@ -57,11 +47,6 @@ export function PowerBIView({
   const [refreshState, setRefreshState] = useState<'idle' | 'refreshing' | 'refreshed' | 'error'>('idle');
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [showLocalFallback, setShowLocalFallback] = useState<boolean>(false);
-
-  // Simulator Interactive Filters (for fallback preview)
-  const [sentimentFilter, setSentimentFilter] = useState<'ALL' | 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE'>('ALL');
-  const [ratingFilter, setRatingFilter] = useState<number | 'ALL'>('ALL');
-  const [selectedThemeId, setSelectedThemeId] = useState<number | 'ALL'>('ALL');
 
   const reportContainerRef = useRef<HTMLDivElement>(null);
   const embeddedReportInstanceRef = useRef<pbi.Report | null>(null);
@@ -134,7 +119,7 @@ export function PowerBIView({
           accessToken: embedResponse.embed_token,
           embedUrl: embedResponse.embed_url,
           id: embedResponse.report_id,
-          permissions: pbi.models.Permissions.View,
+          permissions: pbi.models.Permissions.Read,
           settings: {
             panes: {
               filters: {
@@ -244,15 +229,6 @@ export function PowerBIView({
     document.addEventListener('fullscreenchange', onFsChange);
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
-
-  // Filtered themes for fallback simulator
-  const filteredThemes = useMemo(() => {
-    let result = [...themes];
-    if (selectedThemeId !== 'ALL') {
-      result = result.filter((t) => t.cluster_id === selectedThemeId);
-    }
-    return result;
-  }, [themes, selectedThemeId]);
 
   const totalReviews = overview?.total_reviews || 0;
   const posCount = overview?.sentiment_counts?.POSITIVE || 0;
@@ -912,8 +888,8 @@ export function PowerBIView({
                 <strong>Troubleshooting Checklist:</strong>
                 <ul style={{ margin: '6px 0 0 16px', padding: 0, lineHeight: 1.6 }}>
                   <li>Confirm the <strong>Client Secret</strong> has not expired in Microsoft Entra ID.</li>
-                  <li>Verify the App Registration is explicitly added as <strong>Member/Contributor</strong> to Workspace <code>{embedResponse?.workspace_id || settings.POWERBI_WORKSPACE_ID}</code>.</li>
-                  <li>Verify Report ID <code>{embedResponse?.report_id || settings.POWERBI_REPORT_ID}</code> exists inside that workspace.</li>
+                  <li>Verify the App Registration is explicitly added as <strong>Member/Contributor</strong> to Workspace <code>{embedResponse?.workspace_id || 'POWERBI_WORKSPACE_ID'}</code>.</li>
+                  <li>Verify Report ID <code>{embedResponse?.report_id || 'POWERBI_REPORT_ID'}</code> exists inside that workspace.</li>
                   <li>Ensure "Allow service principals to use Power BI APIs" is enabled in Power BI Admin Portal.</li>
                 </ul>
               </div>

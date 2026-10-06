@@ -28,6 +28,9 @@ from app.core.auth import (
 )
 from app.services.db_service import db_service
 from app.services.powerbi_service import powerbi_service
+from app.services.copilot_service import copilot_service
+from app.services.benchmark_service import benchmark_service
+from app.services.roi_service import roi_service
 from app.models.schema import DomainModel, ThemeModel, ReviewModel, TicketModel
 
 logger = logging.getLogger(__name__)
@@ -1657,4 +1660,241 @@ Affected customers specifically report failures matching: `{medoid}`.
             "status": "OPEN",
         }
     }
+
+
+# ==============================================================================
+# EXECUTIVE REVIEW INTELLIGENCE COPILOT (RAG OVER INSIGHT TELEMETRY)
+# ==============================================================================
+
+class CopilotQueryRequest(BaseModel):
+    query: str
+    domain: Optional[str] = None
+    limit_citations: Optional[int] = 4
+
+
+@router.post("/copilot/ask")
+def copilot_ask(payload: CopilotQueryRequest, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Executive Review Intelligence Copilot (RAG over InSight Telemetry).
+    Answers questions grounded in customer verbatims, sentiment scores, and drift metrics.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(payload.domain)
+    reviews = bundle.get("reviews", state.reviews)
+    themes = bundle.get("themes", state.themes)
+    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
+    praise_clusters = bundle.get("praise_clusters", state.praise_clusters)
+    feature_requests = bundle.get("feature_requests", state.feature_requests)
+    drift_data = bundle.get("drift_results", state.drift_results)
+
+    return copilot_service.answer_query(
+        query=payload.query,
+        reviews=reviews,
+        themes=themes,
+        complaint_clusters=complaint_clusters,
+        praise_clusters=praise_clusters,
+        feature_requests=feature_requests,
+        drift_data=drift_data,
+        encoder=transformer_encoder,
+        limit_citations=payload.limit_citations or 4
+    )
+
+
+@router.get("/copilot/briefing")
+def copilot_briefing(domain: Optional[str] = None, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Generates an executive-ready One-Pager Intelligence Briefing.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle.get("reviews", state.reviews)
+    themes = bundle.get("themes", state.themes)
+    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
+    praise_clusters = bundle.get("praise_clusters", state.praise_clusters)
+    feature_requests = bundle.get("feature_requests", state.feature_requests)
+    drift_data = bundle.get("drift_results", state.drift_results)
+
+    return copilot_service.generate_executive_briefing(
+        domain=active_dom,
+        reviews=reviews,
+        themes=themes,
+        complaint_clusters=complaint_clusters,
+        praise_clusters=praise_clusters,
+        feature_requests=feature_requests,
+        drift_data=drift_data
+    )
+
+
+# ==============================================================================
+# HEAD-TO-HEAD COMPARATIVE BENCHMARK ENGINE
+# ==============================================================================
+
+class BenchmarkCompareRequest(BaseModel):
+    compare_type: str = "batch" # "batch" or "domain"
+    cohort_a: str
+    cohort_b: str
+
+
+@router.get("/benchmark/cohorts")
+def get_benchmark_cohorts(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Returns available comparison cohorts (batches and domains).
+    """
+    ensure_initialized()
+    batches = sorted(list(set(r.get("batch_or_version") for r in state.reviews if r.get("batch_or_version"))))
+    domains = [
+        {"id": "d2c_cosmetics", "name": "D2C Cosmetics & Skincare (Sephora 10k)"},
+        {"id": "tech_saas", "name": "Fintech / SaaS Digital App (Telemetry)"}
+    ]
+    return {
+        "batches": batches,
+        "domains": domains
+    }
+
+
+@router.post("/benchmark/compare")
+def compare_benchmarks(payload: BenchmarkCompareRequest, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Head-to-head comparative intelligence between two batches or domains.
+    """
+    ensure_initialized()
+    if payload.compare_type == "domain":
+        _, bundle_a = get_domain_bundle(payload.cohort_a)
+        _, bundle_b = get_domain_bundle(payload.cohort_b)
+        revs_a = bundle_a.get("reviews", [])
+        revs_b = bundle_b.get("reviews", [])
+        label_a = "D2C Cosmetics" if payload.cohort_a == "d2c_cosmetics" else "Tech / SaaS"
+        label_b = "D2C Cosmetics" if payload.cohort_b == "d2c_cosmetics" else "Tech / SaaS"
+    else:
+        revs_a = [r for r in state.reviews if r.get("batch_or_version") == payload.cohort_a]
+        revs_b = [r for r in state.reviews if r.get("batch_or_version") == payload.cohort_b]
+        label_a = payload.cohort_a
+        label_b = payload.cohort_b
+
+    if not revs_a or not revs_b:
+        raise HTTPException(status_code=400, detail="Insufficient review volume in one or both cohorts for comparison.")
+
+    return benchmark_service.compare_cohorts(revs_a, revs_b, label_a, label_b)
+
+
+# ==============================================================================
+# ACTION & ROI IMPACT PRIORITIZATION MATRIX
+# ==============================================================================
+
+@router.get("/action/matrix")
+def get_action_matrix(domain: Optional[str] = None, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Returns 2x2 Impact vs Effort Prioritization Matrix with calculated CSAT lift.
+    """
+    ensure_initialized()
+    active_dom, bundle = get_domain_bundle(domain)
+    complaint_clusters = bundle.get("complaint_clusters", state.complaint_clusters)
+    reviews = bundle.get("reviews", state.reviews)
+    avg_rating = round(sum(r.get("rating", 4) for r in reviews) / max(len(reviews), 1), 2)
+
+    return roi_service.compute_action_matrix(complaint_clusters, len(reviews), avg_rating)
+
+
+# ==============================================================================
+# INTERACTIVE DEFECT INJECTION & ANOMALY SIMULATOR
+# ==============================================================================
+
+class SimulateAnomalyRequest(BaseModel):
+    scenario: Optional[str] = "chemical_burn"
+
+
+@router.post("/drift/simulate-anomaly")
+def simulate_drift_anomaly(payload: SimulateAnomalyRequest, user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Interactive Hackathon Demonstration:
+    Simulates a sudden quality defect or software regression burst in production telemetry.
+    Instantly trips Population Stability Index (PSI) threshold and triggers emergency incident alarm.
+    """
+    ensure_initialized()
+    scenario = payload.scenario or "chemical_burn"
+
+    if scenario == "app_crash":
+        batch_id = "v3.2.0-HOTFIX"
+        theme = "Biometric Authentication Crash on Launch"
+        psi_score = 0.362
+        rr = 5.2
+        p_val = 0.00004
+        count = 74
+        msg = "CRITICAL ALERT: Biometric loop crash surged 5.2x in v3.2.0 (p=0.00004). PSI: 0.362."
+    elif scenario == "pump_leakage":
+        batch_id = "Batch-2022-Q2"
+        theme = "Dispenser Valve Rupture & Product Leakage"
+        psi_score = 0.315
+        rr = 4.1
+        p_val = 0.00012
+        count = 92
+        msg = "CRITICAL ALERT: Dispenser valve failure surged 4.1x in Batch-2022-Q2 (p=0.00012). PSI: 0.315."
+    else: # chemical_burn
+        batch_id = "Batch-24C"
+        theme = "Chemical Burning, Redness & Severe Skin Irritation"
+        psi_score = 0.384
+        rr = 4.8
+        p_val = 0.00008
+        count = 86
+        msg = "CRITICAL HAZARD: Adverse skin reaction surged 4.8x in Batch-24C (p=0.00008). PSI: 0.384."
+
+    simulated_alert = {
+        "severity": "CRITICAL",
+        "batch_or_version": batch_id,
+        "psi_score": psi_score,
+        "surging_theme": theme,
+        "surging_theme_delta": 0.184,
+        "relative_risk": rr,
+        "p_value": p_val,
+        "is_statistically_significant": True,
+        "review_count": count,
+        "message": msg,
+        "is_simulated": True,
+        "causal_drivers": [
+            {
+                "theme": theme,
+                "target_count": count,
+                "baseline_count": 8,
+                "target_rate_pct": 34.2,
+                "baseline_rate_pct": 7.1,
+                "rate_delta_pp": 27.1,
+                "relative_risk": rr,
+                "p_value": p_val,
+                "is_statistically_significant": True,
+                "significance_tier": "p < 0.001 (Critical)"
+            }
+        ]
+    }
+
+    if state.drift_results and "alerts" in state.drift_results:
+        state.drift_results["alerts"] = [a for a in state.drift_results["alerts"] if not a.get("is_simulated")]
+        state.drift_results["alerts"].insert(0, simulated_alert)
+
+    return {
+        "status": "anomaly_injected",
+        "scenario": scenario,
+        "alert": simulated_alert,
+        "emergency_incident_ticket": {
+            "title": f"[P0 CRITICAL HAZARD] {theme} ({batch_id})",
+            "priority": "P0_BLOCKER",
+            "psi_score": psi_score,
+            "relative_risk": f"{rr}x",
+            "p_value": p_val,
+            "affected_cohort": batch_id,
+            "blast_radius": f"{count} reported customer incidents",
+            "action_required": "Initiate lot quarantine and emergency root-cause review immediately."
+        }
+    }
+
+
+@router.post("/drift/reset")
+def reset_drift_anomaly(user: Optional[AuthenticatedUser] = _auth()):
+    """
+    Resets simulated telemetry drift alerts back to the canonical baseline.
+    """
+    ensure_initialized()
+    if state.drift_results and "alerts" in state.drift_results:
+        state.drift_results["alerts"] = [a for a in state.drift_results["alerts"] if not a.get("is_simulated")]
+    return {"status": "reset_successful", "message": "Telemetry restored to clean baseline."}
+
 

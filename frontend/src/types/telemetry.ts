@@ -296,4 +296,160 @@ export interface IntentBreakdown {
   actionable_rate_pct: number;
 }
 
+export interface CopilotCitation {
+  review_id: string;
+  rating: number;
+  sentiment: string;
+  batch_or_version: string;
+  channel: string;
+  product_name: string;
+  snippet: string;
+  highlight_span: string;
+  full_text: string;
+}
+
+export interface CopilotResponse {
+  query: string;
+  headline: string;
+  answer: string;
+  verdict: string;
+  metrics: Record<string, string>;
+  citations: CopilotCitation[];
+  recommendations: string[];
+  suggested_followups: string[];
+}
+
+export interface ExecutiveBriefingData {
+  report_title: string;
+  generated_at: string;
+  scope: string;
+  kpis: {
+    total_reviews: number;
+    csat_score: number;
+    positive_sentiment_pct: number;
+    negative_sentiment_pct: number;
+    neutral_sentiment_pct: number;
+    critical_p0_clusters: number;
+    active_drift_alarms: number;
+  };
+  executive_summary: string;
+  threat_radar: Array<{
+    severity: string;
+    title: string;
+    count: number;
+    blast_radius: string;
+    action: string;
+  }>;
+  value_drivers: Array<{
+    title: string;
+    count: number;
+    delight_score: string;
+  }>;
+  drift_overview: Array<{
+    batch: string;
+    psi: number;
+    theme: string;
+    relative_risk: string;
+    significance: string;
+  }>;
+  sprint_backlog_recommendations: Array<{
+    ticket: string;
+    priority: string;
+    summary: string;
+    projected_csat_lift: string;
+  }>;
+}
+
+export interface BenchmarkCohortStats {
+  label: string;
+  total_reviews: number;
+  avg_rating: number;
+  positive_pct: number;
+  neutral_pct: number;
+  negative_pct: number;
+  defect_count: number;
+  defect_rate_pct: number;
+  praise_count: number;
+  praise_rate_pct: number;
+  rating_distribution: Record<string, number>;
+}
+
+export interface TopicShiftItem {
+  theme: string;
+  cohort_a_count: number;
+  cohort_b_count: number;
+  cohort_a_pct: number;
+  cohort_b_pct: number;
+  rate_delta_pp: number;
+  relative_risk: number;
+  direction: 'SURGE' | 'DROP' | 'STABLE';
+}
+
+export interface BenchmarkComparisonResult {
+  cohort_a: BenchmarkCohortStats;
+  cohort_b: BenchmarkCohortStats;
+  comparison: {
+    label_a: string;
+    label_b: string;
+    rating_delta: number;
+    positive_pct_delta: number;
+    negative_pct_delta: number;
+    defect_rate_delta: number;
+    verdict: string;
+    verdict_badge: 'CRITICAL_REGRESSION' | 'SIGNIFICANT_IMPROVEMENT' | 'STABLE_PARITY';
+    theme_shifts: TopicShiftItem[];
+    win_loss_card: {
+      winner: string;
+      key_advantage: string;
+      primary_headwind: string;
+    };
+  };
+}
+
+export interface ActionMatrixItem {
+  id: number;
+  title: string;
+  severity: string;
+  incident_count: number;
+  blast_radius_pct: number;
+  impact_score: number;
+  effort: 'LOW' | 'MEDIUM' | 'HIGH';
+  story_points: number;
+  quadrant: 'QUICK_WIN' | 'CRITICAL_BLOCKER' | 'STRATEGIC_REVAMP' | 'QUALITY_OF_LIFE';
+  projected_csat_lift: string;
+  csat_lift_val: number;
+  recommendation: string;
+  estimated_retention_roi: string;
+}
+
+export interface ActionMatrixResponse {
+  baseline_csat: number;
+  projected_target_csat: number;
+  max_potential_lift: string;
+  items: ActionMatrixItem[];
+  quadrant_counts: {
+    quick_wins: number;
+    critical_blockers: number;
+    strategic_revamp: number;
+    quality_of_life: number;
+  };
+}
+
+export interface AnomalySimulationResponse {
+  status: string;
+  scenario: string;
+  alert: DriftAlert;
+  emergency_incident_ticket: {
+    title: string;
+    priority: string;
+    psi_score: number;
+    relative_risk: string;
+    p_value: number;
+    affected_cohort: string;
+    blast_radius: string;
+    action_required: string;
+  };
+}
+
+
 
