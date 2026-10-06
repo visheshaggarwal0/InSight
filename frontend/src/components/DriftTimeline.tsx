@@ -6,6 +6,14 @@ interface Props {
   driftData: DriftData | null;
 }
 
+/**
+ * DriftTimeline - Visualizes Population Stability Index (PSI) drift across product cohorts.
+ *
+ * Displays:
+ * - High-priority regression alert banners when batch/version PSI exceeds thresholds
+ * - Statistical severity badges (CRITICAL vs WARNING)
+ * - Affected cohort identifiers (e.g. Batch numbers, software releases)
+ */
 export const DriftTimeline: React.FC<Props> = ({ driftData }) => {
   if (!driftData) return null;
 

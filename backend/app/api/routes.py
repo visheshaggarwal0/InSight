@@ -1,3 +1,15 @@
+"""
+routes.py - Core REST API Endpoints for InSight Telemetry & ML Engine.
+
+This module provides the HTTP routing layer serving the frontend dashboard:
+- Telemetry & Analytics: Dataset overview, sentiment trends, rating distribution
+- Thematic Intelligence: Unsupervised semantic clustering, c-TF-IDF keyword extraction
+- Statistical Drift: Population Stability Index (PSI) tracking across batches/releases
+- Model Governance: Calibration metrics, 3x3 confusion matrix, validation harness
+- Actionability & Export: Structured Jira tickets and QA incident reporting
+- Knowledge & Verbatims: Zero-trust PII masked drilldown into raw review spans
+"""
+
 import io
 import json
 import logging
@@ -59,6 +71,19 @@ def _privileged_auth():
 
 
 class AppState:
+    """
+    In-memory state container holding active domain telemetry, models, and cache.
+
+    Attributes:
+        active_domain: Current selected domain key (e.g., 'd2c_cosmetics', 'tech_saas').
+        reviews: In-memory store of loaded and normalized customer reviews.
+        ground_truth: Human-annotated reference reviews for calibration & governance.
+        themes: Extracted thematic clusters with c-TF-IDF keywords and severity.
+        drift_results: Cohort-over-cohort PSI metrics and regression alert flags.
+        eval_results: Model performance statistics (macro-F1, Brier score, accuracy).
+        sentiment_model: Active calibrated classifier instance for sentiment inference.
+        is_initialized: Flag indicating whether domain artifacts have finished loading.
+    """
     def __init__(self):
         self.active_domain: str = "d2c_cosmetics"
         self.reviews: list = []

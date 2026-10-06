@@ -1,3 +1,13 @@
+"""
+pii.py - Zero-Trust Enterprise PII Redaction & Cryptographic Masking Pipeline.
+
+Implements multi-pattern sanitization to protect sensitive customer data:
+- Order IDs, Phone Numbers, Postal Codes, and Email addresses
+- Luhn-validated payment card number scrubbing
+- Context-aware person name detection with false-positive stopword suppression
+- Cryptographic HMAC-SHA256 salted vault for reversible unmasking by privileged roles
+"""
+
 import hashlib
 import hmac
 import logging

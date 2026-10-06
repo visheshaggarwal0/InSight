@@ -1,3 +1,14 @@
+/**
+ * telemetry.ts - Domain Models & Telemetry Data Contracts
+ *
+ * Defines the shared TypeScript contracts across the InSight client:
+ * - Dataset metadata and cohort distributions
+ * - Sentiment trajectories, trends, and keyword clouds
+ * - Thematic cluster entities with c-TF-IDF extracted topics
+ * - Model governance confusion matrices and calibration scores
+ * - Drift timelines with batch-over-batch PSI divergence metrics
+ */
+
 export interface DatasetInfo {
   id: string;
   name: string;

@@ -28,7 +28,14 @@ class TemporalDriftDetector:
         """
         Calculates Population Stability Index (PSI) between two categorical distributions.
 
-        PSI = sum((Target_i - Baseline_i) * ln(Target_i / Baseline_i))
+        Mathematical Formulation:
+            PSI = sum((Target_i - Baseline_i) * ln(Target_i / Baseline_i))
+        Where Target_i and Baseline_i are normalized proportions in bucket i.
+
+        Standard Industry Thresholds:
+            - PSI < 0.10: Insignificant shift (Cohort distribution is stable)
+            - 0.10 <= PSI < 0.25: Moderate drift (Quality assurance warning)
+            - PSI >= 0.25: Significant distribution shift (Regression alert triggered)
 
         Raises:
             ValueError: if either distribution is empty, because PSI is
