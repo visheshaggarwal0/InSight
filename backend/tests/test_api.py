@@ -190,3 +190,26 @@ def test_complaint_and_praise_clusters_endpoints(client):
     assert "clusters" in pc_data
     assert "total" in pc_data
 
+def test_generate_incident_ticket(client):
+    # Test incident ticket generation for complaint cluster 0
+    resp = client.post("/api/ticket/generate-incident", json={"cluster_id": 0})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "ticket_markdown" in data
+    assert "severity" in data
+    assert "relative_risk" in data
+    assert "ticket" in data
+    assert data["ticket"]["cluster_id"] == 0
+
+def test_noise_telemetry(client):
+    # Test noise quarantine telemetry endpoint
+    resp = client.get("/api/noise-telemetry?limit=25")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "total_noise_sentences" in data
+    assert "noise_rate_pct" in data
+    assert "word_cloud" in data
+    assert "sample_quarantined_sentences" in data
+    assert len(data["word_cloud"]) > 0
+
+

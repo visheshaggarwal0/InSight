@@ -215,6 +215,11 @@ export interface GeneratedTicket {
   incident_volume?: number;
   affected_batch?: string;
   relative_risk?: number;
+  keywords?: string[];
+  medoid_verbatim?: string;
+  status?: string;
+  is_statistically_significant?: boolean;
+  verbatims?: Array<{ sentence_id?: string; sentence_text?: string; review_id?: string }>;
 }
 
 export interface ComplaintVerbatim {
@@ -295,5 +300,35 @@ export interface IntentBreakdown {
   actionable_count: number;
   actionable_rate_pct: number;
 }
+
+export interface NoiseWordItem {
+  word: string;
+  count: number;
+  size: string;
+  weight: number;
+  top: string;
+  left: string;
+  opacity: number;
+  color: string;
+}
+
+export interface QuarantinedSentence {
+  sentence_id: string;
+  review_id: string;
+  rating: number;
+  text: string;
+  reason: string;
+}
+
+export interface NoiseTelemetryData {
+  domain: string;
+  total_noise_sentences: number;
+  total_sentences: number;
+  noise_rate_pct: number;
+  engineering_hours_saved: number;
+  word_cloud: NoiseWordItem[];
+  sample_quarantined_sentences: QuarantinedSentence[];
+}
+
 
 

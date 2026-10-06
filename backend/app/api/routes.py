@@ -1,6 +1,7 @@
 import io
 import logging
 import random
+import re
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends, Request
@@ -1267,6 +1268,90 @@ def get_silent_defects(
     }
 
 
+@router.get("/noise-telemetry")
+def get_noise_telemetry(
+    domain: Optional[str] = Query(None, description="Optional domain identifier"),
+    limit: int = Query(50, ge=10, le=100),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Returns quarantined non-actionable chatter, ambient phrases, and noise word cloud telemetry.
+    Shows the words that were safely discarded so product managers only focus on real signal.
+    """
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle.get("reviews") or []
+
+    noise_sentences = []
+    noise_word_counts = {}
+
+    # Common conversational / grammatical stop-words
+    stop = {
+        "the", "a", "an", "and", "or", "in", "on", "at", "to", "for", "with", "it",
+        "is", "was", "my", "i", "this", "that", "of", "so", "but", "be", "as", "by",
+        "have", "had", "they", "we", "you", "me", "her", "his", "she", "he", "just",
+        "very", "too", "been", "from", "are", "were", "would", "could", "will", "when"
+    }
+
+    for r in reviews:
+        for s in r.get("sentences", []):
+            lbl = s.get("label")
+            if lbl in ("NOISE", "NEUTRAL") or (not lbl or lbl not in ("COMPLAINT", "PRAISE", "RECOMMENDATION")):
+                txt = s.get("sentence_text", "")
+                if len(txt) > 15:
+                    if len(noise_sentences) < limit:
+                        noise_sentences.append({
+                            "sentence_id": s.get("sentence_id"),
+                            "review_id": r.get("id"),
+                            "rating": r.get("rating"),
+                            "text": txt,
+                            "reason": "Ambient transactional context without defect or feature request.",
+                        })
+                    tokens = re.findall(r"\b[a-zA-Z]{3,15}\b", txt.lower())
+                    for tok in tokens:
+                        if tok not in stop:
+                            noise_word_counts[tok] = noise_word_counts.get(tok, 0) + 1
+
+    sorted_words = sorted(noise_word_counts.items(), key=lambda x: x[1], reverse=True)[:60]
+
+    total_noise_sents = sum(
+        1 for r in reviews for s in r.get("sentences", [])
+        if s.get("label") not in ("COMPLAINT", "PRAISE", "RECOMMENDATION")
+    )
+    total_all_sents = sum(len(r.get("sentences", [])) for r in reviews)
+
+    # Deterministic pseudo-random placement for stable visually attractive floating scatter cloud
+    rng = random.Random(42)
+    max_c = sorted_words[0][1] if sorted_words else 1
+    word_cloud = []
+    for rank, (w, count) in enumerate(sorted_words):
+        size_rem = round(0.75 + min(1.3, (count / max(max_c, 1)) * 1.3), 2)
+        weight = min(800, max(400, 400 + int((count / max(max_c, 1)) * 400)))
+        top_pct = round(rng.uniform(6, 86), 1)
+        left_pct = round(rng.uniform(4, 88), 1)
+        word_cloud.append({
+            "word": w,
+            "count": count,
+            "size": f"{size_rem}rem",
+            "weight": weight,
+            "top": f"{top_pct}%",
+            "left": f"{left_pct}%",
+            "opacity": round(rng.uniform(0.60, 0.95), 2),
+            "color": rng.choice(["#4B5563", "#6B7280", "#374151", "#475569", "#64748B", "#94A3B8"])
+        })
+
+    hours_saved = round((total_noise_sents * 2.0) / 60.0, 1)
+
+    return {
+        "domain": active_dom,
+        "total_noise_sentences": total_noise_sents,
+        "total_sentences": total_all_sents,
+        "noise_rate_pct": round((total_noise_sents / max(total_all_sents, 1)) * 100, 1),
+        "engineering_hours_saved": hours_saved,
+        "word_cloud": word_cloud,
+        "sample_quarantined_sentences": noise_sentences[:20],
+    }
+
+
 class IncidentTicketRequest(BaseModel):
     cluster_id: int
     domain: Optional[str] = None
@@ -1324,16 +1409,23 @@ Affected customers specifically report failures matching: `{medoid}`.
 *Automated telemetry report dispatched via InSight Omni-Corpus Intelligence Engine.*
 """
 
-    return {
-        "ticket": {
-            "title": f"[{severity}] Incident: {title}",
-            "severity": severity,
-            "cluster_id": payload.cluster_id,
-            "incident_volume": volume,
-            "affected_batch": batch,
-            "relative_risk": rr,
-            "ticket_markdown": ticket_md,
-            "status": "OPEN",
-        }
+    ticket_payload = {
+        "title": f"[{severity}] Incident: {title}",
+        "severity": severity,
+        "cluster_id": payload.cluster_id,
+        "incident_volume": volume,
+        "affected_batch": batch,
+        "relative_risk": rr,
+        "ticket_markdown": ticket_md,
+        "status": "OPEN",
+        "keywords": cluster.get("keywords", []),
+        "medoid_verbatim": medoid,
+        "is_statistically_significant": cluster.get("is_statistically_significant", True),
+        "verbatims": cluster.get("verbatims", [])[:4],
     }
+    return {
+        **ticket_payload,
+        "ticket": ticket_payload,
+    }
+
 

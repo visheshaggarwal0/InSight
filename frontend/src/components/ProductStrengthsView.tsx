@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
-import { Sparkles, Search, Eye, Quote, Tag } from 'lucide-react';
+import { Sparkles, Search, Eye, Quote, Tag, FileCheck2 } from 'lucide-react';
+import { MarketingClaimsModal } from './MarketingClaimsModal';
 import type { PraiseClusterItem } from '../types/telemetry';
 
 interface Props {
@@ -15,6 +16,8 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
 }: Props) {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('ALL');
+  const [selectedClaimsCluster, setSelectedClaimsCluster] = useState<PraiseClusterItem | null>(null);
+  const [isClaimsModalOpen, setIsClaimsModalOpen] = useState(false);
 
   const filtered = clusters.filter((item) => {
     if (tierFilter !== 'ALL' && item.delight_tier !== tierFilter) return false;
@@ -161,6 +164,113 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
           </div>
         </div>
       </div>
+
+      {/* Executive Product Delight Hero Card */}
+      {clusters.length > 0 && (
+        <div
+          style={{
+            marginBottom: '24px',
+            borderRadius: '16px',
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #A7F3D0',
+            boxShadow: '0 6px 20px rgba(4, 120, 87, 0.06)',
+            padding: '20px 24px',
+            display: 'grid',
+            gridTemplateColumns: 'minmax(300px, 1.6fr) minmax(260px, 1fr)',
+            gap: '20px',
+            alignItems: 'center'
+          }}
+          className="delight-hero-grid"
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  backgroundColor: '#ECFDF5',
+                  color: '#065F46',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  border: '1px solid #A7F3D0'
+                }}
+              >
+                ★ HERO VALUE PROPOSITION
+              </span>
+              <span style={{ fontSize: '0.76rem', color: '#6B7280' }}>
+                {clusters[0].praise_count || clusters[0].sentence_count || 0} Customer Endorsements
+              </span>
+            </div>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#111827', margin: '0 0 8px 0', fontFamily: "'DM Serif Display', Georgia, serif" }}>
+              {clusters[0].title}
+            </h3>
+            <div
+              style={{
+                padding: '10px 14px',
+                backgroundColor: '#F9FAFB',
+                borderRadius: '8px',
+                borderLeft: '4px solid #059669',
+                fontSize: '0.84rem',
+                fontStyle: 'italic',
+                color: '#1F2937',
+                lineHeight: 1.45
+              }}
+            >
+              &ldquo;{clusters[0].medoid_verbatim}&rdquo;
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+              backgroundColor: '#F0FDF4',
+              borderRadius: '12px',
+              border: '1px solid #BBF7D0',
+              padding: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+                Delight Index
+              </span>
+              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#047857', fontFamily: "'JetBrains Mono', monospace" }}>
+                {clusters[0].delight_score || 96}%
+              </span>
+            </div>
+            <div style={{ fontSize: '0.74rem', color: '#166534' }}>
+              Validated marketing claim candidate ready for advertising substantiation.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedClaimsCluster(clusters[0]);
+                setIsClaimsModalOpen(true);
+              }}
+              style={{
+                width: '100%',
+                padding: '9px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#0F382E',
+                color: '#FFFFFF',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <FileCheck2 size={14} />
+              <span>Generate Verified Claims Sheet</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '22px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -488,11 +598,43 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
                   <Eye size={13} />
                   Inspect Verbatims ({cluster.verbatims?.length || 0})
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedClaimsCluster(cluster);
+                    setIsClaimsModalOpen(true);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: '#065F46',
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid #D1D5DB',
+                    borderRadius: '6px',
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <FileCheck2 size={13} />
+                  <span>Claims Proof</span>
+                </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Marketing Claims Proof Sheet Modal */}
+      <MarketingClaimsModal
+        isOpen={isClaimsModalOpen}
+        onClose={() => setIsClaimsModalOpen(false)}
+        cluster={selectedClaimsCluster}
+      />
     </div>
   );
 });

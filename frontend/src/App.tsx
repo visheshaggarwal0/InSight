@@ -20,6 +20,10 @@ import { AuthModal } from './components/AuthModal';
 import { ComplaintClusterDashboard } from './components/ComplaintClusterDashboard';
 import { ProductStrengthsView } from './components/ProductStrengthsView';
 import { FeatureRequestsView } from './components/FeatureRequestsView';
+import { ExecutiveIncidentBriefing } from './components/ExecutiveIncidentBriefing';
+import { ClauseDeconstructionVisualizer } from './components/ClauseDeconstructionVisualizer';
+import { DemoPitchModal } from './components/DemoPitchModal';
+import { NoiseQuarantineView } from './components/NoiseQuarantineView';
 import { Skeleton } from './components/EmptyState';
 import { validateStoredSession, apiFetch } from './lib/auth-client';
 import type {
@@ -91,6 +95,7 @@ export function App() {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState<boolean>(false);
   const [isDriftModalOpen, setIsDriftModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isDemoPitchOpen, setIsDemoPitchOpen] = useState<boolean>(false);
 
   // Monotonic request generation: responses from superseded loads are discarded.
   const generationRef = useRef(0);
@@ -314,7 +319,8 @@ export function App() {
         setActionError(`Ticket generation failed for cluster #${clusterId}: ${await readErrorDetail(res)}`);
         return;
       }
-      const t = (await res.json()) as GeneratedTicket;
+      const data = await res.json();
+      const t = ((data && data.ticket) ? data.ticket : data) as GeneratedTicket;
       setActiveTicket(t);
       setIsTicketModalOpen(true);
     } catch (err) {
@@ -337,7 +343,8 @@ export function App() {
         setActionError(`Incident ticket dispatch failed for cluster #${clusterId}: ${await readErrorDetail(res)}`);
         return;
       }
-      const t = (await res.json()) as GeneratedTicket;
+      const data = await res.json();
+      const t = ((data && data.ticket) ? data.ticket : data) as GeneratedTicket;
       setActiveTicket(t);
       setIsTicketModalOpen(true);
     } catch (err) {
@@ -404,6 +411,7 @@ export function App() {
           onUploadCsv={handleUploadCsv}
           governanceAccuracy={governanceData?.evaluation?.accuracy}
           onOpenGovernance={handleOpenGovernance}
+          onOpenDemoPitch={() => setIsDemoPitchOpen(true)}
           onOpenAuth={handleOpenAuth}
           onToggleMobileMenu={handleToggleMobileMenu}
         />
@@ -500,6 +508,15 @@ export function App() {
 
           {currentTab === 'dashboard' && (
             <>
+              {/* Executive Incident Briefing & Root Cause Triage Header */}
+              <ExecutiveIncidentBriefing
+                clusters={complaintClusters}
+                isLoading={isLoading}
+                onDispatchTicket={(id, sev) => void handleDispatchIncidentTicket(id, sev)}
+                onInspectVerbatims={handleInspectComplaintVerbatims}
+                onExploreDeconstruction={() => setCurrentTab('clause-deconstruction')}
+              />
+
               {/* Hero Banner with SVG Flow Diagram */}
               {overview ? (
                 <HeroBanner totalReviews={overview.total_reviews} />
@@ -671,11 +688,19 @@ export function App() {
 
                     {/* Noise / Quarantined */}
                     <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setCurrentTab('noise')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') setCurrentTab('noise');
+                      }}
                       style={{
                         padding: '10px 14px',
                         backgroundColor: '#F9FAFB',
                         borderRadius: '10px',
                         border: '1px solid #E5E7EB',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
                       }}
                     >
                       <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>
@@ -691,7 +716,7 @@ export function App() {
                       >
                         {overview.intent_breakdown.noise.toLocaleString()}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>Quarantined non-actionable</div>
+                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>Quarantined ambient chatter &rarr;</div>
                     </div>
                   </div>
                 </div>
@@ -767,6 +792,10 @@ export function App() {
             </>
           )}
 
+          {currentTab === 'clause-deconstruction' && (
+            <ClauseDeconstructionVisualizer />
+          )}
+
           {currentTab === 'complaints' && (
             <ComplaintClusterDashboard
               clusters={complaintClusters}
@@ -789,6 +818,10 @@ export function App() {
               featureRequests={featureRequests}
               isLoading={isLoading}
             />
+          )}
+
+          {currentTab === 'noise' && (
+            <NoiseQuarantineView isLoading={isLoading} />
           )}
 
           {currentTab === 'reviews' && (
@@ -1031,6 +1064,20 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* 60s Demo Pitch Modal */}
+      <DemoPitchModal
+        isOpen={isDemoPitchOpen}
+        onClose={() => setIsDemoPitchOpen(false)}
+        onNavigateTab={(tab) => setCurrentTab(tab)}
+        onOpenIncidentTicket={() => {
+          if (complaintClusters.length > 0) {
+            void handleDispatchIncidentTicket(complaintClusters[0].cluster_id, complaintClusters[0].severity);
+          } else if (themes.length > 0) {
+            void handleGenerateTicket(themes[0].cluster_id);
+          }
+        }}
+      />
 
       {/* Neon Auth Modal */}
       <AuthModal

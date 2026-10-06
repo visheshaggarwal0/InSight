@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut, Menu } from 'lucide-react';
+import { Search, Bell, ChevronDown, Database, Upload, ShieldCheck, BarChart3, LogIn, LogOut, Menu, Sparkles } from 'lucide-react';
 import type { DatasetInfo } from '../types/telemetry';
 import { useSession, signOut } from '../lib/auth-client';
 import { EmptyState } from './EmptyState';
@@ -18,6 +18,7 @@ interface TopBarProps {
   /** Real model accuracy from /governance, in [0, 1]. */
   governanceAccuracy?: number;
   onOpenGovernance?: () => void;
+  onOpenDemoPitch?: () => void;
   onOpenAuth?: () => void;
   onToggleMobileMenu?: () => void;
 }
@@ -55,6 +56,7 @@ export function TopBar({
   onUploadCsv,
   governanceAccuracy,
   onOpenGovernance,
+  onOpenDemoPitch,
   onOpenAuth,
   onToggleMobileMenu
 }: TopBarProps) {
@@ -232,6 +234,35 @@ export function TopBar({
 
       {/* Right Controls */}
       <div className="topbar-controls">
+        {/* 60s Demo Story Walkthrough Button */}
+        {onOpenDemoPitch && (
+          <button
+            type="button"
+            onClick={onOpenDemoPitch}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 14px',
+              borderRadius: '999px',
+              border: '1px solid #10B981',
+              backgroundColor: '#0F382E',
+              color: '#FFFFFF',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(15, 56, 46, 0.25)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#047857')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0F382E')}
+            title="Launch 60-second interactive demo pitch for hackathon judges"
+          >
+            <Sparkles size={14} style={{ color: '#34D399' }} />
+            <span>🎯 60s Demo Story</span>
+          </button>
+        )}
+
         {/* Model Trust Score Pill — accuracy comes from /governance */}
         {onOpenGovernance && (
           <button

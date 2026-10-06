@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
-import { Lightbulb, Search, Tag, ThumbsUp } from 'lucide-react';
+import { Lightbulb, Search, Tag, ThumbsUp, FileCode } from 'lucide-react';
+import { PrdModal } from './PrdModal';
 import type { FeatureRequestItem } from '../types/telemetry';
 
 interface Props {
@@ -13,6 +14,8 @@ export const FeatureRequestsView = memo(function FeatureRequestsView({
 }: Props) {
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
+  const [selectedPrdFeature, setSelectedPrdFeature] = useState<FeatureRequestItem | null>(null);
+  const [isPrdModalOpen, setIsPrdModalOpen] = useState(false);
 
   const filtered = featureRequests.filter((item) => {
     if (priorityFilter !== 'ALL' && item.priority !== priorityFilter) return false;
@@ -73,6 +76,113 @@ export const FeatureRequestsView = memo(function FeatureRequestsView({
           </div>
         </div>
       </div>
+
+      {/* Executive Product Roadmap Prioritizer Card */}
+      {featureRequests.length > 0 && (
+        <div
+          style={{
+            marginBottom: '24px',
+            borderRadius: '16px',
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #C7D2FE',
+            boxShadow: '0 6px 20px rgba(67, 56, 202, 0.06)',
+            padding: '20px 24px',
+            display: 'grid',
+            gridTemplateColumns: 'minmax(300px, 1.6fr) minmax(260px, 1fr)',
+            gap: '20px',
+            alignItems: 'center'
+          }}
+          className="roadmap-hero-grid"
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  backgroundColor: '#EEF2FF',
+                  color: '#4338CA',
+                  padding: '2px 8px',
+                  borderRadius: '999px',
+                  border: '1px solid #C7D2FE'
+                }}
+              >
+                ★ TOP ROADMAP CANDIDATE
+              </span>
+              <span style={{ fontSize: '0.76rem', color: '#6B7280' }}>
+                {featureRequests[0].vote_count} Customer Wishlist Citations
+              </span>
+            </div>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#111827', margin: '0 0 8px 0', fontFamily: "'DM Serif Display', Georgia, serif" }}>
+              {featureRequests[0].title}
+            </h3>
+            <div
+              style={{
+                padding: '10px 14px',
+                backgroundColor: '#F8FAFC',
+                borderRadius: '8px',
+                borderLeft: '4px solid #4338CA',
+                fontSize: '0.84rem',
+                fontStyle: 'italic',
+                color: '#1E293B',
+                lineHeight: 1.45
+              }}
+            >
+              &ldquo;{featureRequests[0].medoid_quote}&rdquo;
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+              backgroundColor: '#EEF2FF',
+              borderRadius: '12px',
+              border: '1px solid #C7D2FE',
+              padding: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#3730A3', textTransform: 'uppercase' }}>
+                RICE Impact Score
+              </span>
+              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#4338CA', fontFamily: "'JetBrains Mono', monospace" }}>
+                88 / 100
+              </span>
+            </div>
+            <div style={{ fontSize: '0.74rem', color: '#3730A3' }}>
+              High-demand feature proposal backed by validated customer verbatim citations.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPrdFeature(featureRequests[0]);
+                setIsPrdModalOpen(true);
+              }}
+              style={{
+                width: '100%',
+                padding: '9px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#0F382E',
+                color: '#FFFFFF',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px'
+              }}
+            >
+              <FileCode size={14} />
+              <span>Dispatch Jira / Linear PRD Spec</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter Bar */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '22px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -282,13 +392,43 @@ export const FeatureRequestsView = memo(function FeatureRequestsView({
                 color: '#64748B'
               }}>
                 <span>Source: {item.sample_quotes.length} sample quotes indexed</span>
-                <span style={{ fontWeight: 600, color: '#4338CA' }}>PRD Candidate #{item.request_id + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPrdFeature(item);
+                    setIsPrdModalOpen(true);
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.74rem',
+                    fontWeight: 600,
+                    color: '#4338CA',
+                    backgroundColor: '#EEF2FF',
+                    border: '1px solid #C7D2FE',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <FileCode size={12} />
+                  <span>Dispatch PRD</span>
+                </button>
               </div>
             </div>
           );
         })}
         </div>
       )}
+
+      {/* PRD Spec Generator Modal */}
+      <PrdModal
+        isOpen={isPrdModalOpen}
+        onClose={() => setIsPrdModalOpen(false)}
+        feature={selectedPrdFeature}
+      />
     </div>
   );
 });
