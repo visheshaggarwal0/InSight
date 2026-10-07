@@ -667,5 +667,22 @@ class DatabaseService:
 
             return []
 
+    @staticmethod
+    def delete_domain(db: Session, domain_id: str) -> bool:
+        """Cascades and deletes all propositions, reviews, themes, governance, and domain record for a given domain."""
+        try:
+            db.query(PropositionModel).filter(PropositionModel.domain_id == domain_id).delete()
+            db.query(ReviewModel).filter(ReviewModel.domain_id == domain_id).delete()
+            db.query(ThemeModel).filter(ThemeModel.domain_id == domain_id).delete()
+            db.query(TicketModel).filter(TicketModel.domain_id == domain_id).delete()
+            db.query(GovernanceModel).filter(GovernanceModel.domain_id == domain_id).delete()
+            db.query(DomainModel).filter(DomainModel.id == domain_id).delete()
+            db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting domain '{domain_id}': {e}", exc_info=True)
+            db.rollback()
+            return False
+
 
 db_service = DatabaseService()

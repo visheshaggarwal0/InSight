@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import random
+import re
 import zipfile
 from datetime import datetime
 from typing import Optional, Tuple
@@ -14,7 +15,7 @@ import pandas as pd
 
 import threading
 from app.core.config import settings, BASE_DIR
-from app.core.database import get_db
+from app.core.database import get_db, SessionLocal
 from app.data.datasets import dataset_manager
 from app.data.real_loader import real_data_loader
 from app.data.knowledge_pipeline import knowledge_pipeline
@@ -166,6 +167,7 @@ def compute_domain_artifacts(domain: str) -> dict:
         raise ValueError(f"Unknown domain: {domain}")
 
     if use_real_pipeline:
+        domain_model = CalibratedSentimentClassifier()
         # Real corpus: evaluate the SHIPPED artifact against the real weak labels
         # on a held-out split. The previous code retrained a model on the
         # artifact's own predictions (self-distillation on pseudo-labels) and
@@ -176,7 +178,7 @@ def compute_domain_artifacts(domain: str) -> dict:
             eval_results = evaluation_harness.evaluate(
                 [r["ground_truth_label"] for r in held_out],
                 [r["sentiment_pred"] for r in held_out],
-                sentiment_model.predict_proba([r["redacted_text"] for r in held_out]),
+                domain_model.predict_proba([r["redacted_text"] for r in held_out]),
                 CalibratedSentimentClassifier.CLASSES,
             )
             eval_results["split"] = "held-out 1/3 of labelled reviews (never fitted)"
@@ -253,10 +255,6 @@ def compute_domain_artifacts(domain: str) -> dict:
             p_res = cluster_praise_sentences(sampled_praise, n_clusters=4)
             saas_praise_clusters = p_res.get("praise_clusters", p_res.get("clusters", []))
 
-    if use_real_pipeline:
-        # Sentiment already came from the verified offline artifact or cached pipeline.
-        domain_model = sentiment_model
-
     return {
         "reviews": reviews,
         "ground_truth": ground_truth,
@@ -320,28 +318,54 @@ def ensure_initialized():
 
 
 def get_domain_bundle(domain: Optional[str] = None) -> Tuple[str, dict]:
-    """Thread-safe retrieval of domain state bundle without global race conditions.
+    """Thread-safe retrieval of domain state bundle supporting multi-dataset tenant isolation.
     
     If domain is None, defaults to state.active_domain.
-    If requested domain is not cached, initializes it under INIT_LOCK.
+    If requested domain is not cached, initializes or restores it from persistent storage.
     Returns (domain_key, bundle_dict).
     """
     ensure_initialized()
     target_domain = (domain or state.active_domain).strip()
-    if target_domain not in ("d2c_cosmetics", "tech_saas", "custom"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid domain '{target_domain}'. Valid options: 'd2c_cosmetics', 'tech_saas', 'custom'.",
-        )
     with INIT_LOCK:
-        if target_domain not in DOMAIN_CACHE:
-            if target_domain == "custom":
-                raise HTTPException(
-                    status_code=404,
-                    detail="No custom dataset has been uploaded yet. Upload a CSV/Excel file first.",
-                )
+        if target_domain in DOMAIN_CACHE:
+            return target_domain, DOMAIN_CACHE[target_domain]
+        if target_domain in ("d2c_cosmetics", "tech_saas"):
             DOMAIN_CACHE[target_domain] = compute_domain_artifacts(target_domain)
-        return target_domain, DOMAIN_CACHE[target_domain]
+            return target_domain, DOMAIN_CACHE[target_domain]
+        if target_domain == "custom":
+            raise HTTPException(
+                status_code=404,
+                detail="No custom dataset has been uploaded yet. Upload a CSV/Excel file first.",
+            )
+
+        # Check if domain was persisted in SQL database
+        db = SessionLocal()
+        try:
+            db_domain = db.query(DomainModel).filter(DomainModel.id == target_domain).first()
+            if db_domain:
+                themes = db_service.get_themes(db, target_domain)
+                verbatims_res = db_service.get_verbatims(db, target_domain, page=1, page_size=1000)
+                bundle = {
+                    "reviews": verbatims_res.get("verbatims", []),
+                    "ground_truth": [],
+                    "themes": themes,
+                    "drift_results": {},
+                    "eval_results": {},
+                    "data_provenance": {"synthetic": False, "source": db_domain.name},
+                    "sentiment_model": state.sentiment_model,
+                    "complaint_clusters": [],
+                    "feature_requests": [],
+                    "praise_clusters": [],
+                }
+                DOMAIN_CACHE[target_domain] = bundle
+                return target_domain, bundle
+        finally:
+            db.close()
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"Invalid domain '{target_domain}'. Choose an active or available domain.",
+        )
 
 
 class DomainSelectRequest(BaseModel):
@@ -361,56 +385,112 @@ class SemanticSearchRequest(BaseModel):
 
 
 @router.get("/datasets")
-def list_datasets(user: Optional[AuthenticatedUser] = _auth()):
+def list_datasets(db=Depends(get_db), user: Optional[AuthenticatedUser] = _auth()):
+    """Surfaces all system domains and dynamically uploaded client datasets."""
     ensure_initialized()
+    available = [
+        {
+            "id": "d2c_cosmetics",
+            "name": "D2C Cosmetics & Beauty (Aura Botanicals)",
+            "category": "Consumer Goods / Skincare",
+            "focus": "Batch lot tracking, formulation changes, skin irritation, packaging defects",
+            "review_count": len(DOMAIN_CACHE.get("d2c_cosmetics", {}).get("reviews", [])) if "d2c_cosmetics" in DOMAIN_CACHE else 10000,
+            "synthetic": False,
+        },
+        {
+            "id": "tech_saas",
+            "name": "Mobile & Productivity Apps (Google Play Store)",
+            "category": "Software / Mobile App",
+            "focus": "Release regressions, app crashes, sync failures, UI glitches, subscription blockers",
+            "review_count": len(DOMAIN_CACHE.get("tech_saas", {}).get("reviews", [])) if "tech_saas" in DOMAIN_CACHE else 6973,
+            "synthetic": False,
+        },
+    ]
+
+    seen = {"d2c_cosmetics", "tech_saas"}
+
+    # Include custom alias if populated
+    if "custom" in DOMAIN_CACHE:
+        seen.add("custom")
+        available.append({
+            "id": "custom",
+            "name": "Custom Review Dataset (CSV Upload)",
+            "category": "User Upload",
+            "focus": "On-demand ingestion of any review text and metadata",
+            "review_count": len(DOMAIN_CACHE.get("custom", {}).get("reviews", [])),
+            "synthetic": False,
+        })
+
+    # Include all other distinct datasets registered in DOMAIN_CACHE
+    for d_id, bundle in DOMAIN_CACHE.items():
+        if d_id not in seen:
+            seen.add(d_id)
+            prov = bundle.get("data_provenance", {})
+            raw_src = prov.get("source", d_id)
+            name = raw_src if raw_src.startswith("Client Dataset") else f"Client Dataset ({raw_src})"
+            available.append({
+                "id": d_id,
+                "name": name,
+                "category": "Client Upload",
+                "focus": prov.get("source", "Custom uploaded dataset"),
+                "review_count": len(bundle.get("reviews", [])),
+                "synthetic": False,
+            })
+
+    # Include any distinct persisted domains from SQL database
+    try:
+        db_domains = db.query(DomainModel).filter(DomainModel.id.notin_(list(seen))).all()
+        for d in db_domains:
+            seen.add(d.id)
+            available.append({
+                "id": d.id,
+                "name": d.name,
+                "category": d.category or "Client Upload",
+                "focus": d.focus or "Persisted client dataset",
+                "review_count": d.review_count or 0,
+                "synthetic": False,
+            })
+    except Exception:
+        pass
+
     return {
         "active_domain": state.active_domain,
-        "available_domains": [
-            {
-                "id": "d2c_cosmetics",
-                "name": "D2C Cosmetics & Beauty (Aura Botanicals)",
-                "category": "Consumer Goods / Skincare",
-                "focus": "Batch lot tracking, formulation changes, skin irritation, packaging defects",
-                "review_count": len(DOMAIN_CACHE.get("d2c_cosmetics", {}).get("reviews", [])) if "d2c_cosmetics" in DOMAIN_CACHE else 10000,
-                "synthetic": False,
-            },
-            {
-                "id": "tech_saas",
-                "name": "Mobile & Productivity Apps (Google Play Store)",
-                "category": "Software / Mobile App",
-                "focus": "Release regressions, app crashes, sync failures, UI glitches, subscription blockers",
-                "review_count": len(DOMAIN_CACHE.get("tech_saas", {}).get("reviews", [])) if "tech_saas" in DOMAIN_CACHE else 6973,
-                "synthetic": False,
-            },
-            {
-                "id": "custom",
-                "name": "Custom Review Dataset (CSV Upload)",
-                "category": "User Upload",
-                "focus": "On-demand ingestion of any review text and metadata",
-                "review_count": len(DOMAIN_CACHE.get("custom", {}).get("reviews", [])) if "custom" in DOMAIN_CACHE else 0,
-                "synthetic": None,
-            },
-        ],
+        "available_domains": available,
     }
 
 
 @router.post("/datasets/select")
-def select_dataset(req: DomainSelectRequest, user: Optional[AuthenticatedUser] = _auth()):
-    if req.domain not in ("d2c_cosmetics", "tech_saas", "custom"):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid domain. Choose 'd2c_cosmetics', 'tech_saas', or 'custom'. Use the upload control to load a custom CSV.",
-        )
-    if req.domain == "custom":
-        with INIT_LOCK:
-            if "custom" not in DOMAIN_CACHE:
+def select_dataset(req: DomainSelectRequest, db=Depends(get_db), user: Optional[AuthenticatedUser] = _auth()):
+    """Switches active domain state across system and dynamically uploaded datasets."""
+    target = req.domain.strip()
+    with INIT_LOCK:
+        if target in DOMAIN_CACHE:
+            _swap_state(target, DOMAIN_CACHE[target])
+        elif target in ("d2c_cosmetics", "tech_saas"):
+            initialize_domain(target)
+        else:
+            db_domain = db.query(DomainModel).filter(DomainModel.id == target).first()
+            if not db_domain:
                 raise HTTPException(
-                    status_code=400,
-                    detail="No custom dataset has been uploaded yet. Upload a CSV/Excel file first.",
+                    status_code=404,
+                    detail=f"Dataset domain '{target}' not found. Upload it first or choose from available domains.",
                 )
-            _swap_state("custom", DOMAIN_CACHE["custom"])
-    else:
-        initialize_domain(req.domain)
+            themes = db_service.get_themes(db, target)
+            verbatims_res = db_service.get_verbatims(db, target, page=1, page_size=1000)
+            bundle = {
+                "reviews": verbatims_res.get("verbatims", []),
+                "ground_truth": [],
+                "themes": themes,
+                "drift_results": {},
+                "eval_results": {},
+                "data_provenance": {"synthetic": False, "source": db_domain.name},
+                "sentiment_model": state.sentiment_model,
+                "complaint_clusters": [],
+                "feature_requests": [],
+                "praise_clusters": [],
+            }
+            DOMAIN_CACHE[target] = bundle
+            _swap_state(target, bundle)
     return {"status": "success", "active_domain": state.active_domain}
 
 
@@ -503,6 +583,7 @@ def _process_custom_csv(contents: bytes, filename: str) -> dict:
 @router.post("/datasets/upload")
 async def upload_custom_dataset(
     file: UploadFile = File(...),
+    domain_id: Optional[str] = Query(None, description="Optional custom dataset or domain ID"),
     user: Optional[AuthenticatedUser] = _privileged_auth(),
 ):
     """
@@ -538,12 +619,17 @@ async def upload_custom_dataset(
     if not contents:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
+    # Derive unique domain identity
+    raw_slug = re.sub(r"[^a-zA-Z0-9_-]", "_", (file.filename or "upload").rsplit(".", 1)[0]).strip("_").lower()[:24]
+    target_domain_id = domain_id.strip() if domain_id else "custom"
+    alias_id = f"custom_{raw_slug}" if raw_slug and raw_slug != "custom" else None
+
     try:
         result = await run_in_threadpool(
             knowledge_pipeline.process_and_ingest,
             file_input=contents,
             filename=file.filename,
-            domain_id="custom",
+            domain_id=target_domain_id,
             persist_db=True,
         )
     except ValueError as ve:
@@ -557,20 +643,52 @@ async def upload_custom_dataset(
     # Cache custom dataset bundle under INIT_LOCK and switch active domain
     with INIT_LOCK:
         result["data_provenance"] = {"synthetic": False, "source": f"user upload: {file.filename}"}
+        result["dataset_id"] = target_domain_id
+        DOMAIN_CACHE[target_domain_id] = result
         DOMAIN_CACHE["custom"] = result
-        _swap_state("custom", result)
+        if alias_id and alias_id != target_domain_id:
+            DOMAIN_CACHE[alias_id] = result
+        _swap_state(target_domain_id, result)
 
     return {
         "status": "success",
+        "dataset_id": target_domain_id,
+        "active_domain": target_domain_id,
+        "domain": target_domain_id,
         "rows_ingested": result["rows_ingested"],
         "total_rows_ingested": result["rows_ingested"],
         "eval_rows": len(result["ground_truth"]) or None,
-        "active_domain": "custom",
         "data_provenance": result["data_provenance"],
         "schema_report": result.get("schema_report", {}),
         "quality_manifest": result.get("quality_manifest", {}),
         "embedding_manifest": result.get("embedding_manifest", {}),
         "themes_count": len(result["themes"]),
+    }
+
+
+@router.delete("/datasets/{domain_id}")
+def delete_dataset(domain_id: str, db=Depends(get_db), user: Optional[AuthenticatedUser] = _privileged_auth()):
+    """Purges a custom dataset from memory and SQL database with cascade cleanup."""
+    target = domain_id.strip()
+    if target in ("d2c_cosmetics", "tech_saas"):
+        raise HTTPException(status_code=403, detail="System default domains cannot be deleted.")
+
+    with INIT_LOCK:
+        deleted_from_cache = target in DOMAIN_CACHE
+        if deleted_from_cache:
+            del DOMAIN_CACHE[target]
+        if target == "custom" and "custom" in DOMAIN_CACHE:
+            del DOMAIN_CACHE["custom"]
+        if state.active_domain == target:
+            initialize_domain("d2c_cosmetics")
+
+    deleted_from_db = db_service.delete_domain(db, target)
+    return {
+        "status": "success",
+        "deleted_domain": target,
+        "deleted_from_cache": deleted_from_cache,
+        "deleted_from_db": deleted_from_db,
+        "active_domain": state.active_domain,
     }
 
 @router.get("/overview")
