@@ -1,5 +1,5 @@
-import { memo, useMemo } from 'react';
-import { ArrowRight, Smartphone, ShieldCheck, Sparkles, Layout, AlertCircle, Headphones, Tag, Layers } from 'lucide-react';
+import { memo, useMemo, useState } from 'react';
+import { ArrowRight, Smartphone, ShieldCheck, Sparkles, Layout, AlertCircle, Headphones, Tag, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import type { ThemeCluster } from '../types/telemetry';
 
@@ -14,9 +14,12 @@ const ICONS = [Smartphone, ShieldCheck, Sparkles, Layout, AlertCircle, Headphone
 const COLORS = ['#0F382E', '#10B981', '#14B8A6', '#34D399', '#6EE7B7', '#A7F3D0', '#A7F3D0', '#D1FAE5'];
 
 function ComponentTopThemesList({ themes, selectedClusterId, onSelectCluster, onViewAll }: TopThemesListProps) {
+  const [showAll, setShowAll] = useState(false);
+
   const { rows, totalCount } = useMemo(() => {
     const total = themes.reduce((acc, t) => acc + (t.review_count || 0), 0);
-    const mapped = themes.slice(0, 8).map((t, idx) => ({
+    const sliceCount = showAll ? themes.length : 8;
+    const mapped = themes.slice(0, sliceCount).map((t, idx) => ({
       id: t.cluster_id,
       title: t.title,
       count: t.review_count ?? 0,
@@ -25,7 +28,7 @@ function ComponentTopThemesList({ themes, selectedClusterId, onSelectCluster, on
       icon: ICONS[idx % ICONS.length]
     }));
     return { rows: mapped, totalCount: total };
-  }, [themes]);
+  }, [themes, showAll]);
 
   return (
     <div className="dashboard-card" style={{ padding: '22px 24px', flex: 1 }}>
@@ -36,26 +39,52 @@ function ComponentTopThemesList({ themes, selectedClusterId, onSelectCluster, on
         justifyContent: 'space-between',
         marginBottom: '16px'
       }}>
-        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
-          Top Themes
-        </h3>
-        <button
-          onClick={onViewAll}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            background: 'none',
-            border: 'none',
-            color: '#10B981',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          <span>View all</span>
-          <ArrowRight size={13} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#111827', letterSpacing: '-0.01em' }}>
+            Themes
+          </h3>
+          <span style={{ fontSize: '0.75rem', color: '#6B7280', backgroundColor: '#F3F4F6', padding: '2px 6px', borderRadius: '4px' }}>
+            {themes.length} total
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {themes.length > 8 && (
+            <button
+              onClick={() => setShowAll(!showAll)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: 'none',
+                border: 'none',
+                color: '#4B5563',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              <span>{showAll ? 'Show top 8' : `Show all (${themes.length})`}</span>
+              {showAll ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+          )}
+          <button
+            onClick={onViewAll}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: 'none',
+              border: 'none',
+              color: '#10B981',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <span>Explorer</span>
+            <ArrowRight size={13} />
+          </button>
+        </div>
       </div>
 
       {/* Theme List */}

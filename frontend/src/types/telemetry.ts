@@ -281,6 +281,8 @@ export interface PraiseClusterItem {
   praise_count: number;
   delight_score: number;
   delight_tier: 'EXCEPTIONAL' | 'STRONG' | 'NOTABLE';
+  top_batch?: string | null;
+  hero_sku?: string | null;
   medoid_verbatim: string;
   verbatims?: PraiseVerbatim[];
   is_provisional?: boolean;

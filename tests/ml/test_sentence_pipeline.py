@@ -463,6 +463,37 @@ class TestComplaintClustering(unittest.TestCase):
             # The medoid must be the very first verbatim
             self.assertEqual(cluster["verbatims"][0]["sentence_text"], cluster["medoid_verbatim"])
 
+    def test_merge_similar_clusters_deduplication(self):
+        """_merge_similar_clusters should combine clusters with cosine similarity >= threshold."""
+        import numpy as np
+        from app.ml.complaint_clustering import _merge_similar_clusters
+
+        # Create two identical vectors (similarity = 1.0) and one orthogonal vector
+        embeddings = np.array([
+            [1.0, 0.0, 0.0],  # item 0 (cluster 0)
+            [1.0, 0.0, 0.0],  # item 1 (cluster 1, identical centroid)
+            [0.0, 1.0, 0.0],  # item 2 (cluster 2, orthogonal)
+        ], dtype=np.float32)
+
+        sents = [
+            SentenceRecord("s0", "r0", 0, "defect A", 0, 8, "COMPLAINT", 0.9),
+            SentenceRecord("s1", "r1", 1, "defect A twin", 0, 13, "COMPLAINT", 0.9),
+            SentenceRecord("s2", "r2", 2, "defect B", 0, 8, "COMPLAINT", 0.9),
+        ]
+
+        c_sents = {0: [sents[0]], 1: [sents[1]], 2: [sents[2]]}
+        c_idxs = {0: [0], 1: [1], 2: [2]}
+
+        merged_sents, merged_idxs = _merge_similar_clusters(
+            c_sents, c_idxs, embeddings, threshold=0.85
+        )
+
+        # Cluster 0 and 1 should merge into one cluster; cluster 2 should remain separate
+        self.assertEqual(len(merged_sents), 2)
+        total_items = sum(len(v) for v in merged_sents.values())
+        self.assertEqual(total_items, 3)
+
+
     def test_praise_clustering_structure(self):
         """cluster_praise_sentences must return strength drivers, delight metrics, and traceable verbatims."""
         from app.ml.complaint_clustering import cluster_praise_sentences

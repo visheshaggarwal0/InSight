@@ -1,14 +1,13 @@
 import { memo, type FC } from 'react';
-import { MessageCircle, Smile, Meh, Frown, ShieldCheck } from 'lucide-react';
+import { MessageCircle, Smile, Meh, Frown } from 'lucide-react';
 import { fmtNum, fmtPct } from '../lib/formatters';
 import type { OverviewMetrics } from '../types/telemetry';
 
 interface Props {
   metrics: OverviewMetrics | null;
-  onOpenGovernance?: () => void;
 }
 
-export const OverviewCards: FC<Props> = memo(({ metrics, onOpenGovernance }) => {
+export const OverviewCards: FC<Props> = memo(({ metrics }) => {
   const formatRate = (rate: number) => fmtPct(rate, 1);
 
   const neutralRate = metrics
@@ -113,23 +112,6 @@ export const OverviewCards: FC<Props> = memo(({ metrics, onOpenGovernance }) => 
           </div>
         );
       })}
-
-      {onOpenGovernance && (
-        <button
-          type="button"
-          onClick={onOpenGovernance}
-          className="btn-outline"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginTop: '10px'
-          }}
-        >
-          <ShieldCheck size={14} />
-          <span>Inspect Model Governance</span>
-        </button>
-      )}
     </div>
   );
 });

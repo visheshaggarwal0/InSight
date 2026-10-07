@@ -15,6 +15,7 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
 }: Props) {
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState('ALL');
+  const [visibleCount, setVisibleCount] = useState(6);
 
   const filtered = clusters.filter((item) => {
     if (tierFilter !== 'ALL' && item.delight_tier !== tierFilter) return false;
@@ -29,6 +30,10 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
     }
     return true;
   });
+
+  const sortedClusters = [...filtered].sort(
+    (a, b) => (b.praise_count || b.sentence_count || 0) - (a.praise_count || a.sentence_count || 0)
+  );
 
   const totalPraise = clusters.reduce((acc, c) => acc + (c.praise_count || c.sentence_count || 0), 0);
   const avgDelight = clusters.length
@@ -182,7 +187,10 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
             type="text"
             placeholder="Search strengths (e.g. hydration, glowing, texture, gentle)..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setVisibleCount(6);
+            }}
             style={{
               border: 'none',
               outline: 'none',
@@ -199,7 +207,10 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
             <button
               key={tier}
               type="button"
-              onClick={() => setTierFilter(tier)}
+              onClick={() => {
+                setTierFilter(tier);
+                setVisibleCount(6);
+              }}
               style={{
                 padding: '4px 10px',
                 fontSize: '0.75rem',
@@ -253,9 +264,7 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
           gap: '18px',
         }}
       >
-        {[...filtered]
-          .sort((a, b) => (b.praise_count || b.sentence_count || 0) - (a.praise_count || a.sentence_count || 0))
-          .map((cluster, index) => {
+        {sortedClusters.slice(0, visibleCount).map((cluster, index) => {
             const drivers = cluster.strength_drivers || cluster.keywords || [];
             const count = cluster.praise_count || cluster.sentence_count || 0;
             const score = cluster.delight_score || 85;
@@ -356,6 +365,42 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
                     </span>
                   </div>
 
+                  {(cluster.top_batch || cluster.hero_sku) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                      {cluster.top_batch && (
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            color: '#065F46',
+                            backgroundColor: '#ECFDF5',
+                            border: '1px solid #A7F3D0',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          Top Batch: {cluster.top_batch}
+                        </span>
+                      )}
+                      {cluster.hero_sku && (
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            color: '#374151',
+                            backgroundColor: '#F3F4F6',
+                            border: '1px solid #E5E7EB',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                          }}
+                          title={`Hero Product: ${cluster.hero_sku}`}
+                        >
+                          Hero Product: {cluster.hero_sku.length > 28 ? `${cluster.hero_sku.slice(0, 26)}...` : cluster.hero_sku}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                 {/* Metrics Row: Citations & Delight Index Bar */}
                 <div style={{ marginBottom: '14px' }}>
                   <div
@@ -408,7 +453,7 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
                       gap: '4px',
                     }}
                   >
-                    <Tag size={10} /> c-TF-IDF Strength Drivers
+                    <Tag size={10} /> Key Praise Highlights
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                     {drivers.map((driver) => (
@@ -430,7 +475,7 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
                   </div>
                 </div>
 
-                {/* Representative Medoid Quote */}
+                {/* Representative Customer Quote */}
                 <div
                   style={{
                     backgroundColor: '#F9FAFB',
@@ -486,13 +531,37 @@ export const ProductStrengthsView = memo(function ProductStrengthsView({
                   }}
                 >
                   <Eye size={13} />
-                  Inspect Verbatims ({cluster.verbatims?.length || 0})
+                  View Citations ({cluster.sentence_count || cluster.praise_count || cluster.verbatims?.length || 0})
                 </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Load More Button */}
+      {visibleCount < sortedClusters.length && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '28px' }}>
+          <button
+            type="button"
+            onClick={() => setVisibleCount((prev) => prev + 6)}
+            style={{
+              padding: '10px 24px',
+              backgroundColor: '#FFFFFF',
+              border: '1.5px solid #059669',
+              color: '#065F46',
+              borderRadius: '8px',
+              fontWeight: 600,
+              fontSize: '0.86rem',
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            Load more
+          </button>
+        </div>
+      )}
     </div>
   );
 });

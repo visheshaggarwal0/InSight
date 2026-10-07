@@ -20,6 +20,7 @@ import { AuthModal } from './components/AuthModal';
 import { ComplaintClusterDashboard } from './components/ComplaintClusterDashboard';
 import { ProductStrengthsView } from './components/ProductStrengthsView';
 import { FeatureRequestsView } from './components/FeatureRequestsView';
+import { PowerBIModal } from './components/PowerBIModal';
 import { Skeleton } from './components/EmptyState';
 import { validateStoredSession, apiFetch } from './lib/auth-client';
 import type {
@@ -91,6 +92,7 @@ export function App() {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState<boolean>(false);
   const [isDriftModalOpen, setIsDriftModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isPowerBiModalOpen, setIsPowerBiModalOpen] = useState<boolean>(false);
 
   // Monotonic request generation: responses from superseded loads are discarded.
   const generationRef = useRef(0);
@@ -387,7 +389,6 @@ export function App() {
       <Sidebar
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
-        onOpenGovernance={handleOpenGovernance}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
       />
@@ -406,6 +407,7 @@ export function App() {
           onOpenGovernance={handleOpenGovernance}
           onOpenAuth={handleOpenAuth}
           onToggleMobileMenu={handleToggleMobileMenu}
+          onOpenPowerBi={() => setIsPowerBiModalOpen(true)}
         />
 
         {/* Global Loading Bar */}
@@ -517,6 +519,9 @@ export function App() {
                 </section>
               )}
 
+              {/* 4 KPI Cards */}
+              <OverviewCards metrics={overview} />
+
               {/* Actionable Signal Funnel (4-Way Intent Partitioning) */}
               {overview?.intent_breakdown && (
                 <div
@@ -551,14 +556,14 @@ export function App() {
                           border: '1px solid #E5E7EB',
                         }}
                       >
-                        ACTIONABLE SIGNAL FUNNEL
+                        CUSTOMER VOICE BREAKDOWN
                       </span>
                       <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#111827' }}>
-                        4-Way Sentence Intent Deconstruction
+                        {overview.intent_breakdown.total_sentences.toLocaleString()} key feedback points analyzed across {overview.total_reviews.toLocaleString()} reviews
                       </span>
                     </div>
                     <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 700 }}>
-                      ⚡ {overview.intent_breakdown.actionable_rate_pct}% Actionable Customer Telemetry
+                      ⚡ {overview.intent_breakdown.actionable_rate_pct}% Actionable Feedback (Complaints, Strengths, Feature Requests)
                     </div>
                   </div>
 
@@ -679,7 +684,7 @@ export function App() {
                       }}
                     >
                       <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4B5563', textTransform: 'uppercase' }}>
-                        ⚪ Neutral / Noise
+                        ⚪ Neutral / Background Filler
                       </div>
                       <div
                         style={{
@@ -691,14 +696,11 @@ export function App() {
                       >
                         {overview.intent_breakdown.noise.toLocaleString()}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>Quarantined non-actionable</div>
+                      <div style={{ fontSize: '0.72rem', color: '#6B7280' }}>Conversational &amp; non-defect clauses</div>
                     </div>
                   </div>
                 </div>
               )}
-
-              {/* 4 KPI Cards */}
-              <OverviewCards metrics={overview} onOpenGovernance={handleOpenGovernance} />
 
               {/* Row 2: Charts (Sentiment Trend & Rating Distribution) */}
               <div className="responsive-row-2">
@@ -896,10 +898,10 @@ export function App() {
             <div style={{ paddingTop: '32px' }}>
               <div style={{ marginBottom: '24px' }}>
                 <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#111827', fontFamily: "'DM Serif Display', Georgia, serif" }}>
-                  Statistical Drift Monitoring (PSI)
+                  Product Quality Drift &amp; Batch Tracking
                 </h2>
                 <p style={{ fontSize: '0.86rem', color: '#6B7280', marginTop: '4px' }}>
-                  Population Stability Index tracking distribution shifts between reference batches and production telemetry.
+                  Track quality shifts and customer sentiment changes across manufacturing batches and software releases (PSI Index).
                 </p>
               </div>
               {driftData ? (
@@ -1037,6 +1039,13 @@ export function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         onSuccess={() => void loadAllData()}
+      />
+
+      {/* Microsoft Power BI Integration Studio Modal */}
+      <PowerBIModal
+        isOpen={isPowerBiModalOpen}
+        onClose={() => setIsPowerBiModalOpen(false)}
+        activeDomain={activeDomain}
       />
     </div>
   );

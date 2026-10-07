@@ -184,7 +184,7 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#F3F4F6', padding: '3px', borderRadius: '6px' }}>
-            {[6, 12, -1].map((sz) => (
+            {[6, 12, 24, -1].map((sz) => (
               <button
                 key={sz}
                 type="button"
@@ -204,7 +204,7 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                   boxShadow: pageSize === sz ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
                 }}
               >
-                {sz === -1 ? 'All' : `${sz}/page`}
+                {sz === -1 ? 'Show All' : `${sz}/page`}
               </button>
             ))}
           </div>
@@ -297,7 +297,7 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                           ? '#C2410C'
                           : '#1D4ED8'
                       }}>
-                        {isZeroDay ? 'ZERO-DAY RADAR' : cluster.severity}
+                        {isZeroDay ? 'EMERGING ISSUE' : cluster.severity}
                       </span>
                     </div>
 
@@ -326,10 +326,10 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                     margin: '0 0 8px 0',
                     fontFamily: "'DM Serif Display', Georgia, serif"
                   }}>
-                    {cluster.title}
+                    {isZeroDay ? 'Emerging & Uncategorized Issues' : cluster.title}
                   </h3>
 
-                  {/* Relative Risk & Causal Attribution Pill */}
+                  {/* Batch Spike & Causal Attribution Pill */}
                   {cluster.affected_batch && (
                     <div style={{
                       display: 'inline-flex',
@@ -345,9 +345,9 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                       marginBottom: '10px'
                     }}>
                       <Zap size={12} style={{ color: cluster.is_statistically_significant ? '#E11D48' : '#9CA3AF' }} />
-                      <span>Cohort: <strong>{cluster.affected_batch}</strong></span>
+                      <span>Affected Batch: <strong>{cluster.affected_batch}</strong></span>
                       {cluster.relative_risk && cluster.relative_risk > 1.0 && (
-                        <span>&bull; <strong>{cluster.relative_risk}x</strong> Relative Risk</span>
+                        <span>&bull; <strong>{cluster.relative_risk.toFixed(1)}x</strong> Defect Spike</span>
                       )}
                     </div>
                   )}
@@ -413,7 +413,7 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                     }}
                   >
                     <Eye size={13} />
-                    Inspect Verbatims
+                    View Citations ({cluster.sentence_count})
                   </button>
 
                   <button
@@ -435,12 +435,39 @@ export const ComplaintClusterDashboard = memo(function ComplaintClusterDashboard
                     }}
                   >
                     <FileText size={13} />
-                    Dispatch Jira Ticket
+                    Create Jira Ticket
                   </button>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Load More Button */}
+      {pageSize !== -1 && safePage * pageSize < sortedClusters.length && (
+        <div style={{ textAlign: 'center', marginTop: '24px' }}>
+          <button
+            type="button"
+            onClick={() => setPageSize((prev) => (prev === -1 ? -1 : prev + 6))}
+            style={{
+              padding: '10px 24px',
+              backgroundColor: '#FFFFFF',
+              border: '1.5px solid #0F382E',
+              color: '#0F382E',
+              borderRadius: '8px',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            Load more
+          </button>
         </div>
       )}
 

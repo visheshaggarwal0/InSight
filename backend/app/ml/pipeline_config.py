@@ -246,6 +246,11 @@ COMPLAINT_CLUSTERING = {
         "medium": 20,       # ≥ 20  → MEDIUM; else → LOW
     },
 
+    # Similarity threshold for post-clustering centroid merging pass.
+    # Consolidates near-duplicate sub-clusters (e.g. twin breakout or irritation drivers)
+    # without collapsing distinct root causes into blurry mega-clusters.
+    "merge_similarity_threshold": 0.85,
+
     # Output path for the complaint cluster dashboard JSON
     "output_path": ARTIFACTS_ROOT / "pipeline_runs" / "complaint_clusters_latest.json",
 }

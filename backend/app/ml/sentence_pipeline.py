@@ -86,6 +86,8 @@ _COMPLAINT_PATTERN = re.compile(
     r"doesn't work|didn't work|not work|stopped working|"
     r"expired|smells off|changed formula|"
     r"no effect|no results|zero effect|"
+    r"(?:will not|won't|would not|wouldn't|never|not)\s+(?:repurchase|buy again)|"
+    r"waste of (?:money|time)|not worth (?:the money|it|the price)|regret (?:buying|purchasing)|"
     # App / tech
     r"crash|crashes|crashed|freeze|freezes|frozen|"
     r"failed|fails|failure|glitch|"
@@ -146,40 +148,58 @@ _RECOMMENDATION_PATTERN = re.compile(
 # PRAISE signals: positive enthusiasm, efficacy, sensory delight, loyalty
 _PRAISE_PATTERN = re.compile(
     r"\b(?:"
-    r"love|favorite|favourite|holy grail|best (?:product|cream|serum|moisturizer|cleanser|purchase|ever|app|feature|\w+)|"
+    r"love|loved|loving|favorite|favourite|holy grail|best (?:product|cream|serum|moisturizer|cleanser|purchase|ever|app|feature|\w+)|"
+    r"life\s*saver|lifesaver|godsend|game\s*changer|miracle\s*(?:worker)?|savior|must\s*have|"
     r"amazing|amazed|incredibly hydrating|so smooth|smooth|soft|glowing|glow|cleared my skin|"
-    r"gentle|works wonders|fantastic|blazingly fast|super intuitive|perfect|absorbs (?:instantly|quickly|well)|"
-    r"10/10|five stars|5 stars|outstanding|flawless|super soft|worth every penny|highly recommend|"
-    r"excellent|wonderful|superb|brilliant|awesome|obsessed|staple|so good|really good|game changer|"
-    r"hydrating|refreshing|soothing|leaves skin|feels great|smells amazing|smells great"
+    r"gentle|works wonders|works well|fantastic|blazingly fast|super intuitive|perfect|absorbs (?:instantly|quickly|well)|"
+    r"10/10|five stars|5 stars|outstanding|flawless|super soft|worth every penny|worth the hype|highly recommend|definitely recommend|"
+    r"excellent|wonderful|superb|brilliant|awesome|obsessed|staple|so good|really good|"
+    r"hydrating|hydrates|hydrated|moisturizing|moisturizes|moisture|plump|brightens?|bright|nourish\w*|softens?|"
+    r"refreshing|soothing|leaves skin|feels great|feels good|smells amazing|smells great|smells good|"
+    r"great|good|pleased|satisfied|enjoy|enjoyed|(?<!not\s)(?<!won't\s)(?<!never\s)(?<!wouldn't\s)\brepurchase|improved|helps? with|visible difference"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# FTC / promotional boilerplate disclosure pattern (routes pure disclaimers to NOISE)
+_FTC_DISCLOSURE_PATTERN = re.compile(
+    r"\b(?:"
+    r"received (?:this )?(?:product )?(?:complimentary|free|as a gift)|"
+    r"gifted by|"
+    r"in exchange for (?:an? )?honest (?:review|opinion)|"
+    r"incentivized review|"
+    r"promotional post"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Antecedent user condition / past product comparison guards
+_ANTECEDENT_CONDITION_PATTERN = re.compile(
+    r"\b(?:"
+    r"(?:when|if|whenever)\s+(?:my|your)?\s*skin\s+(?:has|is|gets|feels|experiences)\s+(?:\w+\s+){0,3}(?:irritat\w*|breakout\w*|acne|red\w*|rash\w*|flak\w*|dry\w*|sensit\w*)|"
+    r"(?:as someone with|having|for my|with my)\s+(?:\w+\s+){0,2}(?:acne|sensitive|irritat\w*|dry|oily|redness|rosacea|eczema)|"
+    r"(?:easily irritated|acne-prone|sensitive)\s+(?:skin|face)|"
+    r"tired of (?:using|other)\s+\w+\s+that\s+\w+|"
+    r"unlike (?:other|most)\s+\w+\s+that\s+\w+"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Therapeutic relief & efficacy praise patterns
+_THERAPEUTIC_PRAISE_PATTERN = re.compile(
+    r"\b(?:"
+    r"life\s*saver|lifesaver|godsend|game\s*changer|holy\s*grail|miracle\s*(?:worker)?|savior|must\s*have|"
+    r"(?:great|good|best|amazing|wonderful|excellent|works?\s+wonders?|helps?|clears?|calms?|soothes?|relief|relieves?)\s+(?:for|with|on)\s+(?:my\s+)?(?:acne|breakout\w*|irritat\w*|redness|dryness|rash\w*|blemish\w*|sensitive\s+skin|irritated\s+skin)"
     r")\b",
     re.IGNORECASE,
 )
 
 # NEGATION & SYMPTOM MITIGATION guards: e.g. "isn't drying", "never irritated", "no breakouts", "removes redness", "without feeling stripped"
-#
-# The previous version allowed a 9-token look-ahead between the negation and the
-# symptom, so ANY negation anywhere in a sentence suppressed the WHOLE sentence.
-# Three unambiguous complaints were routed to PRAISE/NOISE and dropped from the
-# complaint pool that drives the entire complaint dashboard:
-#     "I have no breakouts but my skin is raw and burning badly."
-#     "No redness at all, but the pump is jammed solid."
-#     "Not worth it, the serum did not stop my irritation."
-#
-# Two changes fix this:
-#   1. The window is 2 tokens, so the negation must actually MODIFY the symptom
-#      rather than merely sharing a sentence with it.
-#   2. The guard is evaluated PER CLAUSE (see _CLAUSE_SPLITTER) rather than per
-#      sentence, so a negated first clause no longer cancels the defect stated in
-#      the clause after "but".
-# Trade-off: a genuinely negated clause whose symptom sits further than 2 tokens
-# away ("I did not, after two weeks, see any reduction in redness") can still
-# leak into the complaint pool. The 2-token window plus clause scoping is the
-# compromise that keeps precision on "no breakouts" without eating real
-# complaints; widening the window again reintroduces the bug above.
 _NEGATION_TOKENS = (
-    r"never|didn't|did not|not|no|wasn't|was not|isn't|is not|doesn't|does not|"
-    r"without|zero|barely|hardly|scarcely"
+    r"never|didn't|didnt|did not|not|no|wasn't|wasnt|was not|isn't|isnt|is not|"
+    r"doesn't|doesnt|does not|don't|dont|do not|won't|wont|will not|wouldn't|wouldnt|would not|"
+    r"couldn't|couldnt|could not|haven't|havent|have not|hasn't|hasnt|has not|"
+    r"can't|cant|cannot|without|zero|barely|hardly|scarcely"
 )
 _MITIGATION_TOKENS = (
     r"stop(?:ped|s)?|decrease in|decreased|prevented|prevents|removes?|reduces?|"
@@ -191,14 +211,14 @@ _SYMPTOM_TERMS = (
     r"strip\w*|redness|tightness|puffiness|wrinkle\w*|greas\w*|stick\w*|residue"
 )
 _NEGATION_FILTER = re.compile(
-    # "<negation> ... <symptom>"  (≤2 tokens apart)
-    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _SYMPTOM_TERMS + r")"
+    # "<negation> ... <symptom>"  (≤7 tokens apart within clause)
+    r"\b(?:" + _NEGATION_TOKENS + r")\b(?:\s+\w+){0,7}\s+(?:" + _SYMPTOM_TERMS + r")"
     r"|"
-    # "<symptom> ... <negation>"  (≤2 tokens apart)
-    r"\b(?:" + _SYMPTOM_TERMS + r")\b(?:\s+\w+){0,2}\s+(?:" + _NEGATION_TOKENS + r")\b"
+    # "<symptom> ... <negation>"  (≤7 tokens apart within clause)
+    r"\b(?:" + _SYMPTOM_TERMS + r")\b(?:\s+\w+){0,7}\s+(?:" + _NEGATION_TOKENS + r")\b"
     r"|"
-    # "<mitigation verb> ... <symptom>"  (≤2 tokens apart)
-    r"\b(?:" + _MITIGATION_TOKENS + r")\b(?:\s+\w+){0,2}\s+(?:" + _SYMPTOM_TERMS + r")",
+    # "<mitigation verb> ... <symptom>"  (≤7 tokens apart within clause)
+    r"\b(?:" + _MITIGATION_TOKENS + r")\b(?:\s+\w+){0,7}\s+(?:" + _SYMPTOM_TERMS + r")",
     re.IGNORECASE,
 )
 
@@ -268,6 +288,8 @@ _P2_SIGNALS = re.compile(
     r"\b(?:"
     r"terrible|horrible|awful|worst|useless|waste|disappointed|disappointing|"
     r"doesn't\s+work|didn't\s+work|stopped\s+working|smells\s+off|changed\s+formula|"
+    r"(?:will not|won't|would not|wouldn't|never|not)\s+(?:repurchase|buy again)|"
+    r"not worth (?:the money|it|the price)|waste of (?:money|time)|regret (?:buying|purchasing)|"
     r"greasy|sticky|chalky|dryness|drying|flaking|slow|laggy|sluggish|battery\s+drain|"
     r"overheats|heating\s+up|poor\s+quality"
     r")\b",
@@ -288,10 +310,10 @@ _RECOMMENDATION_SIGNALS = re.compile(
     re.IGNORECASE,
 )
 
-# Sentence splitter — splits on '.', '!', '?' followed by whitespace or end-of-string,
-# protecting abbreviations (Dr., Mr., Ms., v1.0, decimals)
+# Sentence splitter — splits on '.', '!', '?' followed by whitespace, unspaced capital letter,
+# or hard line breaks, protecting abbreviations (Dr., Mr., Ms., Mrs., vs., e.g., i.e., v1.0, decimals)
 _SENT_SPLITTER = re.compile(
-    r"""(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<!\bv\d)(?<!\bDr)(?<!\bMr)(?<!\bMs)(?<!\bNo)(?<=\.|\?|!)\s+""",
+    r"""(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<!\bv\d)(?<!\bDr)(?<!\bMr)(?<!\bMs)(?<!\bMrs)(?<!\bvs)(?<!\be\.g)(?<!\bi\.e)(?<!\bNo)(?<=\.|\?|!)(?:\s+|(?=[A-Z]))|[\r\n]+""",
     re.VERBOSE,
 )
 
@@ -542,66 +564,77 @@ def deconstruct_sentences(
         review_id: The review's stable ID.
         source_row_index: Original CSV row index for traceability.
         redacted_text: PII-redacted text to split.
-        min_word_count: Sentences shorter than this (in words) are skipped.
+        min_word_count: Sentences shorter than this (in words) are merged.
 
     Returns:
         List of (sentence_text, start_offset, end_offset) tuples where
         offsets are relative to *redacted_text*.
-        Invariant: redacted_text[start:end] == sentence_text  (for every tuple).
+        Invariant: redacted_text[start:end] == sentence_text (for every tuple).
     """
     if not isinstance(redacted_text, str) or not redacted_text.strip():
         return []
 
-    # Use regex splitter; fall back to simple newline split if needed
-    raw_parts = _SENT_SPLITTER.split(redacted_text.strip())
-    if not raw_parts:
-        raw_parts = [redacted_text.strip()]
+    # Find raw boundaries using _SENT_SPLITTER finditer
+    raw_spans: List[Tuple[str, int, int]] = []
+    last_idx = 0
+    for m in _SENT_SPLITTER.finditer(redacted_text):
+        chunk = redacted_text[last_idx:m.start()]
+        s_chunk = chunk.strip()
+        if s_chunk:
+            start = last_idx + chunk.find(s_chunk)
+            end = start + len(s_chunk)
+            raw_spans.append((redacted_text[start:end], start, end))
+        last_idx = m.end()
 
-    sentences: List[Tuple[str, int, int]] = []
-    search_start = 0
+    if last_idx < len(redacted_text):
+        chunk = redacted_text[last_idx:]
+        s_chunk = chunk.strip()
+        if s_chunk:
+            start = last_idx + chunk.find(s_chunk)
+            end = start + len(s_chunk)
+            raw_spans.append((redacted_text[start:end], start, end))
 
-    for part in raw_parts:
-        part_stripped = part.strip()
-        if not part_stripped:
-            continue
-        if len(part_stripped.split()) < min_word_count:
-            # Advance search cursor past this short fragment
-            idx = redacted_text.find(part_stripped, search_start)
-            if idx != -1:
-                search_start = idx + len(part_stripped)
-            continue
+    if not raw_spans:
+        s_text = redacted_text.strip()
+        start = redacted_text.find(s_text)
+        end = start + len(s_text)
+        return [(s_text, start, end)]
 
-        # Find position of this sentence in the original redacted text
-        idx = redacted_text.find(part_stripped, search_start)
-        if idx == -1:
-            # Fallback: linear scan with tolerance for whitespace trimming
-            idx = redacted_text.find(part, search_start)
-            if idx == -1:
-                continue
-            part_stripped = part  # use original spacing
+    # Merge short fragments (< min_word_count words)
+    merged_spans: List[Tuple[str, int, int]] = []
+    for s_text, start, end in raw_spans:
+        words = s_text.split()
+        if len(words) < min_word_count and merged_spans:
+            # Merge tail fragment into previous sentence
+            prev_text, prev_start, _ = merged_spans[-1]
+            new_end = end
+            merged_spans[-1] = (redacted_text[prev_start:new_end], prev_start, new_end)
+        else:
+            merged_spans.append((s_text, start, end))
 
-        start = idx
-        end = start + len(part_stripped)
+    # If the first sentence ended up < min_word_count and there are subsequent sentences, merge forward
+    if len(merged_spans) > 1:
+        first_words = merged_spans[0][0].split()
+        if len(first_words) < min_word_count:
+            first_text, first_start, _ = merged_spans[0]
+            next_text, _, next_end = merged_spans[1]
+            merged_spans[1] = (redacted_text[first_start:next_end], first_start, next_end)
+            merged_spans = merged_spans[1:]
 
-        # Invariant check. This is a DATA invariant, not a code invariant, so it
-        # must not be an `assert`: asserts are stripped under `python -O`
-        # (routine in containers) and, when present, one pathological review
-        # aborted the entire 10,000-row run with AssertionError. Log and skip
-        # the fragment so a single bad row cannot kill the pipeline.
-        if redacted_text[start:end] != part_stripped:
+    # Final verification of invariant
+    final_sentences: List[Tuple[str, int, int]] = []
+    for s_text, start, end in merged_spans:
+        if redacted_text[start:end] != s_text:
             logger.error(
                 "Offset invariant failed for review %s (source_row_index=%s): "
-                "text[%s:%s] != sentence. text_slice=%r, sentence=%r — fragment skipped.",
+                "text[%s:%s] != sentence. text_slice=%r, sentence=%r",
                 review_id, source_row_index, start, end,
-                redacted_text[start:end][:60], part_stripped[:60],
+                redacted_text[start:end][:60], s_text[:60],
             )
-            search_start = max(end, idx + 1)
             continue
+        final_sentences.append((s_text, start, end))
 
-        sentences.append((part_stripped, start, end))
-        search_start = end
-
-    return sentences
+    return final_sentences
 
 
 # ---------------------------------------------------------------------------
@@ -611,14 +644,12 @@ def deconstruct_sentences(
 def _classify_sentence(sentence_text: str) -> Tuple[str, float]:
     """Assign a sentence to COMPLAINT | RECOMMENDATION | PRAISE/NOISE.
 
-    PROVISIONAL: heuristic rule-based with clause-scoped negation and praise
-    guards. Can be upgraded by DeBERTa-v3 model weights.
+    PROVISIONAL: heuristic rule-based with clause-scoped negation, therapeutic
+    guards, and FTC disclosure filtering. Can be upgraded by DeBERTa-v3 model weights.
 
     Returns:
         (label, confidence) where confidence is an UNCALIBRATED
-        evidence-strength score in [0.0, 1.0] - see the confidence-model notes
-        above. It is monotonic in the amount of evidence and is intended for
-        ranking, not for interpretation as a probability.
+        evidence-strength score in [0.0, 1.0].
     """
     text = sentence_text.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').strip()
     if not text:
@@ -631,55 +662,60 @@ def _classify_sentence(sentence_text: str) -> Tuple[str, float]:
         conf = _evidence_confidence(recommendation_matches, _RECOMMENDATION_CONFIDENCE_FLOOR)
         return LABEL_RECOMMENDATION, round(conf, 3)
 
-    # 2. Clause-scoped evidence gathering.
-    #    The negation guard, the praise guard and the complaint evidence are all
-    #    evaluated per clause, so "No redness at all, but the pump is jammed
-    #    solid." keeps its complaint clause while the negated clause is dropped.
+    # 2. Promotional / FTC disclaimer without defect: route to NOISE
+    if _FTC_DISCLOSURE_PATTERN.search(text) and not _COMPLAINT_PATTERN.search(text):
+        return LABEL_NOISE, _NO_EVIDENCE_CONFIDENCE
+
+    # 3. Clause-scoped evidence gathering
     real_complaint_tokens: List[str] = []
-    praise_evidence = False
+    praise_evidence = bool(_PRAISE_PATTERN.search(text) or _THERAPEUTIC_PRAISE_PATTERN.search(text))
     mitigated = False
     clauses = [c for c in _CLAUSE_SPLITTER.split(text) if c and c.strip()]
 
     for clause in clauses:
-        if _PRAISE_PATTERN.search(clause):
+        # User condition / profile / past comparison: not a defect about this product
+        if _ANTECEDENT_CONDITION_PATTERN.search(clause):
+            continue
+
+        if _THERAPEUTIC_PRAISE_PATTERN.search(clause):
             praise_evidence = True
+            continue
+
         if _FAILED_MITIGATION.search(clause):
-            # "did not stop my irritation": the negation attaches to a mitigation
-            # verb, so the symptom is still an unresolved complaint.
             mitigated = False
         elif _NEGATION_FILTER.search(clause):
             mitigated = True
             continue  # negated/mitigated clause: its symptoms are not complaints
 
         tokens = [m.lower() for m in _COMPLAINT_PATTERN.findall(clause)]
-        # Filter out pure contrastive discourse markers if no actual defect is stated
         tokens = [m for m in tokens if m not in _PURE_MARKERS]
         if (
             _WEAK_TRIGGER_PATTERN.search(clause)
             and _WEAK_TRIGGER_CONTEXT.search(clause)
             and not _RESOLVED_SERVICE.search(clause)
         ):
-            # Secondary tier: a generic commerce/tech noun only counts as
-            # evidence when the clause reads as a complaint.
             tokens.extend(_WEAK_TRIGGER_PATTERN.findall(clause))
         real_complaint_tokens.extend(tokens)
 
-    # 3. Genuine complaint: at least one real failure verb or defect descriptor
-    #    in a clause that is not negated.
+    # 4. Genuine complaint: at least one real failure verb or defect descriptor
     if real_complaint_tokens:
+        # Therapeutic relief override: if reviewer is raving ("life saver", "holy grail")
+        # and no catastrophic physical failure occurred, route to PRAISE
+        severe_blockers = {"broke", "broken", "shattered", "leaked", "leaking", "exploded", "jammed", "crashed", "terrible", "horrible", "waste"}
+        if _THERAPEUTIC_PRAISE_PATTERN.search(text) and not any(k in real_complaint_tokens for k in severe_blockers):
+            return LABEL_PRAISE, _PRAISE_CONFIDENCE
         conf = _evidence_confidence(real_complaint_tokens, _COMPLAINT_CONFIDENCE_FLOOR)
         return LABEL_COMPLAINT, round(conf, 3)
 
-    # 4. Praise guard: praise words and no defect evidence at all
+    # 5. Praise guard: praise words and no defect evidence at all
     if praise_evidence:
         return LABEL_PRAISE, _PRAISE_CONFIDENCE
 
-    # 5. Every complaint-bearing clause was negated ("no breakouts, no redness")
+    # 6. Every complaint-bearing clause was negated ("no breakouts, no redness")
     if mitigated:
         return LABEL_PRAISE, _MITIGATED_CONFIDENCE
 
-    # 6. Catch-all: no defect, no praise, no negation. Pure discourse markers
-    #    (but/however) without defects are not complaints; categorized as neutral noise.
+    # 7. Catch-all: no defect, no praise, no negation
     return LABEL_NOISE, _NO_EVIDENCE_CONFIDENCE
 
 
@@ -931,39 +967,12 @@ class SentenceClauseExtractor:
     """
 
     @staticmethod
-    def _split_into_sentences(text: str) -> List[Tuple[str, int, int]]:
-        """
-        Splits text into sentences while calculating exact start and end offsets.
+    def _split_into_sentences(text: str, min_word_count: int = 3) -> List[Tuple[str, int, int]]:
+        """Splits text into sentences while calculating exact start and end offsets.
         Guarantees: text[start:end] == sent_text.
+        Fragments with fewer than min_word_count words are merged into the preceding sentence.
         """
-        if not text:
-            return []
-
-        spans: List[Tuple[str, int, int]] = []
-        last_end = 0
-
-        for match in _SENT_SPLITTER.finditer(text):
-            sent_end = match.start()
-            sent_text = text[last_end:sent_end].strip()
-            if sent_text:
-                actual_start = text.find(sent_text, last_end)
-                actual_end = actual_start + len(sent_text)
-                spans.append((sent_text, actual_start, actual_end))
-            last_end = match.end()
-
-        if last_end < len(text):
-            sent_text = text[last_end:].strip()
-            if sent_text:
-                actual_start = text.find(sent_text, last_end)
-                actual_end = actual_start + len(sent_text)
-                spans.append((sent_text, actual_start, actual_end))
-
-        if not spans and text.strip():
-            stripped = text.strip()
-            s_idx = text.find(stripped)
-            spans.append((stripped, s_idx, s_idx + len(stripped)))
-
-        return spans
+        return deconstruct_sentences("ANON", 0, text, min_word_count=min_word_count)
 
     @staticmethod
     def _evaluate_severity(text: str) -> str:

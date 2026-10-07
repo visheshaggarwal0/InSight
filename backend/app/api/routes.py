@@ -1,6 +1,10 @@
 import io
+import json
 import logging
+import math
 import random
+import zipfile
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Query, Depends, Request
@@ -9,7 +13,7 @@ from pydantic import BaseModel, Field
 import pandas as pd
 
 import threading
-from app.core.config import settings
+from app.core.config import settings, BASE_DIR
 from app.core.database import get_db
 from app.data.datasets import dataset_manager
 from app.data.real_loader import real_data_loader
@@ -78,7 +82,7 @@ INIT_LOCK = threading.RLock()
 # schema and identical (meaningless) governance metrics to the real corpus.
 DOMAIN_PROVENANCE = {
     "d2c_cosmetics": {"synthetic": False, "source": "kaggle:sephora-cosmetics-10k"},
-    "tech_saas": {"synthetic": True, "source": "generated-templates"},
+    "tech_saas": {"synthetic": False, "source": "googleplay:productivity-apps-10k"},
 }
 
 
@@ -124,8 +128,40 @@ def compute_domain_artifacts(domain: str) -> dict:
             use_real_pipeline = False
             provenance = {"synthetic": True, "source": "generated-templates (real load failed)"}
     elif domain == "tech_saas":
-        reviews, ground_truth = dataset_manager.generate_tech_saas(10000)
-        use_real_pipeline = False
+        # Check if real precomputed Google Play app telemetry exists in outputs/tech_saas
+        import os, json
+        tech_cache_dir = os.path.join(str(BASE_DIR), "outputs", "tech_saas")
+        tech_reviews_file = os.path.join(tech_cache_dir, "reviews.json")
+        if os.path.exists(tech_reviews_file):
+            try:
+                with open(tech_reviews_file, "r", encoding="utf-8") as f:
+                    reviews = json.load(f)
+                with open(os.path.join(tech_cache_dir, "ground_truth.json"), "r", encoding="utf-8") as f:
+                    ground_truth = json.load(f)
+                with open(os.path.join(tech_cache_dir, "themes.json"), "r", encoding="utf-8") as f:
+                    themes = json.load(f)
+                with open(os.path.join(tech_cache_dir, "complaint_clusters.json"), "r", encoding="utf-8") as f:
+                    saas_complaint_clusters = json.load(f)
+                with open(os.path.join(tech_cache_dir, "feature_requests.json"), "r", encoding="utf-8") as f:
+                    saas_feature_requests = json.load(f)
+                with open(os.path.join(tech_cache_dir, "praise_clusters.json"), "r", encoding="utf-8") as f:
+                    saas_praise_clusters = json.load(f)
+                with open(os.path.join(tech_cache_dir, "drift_results.json"), "r", encoding="utf-8") as f:
+                    drift_results = json.load(f)
+                with open(os.path.join(tech_cache_dir, "eval_results.json"), "r", encoding="utf-8") as f:
+                    eval_results = json.load(f)
+
+                use_real_pipeline = True
+                provenance["synthetic"] = False
+                provenance["source"] = "googleplay:productivity-apps-10k"
+                logger.info("Loaded real Google Play SaaS/App telemetry (%d reviews).", len(reviews))
+            except Exception as ex:
+                logger.warning("Error loading cached real tech_saas telemetry: %s", ex)
+                reviews, ground_truth = dataset_manager.generate_tech_saas(10000)
+                use_real_pipeline = False
+        else:
+            reviews, ground_truth = dataset_manager.generate_tech_saas(10000)
+            use_real_pipeline = False
     else:
         raise ValueError(f"Unknown domain: {domain}")
 
@@ -218,7 +254,7 @@ def compute_domain_artifacts(domain: str) -> dict:
             saas_praise_clusters = p_res.get("praise_clusters", p_res.get("clusters", []))
 
     if use_real_pipeline:
-        # Sentiment already came from the verified offline artifact.
+        # Sentiment already came from the verified offline artifact or cached pipeline.
         domain_model = sentiment_model
 
     return {
@@ -229,9 +265,21 @@ def compute_domain_artifacts(domain: str) -> dict:
         "eval_results": eval_results,
         "sentiment_model": domain_model,
         "data_provenance": provenance,
-        "complaint_clusters": real_res.get("complaint_clusters", []) if use_real_pipeline else saas_complaint_clusters,
-        "feature_requests": real_res.get("feature_requests", []) if use_real_pipeline else saas_feature_requests,
-        "praise_clusters": real_res.get("praise_clusters", []) if use_real_pipeline else saas_praise_clusters,
+        "complaint_clusters": (
+            real_res.get("complaint_clusters", [])
+            if (domain == "d2c_cosmetics" and use_real_pipeline)
+            else saas_complaint_clusters
+        ),
+        "feature_requests": (
+            real_res.get("feature_requests", [])
+            if (domain == "d2c_cosmetics" and use_real_pipeline)
+            else saas_feature_requests
+        ),
+        "praise_clusters": (
+            real_res.get("praise_clusters", [])
+            if (domain == "d2c_cosmetics" and use_real_pipeline)
+            else saas_praise_clusters
+        ),
     }
 
 
@@ -327,11 +375,11 @@ def list_datasets(user: Optional[AuthenticatedUser] = _auth()):
             },
             {
                 "id": "tech_saas",
-                "name": "Fintech Mobile App (NovaPay)",
+                "name": "Mobile & Productivity Apps (Google Play Store)",
                 "category": "Software / Mobile App",
-                "focus": "Release regressions, biometric crashes, P2P transfer failures",
-                "review_count": len(DOMAIN_CACHE.get("tech_saas", {}).get("reviews", [])) if "tech_saas" in DOMAIN_CACHE else 10000,
-                "synthetic": True,
+                "focus": "Release regressions, app crashes, sync failures, UI glitches, subscription blockers",
+                "review_count": len(DOMAIN_CACHE.get("tech_saas", {}).get("reviews", [])) if "tech_saas" in DOMAIN_CACHE else 6973,
+                "synthetic": False,
             },
             {
                 "id": "custom",
@@ -1100,6 +1148,249 @@ def export_powerbi_telemetry(
     )
 
 
+@router.get("/export/powerbi/pbids")
+def export_powerbi_pbids(
+    request: Request,
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _privileged_auth(),
+):
+    """
+    Returns an official Microsoft Power BI Data Source (.pbids) connector file.
+    Double-clicking this file on Windows automatically launches Power BI Desktop
+    and configures the live InSight API feed connection.
+    """
+    from fastapi.responses import Response
+    active_dom, _ = get_domain_bundle(domain)
+    base_url = str(request.base_url).rstrip("/")
+    feed_url = f"{base_url}/api/export/powerbi?domain={active_dom}"
+    pbids_data = {
+        "version": "0.1",
+        "connections": [
+            {
+                "details": {
+                    "protocol": "http",
+                    "address": {
+                        "url": feed_url
+                    },
+                    "authentication": None,
+                    "query": None
+                },
+                "options": {},
+                "mode": None
+            }
+        ]
+    }
+    return Response(
+        content=json.dumps(pbids_data, indent=2),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f"attachment; filename=insight_{active_dom}_connector.pbids"
+        },
+    )
+
+
+@router.get("/export/powerbi/bundle")
+def export_powerbi_bundle(
+    request: Request,
+    domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
+    user: Optional[AuthenticatedUser] = _privileged_auth(),
+):
+    """
+    Generates a complete Microsoft Power BI Deployment Kit (.zip) containing:
+    1. CSV Telemetry Fact & Dimensions table
+    2. Power BI Data Source (.pbids) connector
+    3. Power Query (M) script for automated schema typing
+    4. Curated DAX Measures cheat sheet
+    5. Power BI Dashboard Setup & Layout Guide
+    """
+    from fastapi.responses import Response
+
+    active_dom, bundle = get_domain_bundle(domain)
+    reviews = bundle["reviews"]
+    if not reviews:
+        raise HTTPException(status_code=503, detail="No dataset is loaded yet.")
+
+    base_url = str(request.base_url).rstrip("/")
+    feed_url = f"{base_url}/api/export/powerbi?domain={active_dom}"
+
+    # 1. CSV dataset
+    csv_bytes = pd.DataFrame(_build_export_rows(reviews)).to_csv(index=False).encode("utf-8")
+
+    # 2. PBIDS Connector
+    pbids_data = {
+        "version": "0.1",
+        "connections": [
+            {
+                "details": {
+                    "protocol": "http",
+                    "address": {"url": feed_url},
+                    "authentication": None,
+                    "query": None
+                },
+                "options": {},
+                "mode": None
+            }
+        ]
+    }
+    pbids_bytes = json.dumps(pbids_data, indent=2).encode("utf-8")
+
+    # 3. Power Query (M) Script
+    m_script = f"""// ==============================================================================
+// InSight AI - Power Query (M) Script for Power BI Desktop
+// Paste into Power BI Desktop: Home Ribbon -> Get Data -> Blank Query -> Advanced Editor
+// ==============================================================================
+let
+    Source = Csv.Document(Web.Contents("{feed_url}"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{
+        {{"Review_ID", type text}},
+        {{"Domain", type text}},
+        {{"Product_Name", type text}},
+        {{"SKU_or_Module", type text}},
+        {{"Batch_or_Version", type text}},
+        {{"Submission_Date", type date}},
+        {{"Channel", type text}},
+        {{"Rating", Int64.Type}},
+        {{"Calibrated_Sentiment", type text}},
+        {{"Sentiment_Confidence", type number}},
+        {{"Theme_Title", type text}},
+        {{"Cluster_ID", Int64.Type}},
+        {{"Sentence_Count", Int64.Type}},
+        {{"Complaint_Clauses", Int64.Type}},
+        {{"Praise_Clauses", Int64.Type}},
+        {{"Recommendation_Clauses", Int64.Type}},
+        {{"Is_Actionable", type logical}},
+        {{"Has_Silent_Defect", type logical}},
+        {{"Is_PII_Scrubbed", type logical}},
+        {{"PII_Entities_Detected", type text}},
+        {{"Sanitized_Verbatim", type text}},
+        {{"Defect_Clause", type text}}
+    }})
+in
+    #"Changed Type"
+""".encode("utf-8")
+
+    # 4. DAX Measures
+    dax_measures = b"""// ==============================================================================
+// InSight AI - Recommended DAX Measures for Executive Dashboard
+// ==============================================================================
+
+// 1. Silent Defect Rate: % of 4-5 star reviews harboring hidden complaints
+Silent Defect Rate = 
+DIVIDE(
+    CALCULATE(COUNTROWS('Telemetry'), 'Telemetry'[Rating] >= 4, 'Telemetry'[Has_Silent_Defect] = TRUE()),
+    CALCULATE(COUNTROWS('Telemetry'), 'Telemetry'[Rating] >= 4),
+    0
+)
+
+// 2. Actionable Signal Volume: Reviews with extracted bugs, praises, or features
+Actionable Feedback Count = 
+CALCULATE(COUNTROWS('Telemetry'), 'Telemetry'[Is_Actionable] = TRUE())
+
+// 3. Actionability Index (% of corpus providing concrete action items)
+Actionability Index = 
+DIVIDE([Actionable Feedback Count], COUNTROWS('Telemetry'), 0)
+
+// 4. Net Sentiment Score (NSS) [-100 to +100]
+Net Sentiment Score = 
+VAR Pos = CALCULATE(COUNTROWS('Telemetry'), 'Telemetry'[Calibrated_Sentiment] = "POSITIVE")
+VAR Neg = CALCULATE(COUNTROWS('Telemetry'), 'Telemetry'[Calibrated_Sentiment] = "NEGATIVE")
+VAR Total = COUNTROWS('Telemetry')
+RETURN
+DIVIDE(Pos - Neg, Total, 0) * 100
+
+// 5. Total Complaint Clauses Identified
+Total Complaint Clauses = 
+SUM('Telemetry'[Complaint_Clauses])
+"""
+
+    # 5. README Setup Guide
+    readme = f"""==============================================================================
+InSight AI - Microsoft Power BI Enterprise Integration Kit
+Domain: {active_dom}
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+==============================================================================
+
+QUICK START:
+1. Double-click "insight_{active_dom}_connector.pbids" to launch Power BI Desktop
+   with the InSight Web feed pre-configured.
+   OR:
+   In Power BI Desktop, select "Get Data" -> "Text/CSV" and choose
+   "insight_{active_dom}_telemetry.csv".
+
+2. For Live Refreshing:
+   - Go to "Home" -> "Transform Data" -> "Advanced Editor".
+   - Replace the script with the contents of "InSight_PowerQuery_ETL.m".
+   - Now clicking "Refresh" in Power BI Desktop pulls the latest AI model inferences!
+
+3. Executive Measures:
+   - Create a New Measure in Power BI and paste the formulas from
+     "InSight_DAX_Measures.dax" to track Silent Defect Rates and Net Sentiment.
+
+RECOMMENDED VISUAL LAYOUT:
+- Top KPIs: Net Sentiment Score (Card), Silent Defect Rate (Card), Actionable Ratio (Card)
+- Root Cause Analysis: Decomposition Tree or Treemap grouped by Theme_Title & Complaint_Clauses
+- Quality Drift: Ribbon / Stacked Column Chart of Batch_or_Version vs Calibrated_Sentiment
+- Telemetry Drill-Through: Table of Review_ID, Rating, Defect_Clause, Sanitized_Verbatim
+""".encode("utf-8")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"insight_{active_dom}_telemetry.csv", csv_bytes)
+        zf.writestr(f"insight_{active_dom}_connector.pbids", pbids_bytes)
+        zf.writestr("InSight_PowerQuery_ETL.m", m_script)
+        zf.writestr("InSight_DAX_Measures.dax", dax_measures)
+        zf.writestr("README_PowerBI_Setup.txt", readme)
+
+    buf.seek(0)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f"attachment; filename=insight_{active_dom}_powerbi_kit.zip"
+        },
+    )
+
+
+def _enrich_cluster_verbatims(
+    sliced: list,
+    reviews: list,
+    default_sentiment: str = "NEGATIVE",
+    default_rating: int = 1,
+    default_title: str = "Cluster Citation",
+    default_batch: str = "Unknown",
+) -> list:
+    """Enriches sentence verbatims with actual parent review metadata (true rating, batch, product, channel)."""
+    review_map = {r["id"]: r for r in reviews if r.get("id")}
+    enriched = []
+    for v in sliced:
+        rev_id = v.get("review_id")
+        parent = review_map.get(rev_id)
+        if not parent and isinstance(v.get("source_row_index"), int):
+            idx = v["source_row_index"]
+            if 0 <= idx < len(reviews):
+                parent = reviews[idx]
+
+        item = dict(v)
+        if parent:
+            item["rating"] = parent.get("rating", default_rating)
+            item["product_name"] = parent.get("product_name") or default_title
+            item["batch_or_version"] = parent.get("batch_or_version") or default_batch
+            item["channel"] = parent.get("channel", "Customer Review")
+            item["submission_date"] = parent.get("submission_date")
+            item["sku_or_module"] = parent.get("sku_or_module") or f"Offset [{v.get('start', 0)}:{v.get('end', 0)}]"
+            item["sentiment_pred"] = parent.get("sentiment_pred", default_sentiment)
+        else:
+            item["rating"] = item.get("rating", default_rating)
+            item["product_name"] = default_title
+            item["batch_or_version"] = default_batch
+            item["channel"] = "Customer Review"
+            item["sku_or_module"] = f"Offset [{v.get('start', 0)}:{v.get('end', 0)}]"
+            item["sentiment_pred"] = default_sentiment
+        enriched.append(item)
+    return enriched
+
+
 # ---------------------------------------------------------------------------
 # Complaint Clusters & Sentence Pools Endpoints
 # ---------------------------------------------------------------------------
@@ -1128,12 +1419,18 @@ def get_complaint_clusters(
 @router.get("/complaint-clusters/{cluster_id}/verbatims")
 def get_complaint_cluster_verbatims(
     cluster_id: int,
+    page: Optional[int] = Query(None, ge=1, description="1-indexed page number"),
+    page_size: Optional[int] = Query(None, ge=1, le=200, description="Page size"),
+    offset: Optional[int] = Query(None, ge=0, description="Explicit 0-based offset for incremental loading"),
+    limit: Optional[int] = Query(None, ge=1, le=200, description="Explicit slice limit (e.g. 10 initial, 20 more)"),
+    search: Optional[str] = Query(None, description="Optional search term to filter citations"),
     domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
     user: Optional[AuthenticatedUser] = _auth(),
 ):
     """
     Returns representative sentence verbatims for a specific complaint cluster,
     including character slice offsets [start, end] for verbatim span highlighting.
+    Supports incremental/infinite scroll (load 10 first, then 20 more on scroll).
     """
     active_dom, bundle = get_domain_bundle(domain)
     clusters = bundle.get("complaint_clusters") or []
@@ -1141,17 +1438,65 @@ def get_complaint_cluster_verbatims(
     if not matched:
         raise HTTPException(status_code=404, detail=f"Complaint cluster #{cluster_id} not found in domain '{active_dom}'.")
     cluster = matched[0]
+    all_verbatims = list(cluster.get("verbatims", []))
+
+    if search:
+        s_term = search.strip().lower()
+        all_verbatims = [
+            v for v in all_verbatims
+            if s_term in v.get("sentence_text", "").lower()
+            or s_term in v.get("review_id", "").lower()
+        ]
+
+    total = len(all_verbatims)
+
+    if offset is not None:
+        start = offset
+        count = limit if limit is not None else (page_size if page_size is not None else 20)
+        end = start + count
+        sliced = all_verbatims[start:end]
+        has_more = end < total
+    elif page is not None:
+        ps = page_size if page_size is not None else 20
+        start = (page - 1) * ps
+        end = start + ps
+        sliced = all_verbatims[start:end]
+        has_more = end < total
+    elif limit is not None:
+        start = 0
+        end = limit
+        sliced = all_verbatims[start:end]
+        has_more = end < total
+    else:
+        start = 0
+        end = total
+        sliced = all_verbatims
+        has_more = False
+
     return {
         "cluster_id": cluster_id,
         "domain": active_dom,
         "title": cluster.get("title"),
         "severity": cluster.get("severity"),
         "keywords": cluster.get("keywords", []),
-        "sentence_count": cluster.get("sentence_count", 0),
+        "sentence_count": cluster.get("sentence_count", total),
         "medoid_verbatim": cluster.get("medoid_verbatim"),
         "affected_batch": cluster.get("affected_batch"),
         "relative_risk": cluster.get("relative_risk"),
-        "verbatims": cluster.get("verbatims", []),
+        "offset": start,
+        "limit": len(sliced),
+        "page": page or 1,
+        "page_size": page_size or len(sliced),
+        "total": total,
+        "has_more": has_more,
+        "verbatims": _enrich_cluster_verbatims(
+            sliced,
+            bundle.get("reviews", []),
+            default_sentiment="NEGATIVE",
+            default_rating=1,
+            default_title=cluster.get("title") or "Complaint Driver",
+            default_batch=cluster.get("affected_batch") or "Unknown",
+        ),
     }
 
 
@@ -1194,12 +1539,18 @@ def get_praise_clusters(
 @router.get("/praise-clusters/{cluster_id}/verbatims")
 def get_praise_cluster_verbatims(
     cluster_id: int,
+    page: Optional[int] = Query(None, ge=1, description="1-indexed page number"),
+    page_size: Optional[int] = Query(None, ge=1, le=200, description="Page size"),
+    offset: Optional[int] = Query(None, ge=0, description="Explicit 0-based offset for incremental loading"),
+    limit: Optional[int] = Query(None, ge=1, le=200, description="Explicit slice limit"),
+    search: Optional[str] = Query(None, description="Optional search term to filter citations"),
     domain: Optional[str] = Query(None, description="Optional domain identifier (d2c_cosmetics, tech_saas, custom)"),
     user: Optional[AuthenticatedUser] = _auth(),
 ):
     """
     Returns representative sentence verbatims for a specific product strength cluster,
     including character slice offsets [start, end] for verbatim span highlighting.
+    Supports incremental/infinite scroll.
     """
     active_dom, bundle = get_domain_bundle(domain)
     clusters = bundle.get("praise_clusters") or []
@@ -1207,17 +1558,68 @@ def get_praise_cluster_verbatims(
     if not matched:
         raise HTTPException(status_code=404, detail=f"Product strength cluster #{cluster_id} not found in domain '{active_dom}'.")
     cluster = matched[0]
+    all_verbatims = list(cluster.get("verbatims", []))
+
+    if search:
+        s_term = search.strip().lower()
+        all_verbatims = [
+            v for v in all_verbatims
+            if s_term in v.get("sentence_text", "").lower()
+            or s_term in v.get("review_id", "").lower()
+        ]
+
+    total = len(all_verbatims)
+
+    if offset is not None:
+        start = offset
+        count = limit if limit is not None else (page_size if page_size is not None else 20)
+        end = start + count
+        sliced = all_verbatims[start:end]
+        has_more = end < total
+    elif page is not None:
+        ps = page_size if page_size is not None else 20
+        start = (page - 1) * ps
+        end = start + ps
+        sliced = all_verbatims[start:end]
+        has_more = end < total
+    elif limit is not None:
+        start = 0
+        end = limit
+        sliced = all_verbatims[start:end]
+        has_more = end < total
+    else:
+        start = 0
+        end = total
+        sliced = all_verbatims
+        has_more = False
+
     return {
         "cluster_id": cluster_id,
         "domain": active_dom,
         "title": cluster.get("title"),
         "strength_drivers": cluster.get("strength_drivers", cluster.get("keywords", [])),
         "keywords": cluster.get("keywords", []),
-        "praise_count": cluster.get("praise_count", cluster.get("sentence_count", 0)),
+        "sentence_count": cluster.get("sentence_count", cluster.get("praise_count", total)),
+        "praise_count": cluster.get("praise_count", cluster.get("sentence_count", total)),
         "delight_score": cluster.get("delight_score", 0.0),
         "delight_tier": cluster.get("delight_tier", "STRONG"),
+        "top_batch": cluster.get("top_batch"),
+        "hero_sku": cluster.get("hero_sku"),
         "medoid_verbatim": cluster.get("medoid_verbatim"),
-        "verbatims": cluster.get("verbatims", []),
+        "offset": start,
+        "limit": len(sliced),
+        "page": page or 1,
+        "page_size": page_size or len(sliced),
+        "total": total,
+        "has_more": has_more,
+        "verbatims": _enrich_cluster_verbatims(
+            sliced,
+            bundle.get("reviews", []),
+            default_sentiment="POSITIVE",
+            default_rating=5,
+            default_title=cluster.get("title") or "Product Strength",
+            default_batch=cluster.get("top_batch") or "Standard",
+        ),
     }
 
 

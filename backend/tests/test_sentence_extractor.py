@@ -113,3 +113,34 @@ def test_pure_positive_review():
     assert telemetry.overall_severity == SEVERITY_P3
     assert len(telemetry.complaint_propositions) == 0
     assert telemetry.primary_complaint_text == text
+
+
+def test_unspaced_punctuation_sentence_separation():
+    text = "when my skin has irritation this is a life saver.I love this product so much."
+    sentences = sentence_clause_extractor._split_into_sentences(text)
+    assert len(sentences) == 2
+    assert sentences[0][0] == "when my skin has irritation this is a life saver."
+    assert sentences[1][0] == "I love this product so much."
+    # Enterprise invariant: exact slice match
+    for sent_text, start, end in sentences:
+        assert text[start:end] == sent_text
+
+
+def test_negation_mitigation_and_therapeutic_praise_suppresses_false_positives():
+    from app.ml.sentence_pipeline import _classify_sentence, LABEL_PRAISE, LABEL_NOISE, LABEL_COMPLAINT
+
+    # 1. Negated symptom with wide token window and apostrophe-less contraction
+    lbl, _ = _classify_sentence("it doesnt leave my skin feeling dry or stripped")
+    assert lbl in (LABEL_PRAISE, LABEL_NOISE)
+
+    # 2. Therapeutic antecedent with rescue praise
+    lbl2, _ = _classify_sentence("when my skin has irritation this is a life saver.")
+    assert lbl2 == LABEL_PRAISE
+
+    # 3. FTC disclosure
+    lbl3, _ = _classify_sentence("I received this complimentary from Estee Lauder in exchange for my honest opinion.")
+    assert lbl3 in (LABEL_NOISE, LABEL_PRAISE)
+
+    # 4. Real physical defect MUST still trigger COMPLAINT
+    lbl4, _ = _classify_sentence("I broke out under my skin and it dried my skin out horribly.")
+    assert lbl4 == LABEL_COMPLAINT

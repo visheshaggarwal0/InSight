@@ -6,6 +6,22 @@ import type { VerbatimItem } from '../types/telemetry';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const PAGE_SIZE = 20;
 
+interface RawClusterVerbatim {
+  sentence_id?: string;
+  review_id?: string;
+  sentence_text?: string;
+  start?: number;
+  end?: number;
+  confidence?: number;
+  rating?: number;
+  product_name?: string;
+  batch_or_version?: string;
+  channel?: string;
+  submission_date?: string;
+  sku_or_module?: string;
+  sentiment_pred?: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE';
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -37,16 +53,20 @@ export const VerbatimDrawer: React.FC<Props> = ({
   const [searchDraft, setSearchDraft] = useState('');
   const [sentimentFilter, setSentimentFilter] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isCluster = isComplaintCluster || isPraiseCluster;
   const generationRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Reset all paging/filter state when the drawer is re-opened for a different scope.
   // Done during render (React's derived-state pattern) so it does not cascade an extra
   // render pass, and the fetch effect below only sees the settled state.
   const scopeKey = isOpen
-    ? `${isSilentDefects ? 'silent' : isComplaintCluster ? 'complaint' : isPraiseCluster ? 'praise' : 'verbatim'}|${clusterId ?? 'all'}|${externalSearch ?? ''}`
+    ? `${isSilentDefects ? 'silent' : isComplaintCluster ? 'complaint' : isPraiseCluster ? 'praise' : 'verbatim'}|${clusterId ?? 'all'}|${externalSearch ?? ''}|${search}`
     : 'closed';
   const [lastScopeKey, setLastScopeKey] = useState<string>('closed');
   if (scopeKey !== lastScopeKey) {
@@ -56,6 +76,8 @@ export const VerbatimDrawer: React.FC<Props> = ({
     setShowRawPii(false);
     setSearch(externalSearch ?? '');
     setSearchDraft(externalSearch ?? '');
+    setHasMore(false);
+    setLoadingMore(false);
   }
 
   useEffect(() => {
@@ -112,39 +134,39 @@ export const VerbatimDrawer: React.FC<Props> = ({
         }
 
         if (isComplaintCluster && clusterId !== null && clusterId !== undefined) {
-          const res = await fetch(`${API_BASE}/complaint-clusters/${clusterId}/verbatims`, {
+          const params = new URLSearchParams({
+            offset: '0',
+            limit: '10'
+          });
+          if (search) params.append('search', search);
+
+          const res = await fetch(`${API_BASE}/complaint-clusters/${clusterId}/verbatims?${params.toString()}`, {
             signal: controller.signal
           });
           if (!res.ok) {
-            setError(`Complaint verbatims query failed (HTTP ${res.status}).`);
+            setError(`Complaint citations query failed (HTTP ${res.status}).`);
             return;
           }
           const data = await res.json();
           if (generation !== generationRef.current) return;
-          const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
-            sentence_id?: string;
-            review_id?: string;
-            sentence_text?: string;
-            start?: number;
-            end?: number;
-            confidence?: number;
-          }>).map((v) => {
+          const items: VerbatimItem[] = ((data.verbatims || []) as RawClusterVerbatim[]).map((v) => {
             const txt = v.sentence_text || '';
+            const parentRating = typeof v.rating === 'number' ? v.rating : 1;
             return {
               id: v.sentence_id || v.review_id || 'SENT-COMPLAINT',
               domain: 'd2c',
               raw_text: txt,
               redacted_text: txt,
               display_text: txt,
-              rating: 1,
-              sentiment_pred: 'NEGATIVE' as const,
+              rating: parentRating,
+              sentiment_pred: v.sentiment_pred || ('NEGATIVE' as const),
               sentiment_confidence: v.confidence ?? 0.95,
               cluster_id: clusterId ?? 0,
               theme_title: (data.title as string) || 'Complaint Driver',
-              channel: 'Sentence Deconstructor',
-              batch_or_version: (data.affected_batch as string) || 'Extracted Sentence',
-              product_name: (data.title as string) || 'Complaint Driver',
-              sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
+              channel: v.channel && v.channel !== 'Sentence Deconstructor' ? v.channel : 'Verified Review',
+              batch_or_version: v.batch_or_version || (data.affected_batch as string) || 'Standard',
+              product_name: v.product_name || (data.title as string) || 'Product Issue',
+              sku_or_module: v.sku_or_module && !v.sku_or_module.startsWith('Offset') ? v.sku_or_module : '',
               highlight_span: {
                 text: txt,
                 start: 0,
@@ -152,46 +174,48 @@ export const VerbatimDrawer: React.FC<Props> = ({
               }
             };
           });
+          const serverTotal = typeof data.total === 'number' ? data.total : (data.sentence_count || items.length);
           setReviews(items);
-          setTotal(items.length);
-          setTotalPages(1);
+          setTotal(serverTotal);
+          setHasMore(data.has_more !== undefined ? data.has_more : (items.length < serverTotal));
+          setTotalPages(Math.ceil(serverTotal / 20));
           return;
         }
 
         if (isPraiseCluster && clusterId !== null && clusterId !== undefined) {
-          const res = await fetch(`${API_BASE}/praise-clusters/${clusterId}/verbatims`, {
+          const params = new URLSearchParams({
+            offset: '0',
+            limit: '10'
+          });
+          if (search) params.append('search', search);
+
+          const res = await fetch(`${API_BASE}/praise-clusters/${clusterId}/verbatims?${params.toString()}`, {
             signal: controller.signal
           });
           if (!res.ok) {
-            setError(`Product strength verbatims query failed (HTTP ${res.status}).`);
+            setError(`Product strength citations query failed (HTTP ${res.status}).`);
             return;
           }
           const data = await res.json();
           if (generation !== generationRef.current) return;
-          const items: VerbatimItem[] = ((data.verbatims || []) as Array<{
-            sentence_id?: string;
-            review_id?: string;
-            sentence_text?: string;
-            start?: number;
-            end?: number;
-            confidence?: number;
-          }>).map((v) => {
+          const items: VerbatimItem[] = ((data.verbatims || []) as RawClusterVerbatim[]).map((v) => {
             const txt = v.sentence_text || '';
+            const parentRating = typeof v.rating === 'number' ? v.rating : 5;
             return {
               id: v.sentence_id || v.review_id || 'SENT-PRAISE',
               domain: 'd2c',
               raw_text: txt,
               redacted_text: txt,
               display_text: txt,
-              rating: 5,
-              sentiment_pred: 'POSITIVE' as const,
+              rating: parentRating,
+              sentiment_pred: v.sentiment_pred || ('POSITIVE' as const),
               sentiment_confidence: v.confidence ?? 0.95,
               cluster_id: clusterId ?? 0,
               theme_title: (data.title as string) || 'Product Strength',
-              channel: 'Praise Medoid',
-              batch_or_version: 'Extracted Sentence',
-              product_name: (data.title as string) || 'Product Strength',
-              sku_or_module: `Offset [${v.start ?? 0}:${v.end ?? 0}]`,
+              channel: v.channel && v.channel !== 'Praise Medoid' ? v.channel : 'Verified Review',
+              batch_or_version: v.batch_or_version || 'Standard',
+              product_name: v.product_name || (data.title as string) || 'Product Strength',
+              sku_or_module: v.sku_or_module && !v.sku_or_module.startsWith('Offset') ? v.sku_or_module : '',
               highlight_span: {
                 text: txt,
                 start: 0,
@@ -199,9 +223,11 @@ export const VerbatimDrawer: React.FC<Props> = ({
               }
             };
           });
+          const serverTotal = typeof data.total === 'number' ? data.total : (data.sentence_count || data.praise_count || items.length);
           setReviews(items);
-          setTotal(items.length);
-          setTotalPages(1);
+          setTotal(serverTotal);
+          setHasMore(data.has_more !== undefined ? data.has_more : (items.length < serverTotal));
+          setTotalPages(Math.ceil(serverTotal / 20));
           return;
         }
 
@@ -242,7 +268,91 @@ export const VerbatimDrawer: React.FC<Props> = ({
     };
 
     void load();
-  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search, isComplaintCluster, isSilentDefects]);
+  }, [isOpen, page, showRawPii, clusterId, sentimentFilter, search, isComplaintCluster, isPraiseCluster, isSilentDefects]);
+
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore) return;
+    if (!isCluster || clusterId === null || clusterId === undefined) return;
+
+    setLoadingMore(true);
+    try {
+      const endpoint = isComplaintCluster ? 'complaint-clusters' : 'praise-clusters';
+      const params = new URLSearchParams({
+        offset: reviews.length.toString(),
+        limit: '20'
+      });
+      if (search) params.append('search', search);
+
+      const res = await fetch(`${API_BASE}/${endpoint}/${clusterId}/verbatims?${params.toString()}`);
+      if (!res.ok) {
+        setLoadingMore(false);
+        return;
+      }
+      const data = await res.json();
+      const newItems: VerbatimItem[] = ((data.verbatims || []) as RawClusterVerbatim[]).map((v) => {
+        const txt = v.sentence_text || '';
+        const fallbackRating = isComplaintCluster ? 1 : 5;
+        const parentRating = typeof v.rating === 'number' ? v.rating : fallbackRating;
+        return {
+          id: v.sentence_id || v.review_id || (isComplaintCluster ? 'SENT-COMPLAINT' : 'SENT-PRAISE'),
+          domain: 'd2c',
+          raw_text: txt,
+          redacted_text: txt,
+          display_text: txt,
+          rating: parentRating,
+          sentiment_pred: v.sentiment_pred || (isComplaintCluster ? ('NEGATIVE' as const) : ('POSITIVE' as const)),
+          sentiment_confidence: v.confidence ?? 0.95,
+          cluster_id: clusterId ?? 0,
+          theme_title: (data.title as string) || (isComplaintCluster ? 'Complaint Driver' : 'Product Strength'),
+          channel: v.channel && v.channel !== 'Sentence Deconstructor' && v.channel !== 'Praise Medoid' ? v.channel : 'Verified Review',
+          batch_or_version: v.batch_or_version || (data.affected_batch as string) || 'Standard',
+          product_name: v.product_name || (data.title as string) || (isComplaintCluster ? 'Product Issue' : 'Product Strength'),
+          sku_or_module: v.sku_or_module && !v.sku_or_module.startsWith('Offset') ? v.sku_or_module : '',
+          highlight_span: {
+            text: txt,
+            start: 0,
+            end: txt.length
+          }
+        };
+      });
+
+      setReviews((prev) => [...prev, ...newItems]);
+      const nextTotalLoaded = reviews.length + newItems.length;
+      const serverTotal = typeof data.total === 'number' ? data.total : (data.sentence_count || total);
+      setTotal(serverTotal);
+      setHasMore(data.has_more !== undefined ? data.has_more : (nextTotalLoaded < serverTotal && newItems.length > 0));
+    } catch (err) {
+      console.error('Failed to load more citations:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, hasMore, isCluster, isComplaintCluster, clusterId, reviews.length, search, total]);
+
+  useEffect(() => {
+    if (!isOpen || !isCluster || !hasMore || loadingMore) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [isOpen, isCluster, hasMore, loadingMore, loadMore]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (!isCluster || !hasMore || loadingMore) return;
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 250) {
+      void loadMore();
+    }
+  }, [isCluster, hasMore, loadingMore, loadMore]);
 
   // Unmount cleanup: abort any in-flight request so no response lands after teardown.
   useEffect(() => {
@@ -299,14 +409,14 @@ export const VerbatimDrawer: React.FC<Props> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Eye size={14} style={{ color: '#10B981' }} />
               <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                TRACEABLE VERBATIMS
+                {isCluster ? 'TRACEABLE CITATIONS & REFERENCES' : 'TRACEABLE VERBATIMS'}
               </span>
             </div>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginTop: '3px', color: '#111827' }}>
               {clusterTitle ? clusterTitle : 'All Customer Verbatims'}
             </h2>
             <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
-              Showing {reviews.length.toLocaleString()} of <b>{total.toLocaleString()} matched quotes</b>
+              Showing {reviews.length.toLocaleString()} of <b>{total.toLocaleString()} {isCluster ? 'citations' : 'matched quotes'}</b>
             </span>
           </div>
 
@@ -344,7 +454,7 @@ export const VerbatimDrawer: React.FC<Props> = ({
                 type="text"
                 value={searchDraft}
                 onChange={(e) => setSearchDraft(e.target.value)}
-                placeholder="Search quotes, order IDs, errors..."
+                placeholder={isCluster ? 'Search citations in this cluster...' : 'Search quotes, order IDs, errors...'}
                 aria-label="Search verbatims"
                 style={{
                   width: '100%',
@@ -428,7 +538,10 @@ export const VerbatimDrawer: React.FC<Props> = ({
         </div>
 
         {/* Verbatims List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div
+          onScroll={handleScroll}
+          style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}
+        >
           {error ? (
             <EmptyState label={error} hint="Retry by changing a filter or reopening the drawer." />
           ) : loading ? (
@@ -441,7 +554,8 @@ export const VerbatimDrawer: React.FC<Props> = ({
               hint={search ? `No quotes matched "${search}".` : undefined}
             />
           ) : (
-            reviews.map((r) => (
+            <>
+              {reviews.map((r) => (
               <div
                 key={r.id}
                 style={{
@@ -463,23 +577,42 @@ export const VerbatimDrawer: React.FC<Props> = ({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6B7280', fontFamily: "'JetBrains Mono', monospace" }}>
-                      {r.id}
+                      {r.id.includes('::') ? r.id.split('::')[0] : r.id}
                     </span>
-                    <span style={{ fontSize: '0.7rem', backgroundColor: '#F3F4F6', padding: '2px 6px', borderRadius: '4px', color: '#374151', fontWeight: 500 }}>
-                      {r.batch_or_version}
-                    </span>
-                    <span style={{ fontSize: '0.74rem', color: '#4B5563' }}>
-                      {r.product_name} &bull; {r.sku_or_module}
+                    {r.batch_or_version && r.batch_or_version !== 'Unknown' && r.batch_or_version !== 'Standard' && r.batch_or_version !== 'Extracted Sentence' && (
+                      <span style={{ fontSize: '0.7rem', backgroundColor: '#F3F4F6', padding: '2px 6px', borderRadius: '4px', color: '#374151', fontWeight: 500 }}>
+                        Batch: {r.batch_or_version}
+                      </span>
+                    )}
+                    <span style={{ fontSize: '0.74rem', color: '#4B5563', fontWeight: 500 }}>
+                      {r.product_name}
+                      {r.sku_or_module && !r.sku_or_module.startsWith('Offset') ? ` • ${r.sku_or_module}` : ''}
                     </span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {isComplaintCluster && typeof r.rating === 'number' && r.rating >= 4 && (
+                      <span
+                        style={{
+                          fontSize: '0.66rem',
+                          backgroundColor: '#FEF3C7',
+                          color: '#92400E',
+                          border: '1px solid #FDE68A',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontWeight: 700
+                        }}
+                        title="Customer rated the product 4-5 stars overall, but reported this specific complaint/defect"
+                      >
+                        Silent Defect ({r.rating}★ Review)
+                      </span>
+                    )}
                     <span style={{ display: 'flex', alignItems: 'center', color: '#D97706', fontSize: '0.74rem', fontWeight: 600 }}>
                       <Star size={11} fill="#D97706" style={{ marginRight: '2px' }} />
                       {r.rating}★
                     </span>
                     <span style={{ fontSize: '0.7rem', color: '#6B7280' }}>
-                      &bull; {r.channel}
+                      &bull; {r.channel && r.channel !== 'Sentence Deconstructor' && r.channel !== 'Praise Medoid' ? r.channel : 'Verified Review'}
                     </span>
                   </div>
                 </div>
@@ -554,7 +687,41 @@ export const VerbatimDrawer: React.FC<Props> = ({
                   </span>
                 </div>
               </div>
-            ))
+            ))}
+
+              {isCluster && (
+                <div ref={sentinelRef} style={{ padding: '16px 0', textAlign: 'center' }}>
+                  {loadingMore ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#059669', fontSize: '0.82rem', fontWeight: 600 }}>
+                      <div style={{ width: '16px', height: '16px', border: '2px solid #A7F3D0', borderTopColor: '#059669', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                      Loading more citations... ({reviews.length} of {total})
+                    </div>
+                  ) : hasMore ? (
+                    <button
+                      type="button"
+                      onClick={() => void loadMore()}
+                      style={{
+                        padding: '8px 18px',
+                        backgroundColor: '#ECFDF5',
+                        border: '1px solid #A7F3D0',
+                        borderRadius: '8px',
+                        color: '#065F46',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      Load more
+                    </button>
+                  ) : reviews.length >= total && total > 0 ? (
+                    <div style={{ color: '#047857', fontSize: '0.78rem', fontWeight: 600, padding: '8px 14px', backgroundColor: '#F0FDF4', borderRadius: '8px', display: 'inline-block' }}>
+                      ✓ All {total} traceable citations loaded
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -567,50 +734,88 @@ export const VerbatimDrawer: React.FC<Props> = ({
           justifyContent: 'space-between',
           backgroundColor: '#FAFAFA'
         }}>
-          <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
-            Page {Math.min(page, pageCount)} of {pageCount}
-          </span>
+          {isCluster ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#374151', fontWeight: 600 }}>
+                  {reviews.length.toLocaleString()} of {total.toLocaleString()} citations loaded
+                </span>
+                <span style={{ fontSize: '0.72rem', color: '#059669', backgroundColor: '#ECFDF5', padding: '2px 8px', borderRadius: '999px', fontWeight: 700 }}>
+                  {Math.min(100, Math.round((reviews.length / Math.max(1, total)) * 100))}%
+                </span>
+              </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: '1px solid #E5E7EB',
-                backgroundColor: '#FFFFFF',
-                color: page <= 1 ? '#D1D5DB' : '#374151',
-                fontSize: '0.76rem',
-                cursor: page <= 1 ? 'not-allowed' : 'pointer'
-              }}
-            >
-              <ChevronLeft size={14} /> Prev
-            </button>
-            <button
-              type="button"
-              disabled={page >= pageCount}
-              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                border: '1px solid #E5E7EB',
-                backgroundColor: '#FFFFFF',
-                color: page >= pageCount ? '#D1D5DB' : '#374151',
-                fontSize: '0.76rem',
-                cursor: page >= pageCount ? 'not-allowed' : 'pointer'
-              }}
-            >
-              Next <ChevronRight size={14} />
-            </button>
-          </div>
+              {hasMore && (
+                <button
+                  type="button"
+                  disabled={loadingMore}
+                  onClick={() => void loadMore()}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid #A7F3D0',
+                    backgroundColor: '#ECFDF5',
+                    color: '#065F46',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    cursor: loadingMore ? 'wait' : 'pointer'
+                  }}
+                >
+                  {loadingMore ? 'Loading more...' : 'Load more'}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '0.78rem', color: '#6B7280' }}>
+                Page {Math.min(page, pageCount)} of {pageCount}
+              </span>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                    color: page <= 1 ? '#D1D5DB' : '#374151',
+                    fontSize: '0.76rem',
+                    cursor: page <= 1 ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= pageCount}
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '5px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #E5E7EB',
+                    backgroundColor: '#FFFFFF',
+                    color: page >= pageCount ? '#D1D5DB' : '#374151',
+                    fontSize: '0.76rem',
+                    cursor: page >= pageCount ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

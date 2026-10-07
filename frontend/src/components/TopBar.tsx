@@ -20,6 +20,7 @@ interface TopBarProps {
   onOpenGovernance?: () => void;
   onOpenAuth?: () => void;
   onToggleMobileMenu?: () => void;
+  onOpenPowerBi?: () => void;
 }
 
 function useDismissable(
@@ -56,14 +57,13 @@ export function TopBar({
   governanceAccuracy,
   onOpenGovernance,
   onOpenAuth,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  onOpenPowerBi
 }: TopBarProps) {
   const [isDomainOpen, setIsDomainOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState(searchQuery);
-  const [exportState, setExportState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [exportError, setExportError] = useState<string | null>(null);
   const session = useSession();
 
   const domainRef = useRef<HTMLDivElement>(null);
@@ -120,8 +120,6 @@ export function TopBar({
   );
 
   const handleExportPowerBi = useCallback(async () => {
-    setExportState('loading');
-    setExportError(null);
     try {
       const res = await fetch(`${API_BASE}/export/powerbi`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -134,10 +132,8 @@ export function TopBar({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setExportState('idle');
     } catch (err) {
-      setExportState('error');
-      setExportError(`Power BI export failed: ${(err as Error).message}`);
+      console.error('Power BI export failed:', err);
     }
   }, []);
 
@@ -251,18 +247,23 @@ export function TopBar({
               cursor: 'pointer',
               transition: 'all 0.15s ease'
             }}
-            title={`Inspect Platt Calibration (${accuracyLabel} Accuracy), Confusion Matrix, and PSI Drift`}
+            title={`Inspect AI Model Accuracy (${accuracyLabel}), Evaluation Matrix, and Drift Telemetry`}
           >
             <ShieldCheck size={14} style={{ color: '#10B981' }} />
             <span>{accuracyPillLabel}</span>
           </button>
         )}
 
-        {/* Power BI Live Connector Bridge */}
+        {/* Power BI Live Connector Bridge & Integration Studio */}
         <button
           type="button"
-          onClick={() => void handleExportPowerBi()}
-          disabled={exportState === 'loading'}
+          onClick={() => {
+            if (onOpenPowerBi) {
+              onOpenPowerBi();
+            } else {
+              void handleExportPowerBi();
+            }
+          }}
           className="hide-on-mobile"
           style={{
             display: 'inline-flex',
@@ -276,13 +277,13 @@ export function TopBar({
             fontSize: '0.78rem',
             fontWeight: 600,
             textDecoration: 'none',
-            cursor: exportState === 'loading' ? 'wait' : 'pointer',
+            cursor: 'pointer',
             transition: 'all 0.15s ease'
           }}
-          title={exportError ?? 'Download live relational telemetry dataset formatted for Microsoft Power BI'}
+          title="Open Microsoft Power BI Integration Studio, Download Datasets & Connectors"
         >
           <BarChart3 size={14} style={{ color: '#D97706' }} />
-          <span>{exportState === 'loading' ? 'Exporting…' : 'Power BI Feed'}</span>
+          <span>Power BI Feed</span>
         </button>
 
         {/* Domain Switcher */}

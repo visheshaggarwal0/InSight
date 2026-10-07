@@ -4,7 +4,6 @@ import {
   MessageSquare,
   Layers,
   Smile,
-  Award,
   TrendingUp,
   GitCompare,
   Settings,
@@ -17,7 +16,6 @@ import {
 interface SidebarProps {
   currentTab: string;
   onSelectTab: (tab: string) => void;
-  onOpenGovernance?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -37,7 +35,6 @@ interface NavItem {
 export function Sidebar({
   currentTab,
   onSelectTab,
-  onOpenGovernance,
   isOpen = false,
   onClose
 }: SidebarProps) {
@@ -54,9 +51,6 @@ export function Sidebar({
     { id: 'reviews', label: 'Reviews', icon: MessageSquare },
     { id: 'themes', label: 'Themes', icon: Layers },
     { id: 'sentiment', label: 'Sentiment', icon: Smile },
-    // Wired to the real handler. It used to be declared on the props and then
-    // silently dropped, so the governance report was unreachable from the nav.
-    { id: 'governance', label: 'Model Governance', icon: Award, action: onOpenGovernance },
     { id: 'trends', label: 'Trends', icon: TrendingUp },
     { id: 'compare', label: 'Compare', icon: GitCompare },
     { id: 'settings', label: 'Data & Settings', icon: Settings }

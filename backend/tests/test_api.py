@@ -190,3 +190,62 @@ def test_complaint_and_praise_clusters_endpoints(client):
     assert "clusters" in pc_data
     assert "total" in pc_data
 
+
+def test_powerbi_exports(client):
+    """Verifies all Microsoft Power BI export connectors and bundle generation."""
+    import zipfile
+    import io
+
+    # 1. Telemetry CSV export
+    resp_csv = client.get("/api/export/powerbi?domain=d2c_cosmetics")
+    assert resp_csv.status_code == 200
+    assert "text/csv" in resp_csv.headers.get("content-type", "")
+    assert "Review_ID" in resp_csv.text
+    assert "Calibrated_Sentiment" in resp_csv.text
+    assert "Defect_Clause" in resp_csv.text
+
+    # 2. PBIDS Connector export
+    resp_pbids = client.get("/api/export/powerbi/pbids?domain=d2c_cosmetics")
+    assert resp_pbids.status_code == 200
+    pbids_json = resp_pbids.json()
+    assert pbids_json.get("version") == "0.1"
+    assert "connections" in pbids_json
+    assert "export/powerbi" in pbids_json["connections"][0]["details"]["address"]["url"]
+
+    # 3. All-in-one ZIP Bundle export
+    resp_bundle = client.get("/api/export/powerbi/bundle?domain=d2c_cosmetics")
+    assert resp_bundle.status_code == 200
+    assert "application/zip" in resp_bundle.headers.get("content-type", "")
+    
+    # Verify zip content integrity
+    with zipfile.ZipFile(io.BytesIO(resp_bundle.content), "r") as zf:
+        names = zf.namelist()
+        assert any(n.endswith(".csv") for n in names)
+        assert any(n.endswith(".pbids") for n in names)
+        assert "InSight_PowerQuery_ETL.m" in names
+        assert "InSight_DAX_Measures.dax" in names
+        assert "README_PowerBI_Setup.txt" in names
+
+
+def test_cluster_verbatims_enrichment(client):
+    """Verifies that cluster citation verbatims are enriched with parent review rating & metadata."""
+    resp = client.get("/api/complaint-clusters/9/verbatims?offset=0&limit=10")
+    assert resp.status_code == 200
+    data = resp.json()
+    verbatims = data.get("verbatims", [])
+    assert len(verbatims) > 0
+
+    first = verbatims[0]
+    assert "rating" in first
+    assert isinstance(first["rating"], int)
+    assert 1 <= first["rating"] <= 5
+    assert "product_name" in first
+    assert "batch_or_version" in first
+    assert "channel" in first
+    assert "sentence_text" in first
+
+    # Ensure distribution is not all 1-star reviews
+    ratings = [v["rating"] for v in verbatims]
+    assert any(r >= 4 for r in ratings), f"Expected high-rating reviews in complaint cluster citations, got {ratings}"
+
+
