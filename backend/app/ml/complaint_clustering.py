@@ -1068,7 +1068,7 @@ def cluster_praise_sentences(
             "provisional_notices": ["No valid praise sentences found in corpus."],
         }
 
-    k = max(2, min(n_clusters, n // 8 if n > 40 else max(1, n // 2)))
+    k = min(n, max(1, min(n_clusters, n // 8 if n > 40 else max(1, n // 2))))
     texts = [s.sentence_text for s in valid_sentences]
     embeddings = embed_sentences(texts, cache_key_suffix=f"_praise_k{k}")
 
