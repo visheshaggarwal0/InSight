@@ -32,12 +32,15 @@ from typing import List, Dict, Any, Tuple, Optional, Union
 
 import numpy as np
 
+from app.ml.sentence_pipeline import SentenceProposition
+
 logger = logging.getLogger(__name__)
 
 # Default model configurations
 DEFAULT_MODEL_NAME = "all-MiniLM-L6-v2"
 DEFAULT_VECTOR_DIM = 384
 DEFAULT_BATCH_SIZE = 128
+DEFAULT_PIPELINE_VERSION = "2.0.0"
 
 _CACHE_DIR = Path(__file__).resolve().parent / "cache"
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -55,6 +58,8 @@ class EmbeddingManifest:
     cache_key: str
     inference_time_ms: float
     is_normalized: bool = True
+    aspect: Optional[str] = None
+    pipeline_version: str = DEFAULT_PIPELINE_VERSION
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -63,7 +68,7 @@ class EmbeddingManifest:
 class VectorEmbeddingService:
     """
     Production-grade Vector ETL service.
-    Encodes text corpora into normalized 384D vectors with disk caching.
+    Encodes text corpora and multi-aspect propositions into normalized 384D vectors with disk caching.
     """
 
     def __init__(
@@ -100,13 +105,13 @@ class VectorEmbeddingService:
                         self._is_loaded = True
 
     @staticmethod
-    def compute_cache_key(texts: List[str]) -> str:
+    def compute_cache_key(texts: List[str], namespace: Optional[str] = None) -> str:
         """
         Computes a deterministic content-addressable SHA-256 fingerprint for a list of texts.
-        Incorporates corpus length, sample head, sample tail, and character count.
+        Incorporates optional aspect namespace, corpus length, sample head, sample tail, and character count.
         """
         if not texts:
-            return "empty_corpus"
+            return f"{namespace or 'empty'}_empty_corpus"
 
         n = len(texts)
         # Sample items
@@ -114,13 +119,16 @@ class VectorEmbeddingService:
         tail = texts[max(0, n - 5):]
         total_chars = sum(len(t) for t in texts)
 
-        fingerprint_src = f"{n}_{total_chars}_" + "_".join(head) + "_" + "_".join(tail)
+        ns = f"{namespace}_" if namespace else ""
+        fingerprint_src = f"{ns}{n}_{total_chars}_" + "_".join(head) + "_" + "_".join(tail)
         return hashlib.sha256(fingerprint_src.encode("utf-8")).hexdigest()[:16]
 
     def encode_texts(
         self,
         texts: List[str],
-        use_cache: bool = True
+        use_cache: bool = True,
+        namespace: Optional[str] = None,
+        aspect: Optional[str] = None,
     ) -> Tuple[np.ndarray, EmbeddingManifest]:
         """
         Encodes a list of texts into a 2D numpy array of shape (N, 384).
@@ -137,11 +145,13 @@ class VectorEmbeddingService:
                 cache_hit=False,
                 cache_key="empty",
                 inference_time_ms=0.0,
-                is_normalized=True
+                is_normalized=True,
+                aspect=aspect,
+                pipeline_version=DEFAULT_PIPELINE_VERSION,
             )
             return empty_arr, manifest
 
-        cache_key = self.compute_cache_key(texts)
+        cache_key = self.compute_cache_key(texts, namespace=namespace)
         cache_file = self.cache_dir / f"emb_{cache_key}.npy"
 
         # 1. Check disk cache
@@ -158,7 +168,9 @@ class VectorEmbeddingService:
                         cache_hit=True,
                         cache_key=cache_key,
                         inference_time_ms=round(elapsed_ms, 2),
-                        is_normalized=True
+                        is_normalized=True,
+                        aspect=aspect,
+                        pipeline_version=DEFAULT_PIPELINE_VERSION,
                     )
                     logger.info(f"Loaded {len(texts)} embeddings from disk cache: {cache_file.name} ({elapsed_ms:.1f}ms)")
                     return embeddings.astype(np.float32), manifest
@@ -204,10 +216,77 @@ class VectorEmbeddingService:
             cache_hit=False,
             cache_key=cache_key,
             inference_time_ms=round(elapsed_ms, 2),
-            is_normalized=True
+            is_normalized=True,
+            aspect=aspect,
+            pipeline_version=DEFAULT_PIPELINE_VERSION,
         )
 
         return embeddings, manifest
+
+    def encode_propositions(
+        self,
+        propositions: List[SentenceProposition],
+        use_cache: bool = True,
+        attach_to_props: bool = True,
+        aspect: Optional[str] = None,
+    ) -> Tuple[np.ndarray, EmbeddingManifest]:
+        """
+        Encodes a list of SentencePropositions into normalized 384D unit vectors.
+        Optionally attaches each generated vector to prop.embedding.
+        """
+        if not propositions:
+            empty_arr = np.zeros((0, self.dimension), dtype=np.float32)
+            manifest = EmbeddingManifest(
+                model_name=self.model_name,
+                dimension=self.dimension,
+                total_vectors=0,
+                cache_hit=False,
+                cache_key="empty",
+                inference_time_ms=0.0,
+                is_normalized=True,
+                aspect=aspect,
+                pipeline_version=DEFAULT_PIPELINE_VERSION,
+            )
+            return empty_arr, manifest
+
+        texts = [p.text for p in propositions]
+        inferred_aspect = aspect or (
+            str(propositions[0].intent)
+            if len(set(str(p.intent) for p in propositions)) == 1
+            else "MIXED"
+        )
+        embeddings, manifest = self.encode_texts(
+            texts,
+            use_cache=use_cache,
+            namespace=f"prop_{inferred_aspect}",
+            aspect=inferred_aspect,
+        )
+
+        if attach_to_props:
+            for i, prop in enumerate(propositions):
+                prop.embedding = embeddings[i].tolist()
+
+        return embeddings, manifest
+
+    def encode_aspects(
+        self,
+        propositions_by_aspect: Dict[str, List[SentenceProposition]],
+        use_cache: bool = True,
+    ) -> Dict[str, Tuple[np.ndarray, EmbeddingManifest]]:
+        """
+        Independently encodes propositions partitioned by aspect (COMPLAINT, PRAISE, RECOMMENDATION).
+        Returns a dictionary mapping aspect name to (embeddings_array, manifest) tuple.
+        """
+        results: Dict[str, Tuple[np.ndarray, EmbeddingManifest]] = {}
+        for aspect, props in propositions_by_aspect.items():
+            emb, man = self.encode_propositions(
+                props,
+                use_cache=use_cache,
+                attach_to_props=True,
+                aspect=aspect,
+            )
+            results[aspect] = (emb, man)
+        return results
 
     def encode_query(self, query: str) -> np.ndarray:
         """
@@ -243,5 +322,6 @@ __all__ = [
     "embedding_service",
     "DEFAULT_MODEL_NAME",
     "DEFAULT_VECTOR_DIM",
-    "DEFAULT_BATCH_SIZE"
+    "DEFAULT_BATCH_SIZE",
+    "DEFAULT_PIPELINE_VERSION",
 ]

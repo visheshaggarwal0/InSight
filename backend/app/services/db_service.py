@@ -9,7 +9,8 @@ from app.models.schema import (
     ThemeModel,
     ReviewModel,
     TicketModel,
-    GovernanceModel
+    GovernanceModel,
+    PropositionModel
 )
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ class DatabaseService:
 
             # 3. Seed Reviews in chunks
             if overwrite:
+                db.query(PropositionModel).filter(PropositionModel.domain_id == domain_id).delete()
                 db.query(ReviewModel).filter(ReviewModel.domain_id == domain_id).delete()
                 db.commit()
                 existing_review_count = 0
@@ -125,6 +127,91 @@ class DatabaseService:
                     db.bulk_save_objects(records_to_insert)
                     db.commit()
                 logger.info(f"Successfully seeded {total_reviews} reviews for domain '{domain_id}'.")
+
+            # 4. Seed Propositions in chunks (First-Class Atomic 4-Way Intent Records)
+            if overwrite:
+                db.query(PropositionModel).filter(PropositionModel.domain_id == domain_id).delete()
+                db.commit()
+                existing_prop_count = 0
+            else:
+                existing_prop_count = db.query(func.count(PropositionModel.id)).filter(PropositionModel.domain_id == domain_id).scalar()
+
+            if existing_prop_count == 0 and reviews:
+                logger.info(f"Seeding propositions for domain '{domain_id}' into database...")
+                from app.ml.sentence_pipeline import (
+                    sentence_clause_extractor,
+                    CLASS_COMPLAINT,
+                    CLASS_RECOMMENDATION,
+                    CLASS_PRAISE,
+                    CLASS_NOISE,
+                )
+
+                prop_records_to_insert = []
+                seen_prop_ids = set()
+
+                for r in reviews:
+                    rev_id = r["id"]
+                    props_source = r.get("propositions")
+                    if not props_source:
+                        redacted = r.get("redacted_text", "")
+                        if redacted:
+                            telemetry = sentence_clause_extractor.extract_telemetry(redacted, review_id=rev_id)
+                            props_source = [p.to_dict() for p in telemetry.propositions]
+                        else:
+                            props_source = []
+
+                    for idx, p in enumerate(props_source):
+                        if hasattr(p, "to_dict"):
+                            p = p.to_dict()
+
+                        prop_id = p.get("proposition_id") or p.get("id") or f"{rev_id}::P{idx:03d}"
+                        if prop_id in seen_prop_ids:
+                            continue
+                        seen_prop_ids.add(prop_id)
+
+                        raw_intent = str(p.get("intent") or p.get("classification") or CLASS_NOISE)
+                        if "/" in raw_intent:
+                            raw_intent = CLASS_NOISE
+
+                        is_act = p.get("is_actionable")
+                        if is_act is None:
+                            is_act = raw_intent in (CLASS_COMPLAINT, CLASS_RECOMMENDATION, CLASS_PRAISE)
+
+                        p_emb = p.get("embedding")
+                        if p_emb is not None:
+                            if hasattr(p_emb, "tolist"):
+                                p_emb = p_emb.tolist()
+                            elif isinstance(p_emb, (list, tuple)):
+                                p_emb = list(p_emb)
+                            else:
+                                p_emb = None
+
+                        p_model = PropositionModel(
+                            id=prop_id,
+                            review_id=rev_id,
+                            domain_id=domain_id,
+                            sentence_idx=int(p.get("sentence_idx", idx)),
+                            text=p.get("text", ""),
+                            char_start=int(p.get("char_start", 0)),
+                            char_end=int(p.get("char_end", 0)),
+                            intent=raw_intent,
+                            severity=str(p.get("severity") or p.get("severity_hint") or "P3"),
+                            confidence=float(p.get("confidence", 0.80)),
+                            is_actionable=1 if is_act else 0,
+                            embedding=p_emb,
+                            detected_marker=p.get("detected_marker"),
+                            extra_metadata=p.get("extra_metadata") or p.get("metadata") or {},
+                            created_at=datetime.now(timezone.utc)
+                        )
+                        prop_records_to_insert.append(p_model)
+
+                chunk_size = 500
+                total_props = len(prop_records_to_insert)
+                for start_p in range(0, total_props, chunk_size):
+                    chunk = prop_records_to_insert[start_p:start_p + chunk_size]
+                    db.bulk_save_objects(chunk)
+                    db.commit()
+                logger.info(f"Successfully seeded {total_props} propositions for domain '{domain_id}'.")
 
             # 4. Upsert Governance & Drift
             existing_gov = db.query(GovernanceModel).filter(GovernanceModel.domain_id == domain_id).first()
@@ -409,5 +496,176 @@ class DatabaseService:
             }
             for t in tickets
         ]
+
+    @staticmethod
+    def get_propositions(
+        db: Session,
+        domain_id: str,
+        intent: Optional[str] = None,
+        severity: Optional[str] = None,
+        is_actionable: Optional[bool] = None,
+        review_id: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """Queries propositions from the propositions table with filtering and pagination."""
+        query = db.query(PropositionModel).filter(PropositionModel.domain_id == domain_id)
+        if intent:
+            query = query.filter(PropositionModel.intent == intent.upper())
+        if severity:
+            query = query.filter(PropositionModel.severity == severity.upper())
+        if is_actionable is not None:
+            query = query.filter(PropositionModel.is_actionable == (1 if is_actionable else 0))
+        if review_id:
+            query = query.filter(PropositionModel.review_id == review_id)
+        if search:
+            query = query.filter(PropositionModel.text.ilike(f"%{search}%"))
+
+        total = query.count()
+        results = (
+            query.order_by(PropositionModel.review_id, PropositionModel.sentence_idx)
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+        return {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "propositions": [p.to_dict() for p in results]
+        }
+
+    @staticmethod
+    def get_propositions_by_review(db: Session, review_id: str) -> List[Dict[str, Any]]:
+        """Retrieves all propositions belonging to a single review ordered by sentence index."""
+        props = (
+            db.query(PropositionModel)
+            .filter(PropositionModel.review_id == review_id)
+            .order_by(PropositionModel.sentence_idx)
+            .all()
+        )
+        return [p.to_dict() for p in props]
+
+    @staticmethod
+    def count_propositions_by_intent(db: Session, domain_id: str) -> Dict[str, int]:
+        """Returns proposition counts grouped by 4-way intent (COMPLAINT, RECOMMENDATION, PRAISE, NOISE)."""
+        counts = dict(
+            db.query(PropositionModel.intent, func.count(PropositionModel.id))
+            .filter(PropositionModel.domain_id == domain_id)
+            .group_by(PropositionModel.intent)
+            .all()
+        )
+        total = sum(counts.values())
+        return {
+            "COMPLAINT": counts.get("COMPLAINT", 0),
+            "RECOMMENDATION": counts.get("RECOMMENDATION", 0),
+            "PRAISE": counts.get("PRAISE", 0),
+            "NOISE": counts.get("NOISE", 0),
+            "actionable": counts.get("COMPLAINT", 0) + counts.get("RECOMMENDATION", 0) + counts.get("PRAISE", 0),
+            "total": total,
+        }
+
+    @staticmethod
+    def search_propositions_semantic(
+        db: Session,
+        query_vector: List[float],
+        domain_id: str,
+        intent: Optional[str] = None,
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Executes semantic vector search directly over proposition-level embeddings.
+        Supports intent filtering (e.g. COMPLAINT, RECOMMENDATION, PRAISE).
+        Uses pgvector cosine distance on PostgreSQL, or NumPy vectorized dot product on SQLite.
+        """
+        bind = db.get_bind()
+        if bind.dialect.name == "postgresql":
+            query = (
+                db.query(
+                    PropositionModel,
+                    PropositionModel.embedding.cosine_distance(query_vector).label("distance")
+                )
+                .filter(PropositionModel.domain_id == domain_id)
+                .filter(PropositionModel.embedding.isnot(None))
+            )
+            if intent:
+                query = query.filter(PropositionModel.intent == intent.upper())
+            results = query.order_by("distance").limit(limit).all()
+
+            matches = []
+            for p, dist in results:
+                similarity = round(max(0.0, 1.0 - float(dist)), 4)
+                d = p.to_dict()
+                d["similarity_score"] = similarity
+                matches.append(d)
+            return matches
+        else:
+            # Resilient SQLite / in-memory fallback
+            import numpy as np
+            q_vec = np.array(query_vector, dtype=float)
+            q_norm = np.linalg.norm(q_vec)
+            if q_norm > 0:
+                q_vec = q_vec / q_norm
+
+            candidates_query = db.query(PropositionModel).filter(PropositionModel.domain_id == domain_id)
+            if intent:
+                candidates_query = candidates_query.filter(PropositionModel.intent == intent.upper())
+            candidates = candidates_query.all()
+
+            scored = []
+            for p in candidates:
+                if p.embedding is not None:
+                    try:
+                        emb_arr = np.array(p.embedding, dtype=float)
+                        e_norm = np.linalg.norm(emb_arr)
+                        if e_norm > 0:
+                            sim = float(np.dot(q_vec, emb_arr / e_norm))
+                            scored.append((p, sim))
+                    except Exception:
+                        continue
+
+            if scored:
+                scored.sort(key=lambda x: x[1], reverse=True)
+                matches = []
+                for p, sim in scored[:limit]:
+                    d = p.to_dict()
+                    d["similarity_score"] = round(max(0.0, sim), 4)
+                    matches.append(d)
+                return matches
+
+            # In-memory state fallback if SQLite DB propositions have no embeddings
+            try:
+                from app.api.routes import state
+                active_reviews = [r for r in state.reviews if r.get("domain", domain_id) == domain_id] or state.reviews
+                scored_in_mem = []
+                for r in active_reviews:
+                    props = r.get("propositions", [])
+                    for p_dict in props:
+                        p_intent = str(p_dict.get("intent") or p_dict.get("classification") or "")
+                        if intent and p_intent.upper() != intent.upper():
+                            continue
+                        emb = p_dict.get("embedding")
+                        if emb is not None:
+                            try:
+                                emb_arr = np.array(emb, dtype=float)
+                                e_norm = np.linalg.norm(emb_arr)
+                                if e_norm > 0:
+                                    sim = float(np.dot(q_vec, emb_arr / e_norm))
+                                    scored_in_mem.append((p_dict, sim))
+                            except Exception:
+                                continue
+                if scored_in_mem:
+                    scored_in_mem.sort(key=lambda x: x[1], reverse=True)
+                    return [
+                        {**p, "similarity_score": round(max(0.0, sim), 4)}
+                        for p, sim in scored_in_mem[:limit]
+                    ]
+            except Exception:
+                pass
+
+            return []
+
 
 db_service = DatabaseService()

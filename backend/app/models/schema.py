@@ -29,6 +29,7 @@ class DomainModel(Base):
     themes = relationship("ThemeModel", back_populates="domain", cascade="all, delete-orphan")
     reviews = relationship("ReviewModel", back_populates="domain", cascade="all, delete-orphan")
     tickets = relationship("TicketModel", back_populates="domain", cascade="all, delete-orphan")
+    propositions = relationship("PropositionModel", back_populates="domain", cascade="all, delete-orphan")
 
 class ThemeModel(Base):
     __tablename__ = "themes"
@@ -73,6 +74,7 @@ class ReviewModel(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     domain = relationship("DomainModel", back_populates="reviews")
+    propositions = relationship("PropositionModel", back_populates="review", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_review_domain_cluster", "domain_id", "cluster_id"),
@@ -108,3 +110,61 @@ class GovernanceModel(Base):
     evaluation = Column(JSON, nullable=True)
     drift_results = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class PropositionModel(Base):
+    """First-class SQL persistence for atomic 4-way propositions with 384D pgvector embeddings."""
+    __tablename__ = "propositions"
+
+    id = Column(String(128), primary_key=True)  # Deterministic: "{review_id}::P{sentence_idx:03d}"
+    review_id = Column(String(64), ForeignKey("reviews.id", ondelete="CASCADE"), index=True, nullable=False)
+    domain_id = Column(String(64), ForeignKey("domains.id", ondelete="CASCADE"), index=True, nullable=False)
+    sentence_idx = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    char_start = Column(Integer, nullable=False)
+    char_end = Column(Integer, nullable=False)
+    intent = Column(String(32), index=True, nullable=False)  # COMPLAINT | RECOMMENDATION | PRAISE | NOISE
+    severity = Column(String(16), default="P3", index=True, nullable=False)  # P0 | P1 | P2 | P3
+    confidence = Column(Float, default=0.80)
+    is_actionable = Column(Integer, default=1, index=True)
+    embedding = Column(Vector(settings.EMBEDDING_DIM), nullable=True)
+    detected_marker = Column(String(64), nullable=True)
+    extra_metadata = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    review = relationship("ReviewModel", back_populates="propositions")
+    domain = relationship("DomainModel", back_populates="propositions")
+
+    __table_args__ = (
+        Index("idx_proposition_domain_intent", "domain_id", "intent"),
+        Index("idx_proposition_intent_severity", "intent", "severity"),
+        Index("idx_proposition_review", "review_id"),
+    )
+
+    def to_dict(self, include_embedding: bool = False) -> dict:
+        d = {
+            "id": self.id,
+            "proposition_id": self.id,
+            "review_id": self.review_id,
+            "domain_id": self.domain_id,
+            "sentence_idx": self.sentence_idx,
+            "text": self.text,
+            "char_start": self.char_start,
+            "char_end": self.char_end,
+            "intent": self.intent,
+            "classification": self.intent,  # backward compatibility alias
+            "severity": self.severity,
+            "severity_hint": self.severity,
+            "confidence": self.confidence,
+            "is_actionable": bool(self.is_actionable),
+            "detected_marker": self.detected_marker,
+            "extra_metadata": self.extra_metadata or {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+        if include_embedding and self.embedding is not None:
+            if hasattr(self.embedding, "tolist"):
+                d["embedding"] = self.embedding.tolist()
+            elif isinstance(self.embedding, (list, tuple)):
+                d["embedding"] = list(self.embedding)
+        return d

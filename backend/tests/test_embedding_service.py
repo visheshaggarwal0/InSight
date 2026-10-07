@@ -19,6 +19,12 @@ from app.data.embedding_service import (
     EmbeddingManifest,
     DEFAULT_VECTOR_DIM,
 )
+from app.data.sentence_extractor import (
+    SentenceProposition,
+    CLASS_COMPLAINT,
+    CLASS_PRAISE,
+    CLASS_RECOMMENDATION,
+)
 
 
 def test_embedding_dimensions_and_unit_normalization(tmp_path):
@@ -112,3 +118,119 @@ def test_fallback_embeddings():
     fallback_vecs = service._fallback_tfidf_embeddings(["Test review text for fallback."])
     assert fallback_vecs.shape == (1, 384)
     assert np.isclose(np.linalg.norm(fallback_vecs[0]), 1.0, atol=1e-4)
+
+
+def test_multi_aspect_proposition_encoding(tmp_path):
+    """Verify that propositions of all actionable intents get 384D unit embeddings."""
+    props = [
+        SentenceProposition(
+            sentence_idx=0,
+            text="The pump broke and leaked everywhere.",
+            char_start=0,
+            char_end=37,
+            intent=CLASS_COMPLAINT,
+            review_id="REV-001"
+        ),
+        SentenceProposition(
+            sentence_idx=1,
+            text="The texture is so soft and smells divine.",
+            char_start=38,
+            char_end=79,
+            intent=CLASS_PRAISE,
+            review_id="REV-001"
+        ),
+        SentenceProposition(
+            sentence_idx=2,
+            text="Please offer a travel-sized bottle.",
+            char_start=80,
+            char_end=115,
+            intent=CLASS_RECOMMENDATION,
+            review_id="REV-001"
+        ),
+    ]
+
+    service = VectorEmbeddingService(cache_dir=tmp_path)
+    embeddings, manifest = service.encode_propositions(props, use_cache=True, attach_to_props=True)
+
+    # 1. Output shape and normalization
+    assert embeddings.shape == (3, 384)
+    assert manifest.total_vectors == 3
+    assert manifest.dimension == 384
+    assert manifest.pipeline_version == "2.0.0"
+
+    norms = np.linalg.norm(embeddings, axis=1)
+    for n in norms:
+        assert np.isclose(n, 1.0, atol=1e-4)
+
+    # 2. Invariant: prop.embedding is attached to every proposition
+    for prop in props:
+        assert prop.embedding is not None
+        assert len(prop.embedding) == 384
+        assert isinstance(prop.embedding, list)
+        prop_norm = np.linalg.norm(np.array(prop.embedding))
+        assert np.isclose(prop_norm, 1.0, atol=1e-4)
+
+    # 3. Serialized dictionary contains embedding
+    prop_dict = props[0].to_dict()
+    assert "embedding" in prop_dict
+    assert len(prop_dict["embedding"]) == 384
+
+
+def test_proposition_content_addressable_caching(tmp_path):
+    """Verify proposition-level content addressable cache hit."""
+    props = [
+        SentenceProposition(
+            sentence_idx=0,
+            text="Crash occurs immediately upon biometric authentication.",
+            char_start=0,
+            char_end=56,
+            intent=CLASS_COMPLAINT,
+            review_id="REV-CRASH-01"
+        )
+    ]
+    service = VectorEmbeddingService(cache_dir=tmp_path)
+
+    # First run computes
+    emb1, man1 = service.encode_propositions(props, use_cache=True)
+    assert man1.cache_hit is False
+
+    # Second run hits disk cache
+    emb2, man2 = service.encode_propositions(props, use_cache=True)
+    assert man2.cache_hit is True
+    assert man2.cache_key == man1.cache_key
+    assert man2.inference_time_ms < 50.0
+    np.testing.assert_allclose(emb1, emb2, atol=1e-5)
+
+
+def test_multi_aspect_aspects_dictionary_encoding(tmp_path):
+    """Verify independent encoding of aspect groups (COMPLAINT, PRAISE, RECOMMENDATION)."""
+    comp_props = [
+        SentenceProposition(0, "Broken pump dispenser.", 0, 22, CLASS_COMPLAINT, review_id="R1")
+    ]
+    praise_props = [
+        SentenceProposition(1, "Love this amazing moisturizer.", 0, 30, CLASS_PRAISE, review_id="R2")
+    ]
+    rec_props = [
+        SentenceProposition(2, "Would love an option for dark mode.", 0, 35, CLASS_RECOMMENDATION, review_id="R3")
+    ]
+
+    aspect_dict = {
+        "COMPLAINT": comp_props,
+        "PRAISE": praise_props,
+        "RECOMMENDATION": rec_props,
+    }
+
+    service = VectorEmbeddingService(cache_dir=tmp_path)
+    aspect_results = service.encode_aspects(aspect_dict, use_cache=True)
+
+    assert set(aspect_results.keys()) == {"COMPLAINT", "PRAISE", "RECOMMENDATION"}
+
+    for aspect_name, (emb, manifest) in aspect_results.items():
+        assert emb.shape == (1, 384)
+        assert manifest.aspect == aspect_name
+        assert manifest.dimension == 384
+        assert manifest.pipeline_version == "2.0.0"
+        # Check attached embedding on proposition object
+        assert aspect_dict[aspect_name][0].embedding is not None
+        assert len(aspect_dict[aspect_name][0].embedding) == 384
+

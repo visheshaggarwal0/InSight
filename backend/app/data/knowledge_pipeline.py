@@ -26,7 +26,11 @@ import numpy as np
 from app.data.normalizer import schema_normalizer, SchemaMappingReport
 from app.data.quality_gate import data_quality_gate, QualityGateManifest
 from app.core.pii import pii_redactor
-from app.data.sentence_extractor import sentence_clause_extractor
+from app.data.sentence_extractor import (
+    sentence_clause_extractor,
+    ExtractedReviewTelemetry,
+    SentenceProposition,
+)
 from app.data.embedding_service import embedding_service, EmbeddingManifest
 from app.ml.sentiment import CalibratedSentimentClassifier
 from app.ml.evaluation import evaluation_harness
@@ -101,6 +105,7 @@ class KnowledgePipeline:
         # Stage 3 & 4: PII Redaction & Surgical Complaint Clause Extraction
         # -------------------------------------------------------------------
         processed_records: List[Dict[str, Any]] = []
+        telemetries: List[ExtractedReviewTelemetry] = []
 
         for _, row in clean_df.iterrows():
             raw_text = str(row["raw_text"])
@@ -120,7 +125,8 @@ class KnowledgePipeline:
             redacted_text, pii_detected = pii_redactor.redact(raw_text)
 
             # 4. Surgical Clause Extraction
-            telemetry = sentence_clause_extractor.extract_telemetry(rec_id, redacted_text)
+            telemetry = sentence_clause_extractor.extract_telemetry(rec_id, redacted_text, domain_id=domain_id)
+            telemetries.append(telemetry)
 
             # Derive proxy ground truth from normalized rating
             if rating <= 2:
@@ -145,6 +151,11 @@ class KnowledgePipeline:
                 "highlight_span": telemetry.highlight_span.to_dict(),
                 "primary_complaint_text": telemetry.primary_complaint_text,
                 "overall_severity": telemetry.overall_severity,
+                "propositions": [p.to_dict() for p in telemetry.propositions],
+                "complaint_propositions": [p.to_dict() for p in telemetry.complaint_propositions],
+                "recommendation_propositions": [p.to_dict() for p in telemetry.recommendation_propositions],
+                "praise_propositions": [p.to_dict() for p in telemetry.praise_propositions],
+                "noise_propositions": [p.to_dict() for p in telemetry.noise_propositions],
                 "created_at": created_at,
                 "extra_metadata": extra_meta
             }
@@ -169,18 +180,47 @@ class KnowledgePipeline:
             r["sentences"] = sents_by_review.get(r["id"], [])
 
         # -------------------------------------------------------------------
-        # Stage 5: Production Vector ETL & Dense Embeddings
+        # Stage 5: Production Vector ETL & Dense Multi-Aspect Embeddings
         # -------------------------------------------------------------------
-        # Encode isolated complaint propositions rather than raw conversational fluff
+        # 5a. Primary complaint / review representation (for review-level search & theme clustering)
         texts_to_embed = [r["primary_complaint_text"] for r in processed_records]
-        embeddings, embedding_manifest = embedding_service.encode_texts(texts_to_embed, use_cache=True)
+        embeddings, embedding_manifest = embedding_service.encode_texts(
+            texts_to_embed, use_cache=True, namespace="review_primary", aspect="PRIMARY"
+        )
         logger.info(
-            f"Stage 5 complete: Generated {embeddings.shape[0]} embeddings of dim {embeddings.shape[1]} "
+            f"Stage 5a complete: Generated {embeddings.shape[0]} review embeddings of dim {embeddings.shape[1]} "
             f"(Cache hit: {embedding_manifest.cache_hit}, Time: {embedding_manifest.inference_time_ms}ms)."
         )
 
         for i, r in enumerate(processed_records):
             r["embedding"] = embeddings[i].tolist()
+
+        # 5b. Multi-Aspect Proposition Embeddings (COMPLAINT, PRAISE, RECOMMENDATION)
+        all_comp_props = [p for t in telemetries for p in t.complaint_propositions]
+        all_praise_props = [p for t in telemetries for p in t.praise_propositions]
+        all_rec_props = [p for t in telemetries for p in t.recommendation_propositions]
+
+        aspect_propositions = {
+            "COMPLAINT": all_comp_props,
+            "PRAISE": all_praise_props,
+            "RECOMMENDATION": all_rec_props,
+        }
+        aspect_results = embedding_service.encode_aspects(aspect_propositions, use_cache=True)
+        aspect_manifests = {aspect: man.to_dict() for aspect, (_, man) in aspect_results.items()}
+
+        # Synchronize proposition embeddings to records so propositions carry their 384D vectors
+        for i, r in enumerate(processed_records):
+            t = telemetries[i]
+            r["propositions"] = [p.to_dict() for p in t.propositions]
+            r["complaint_propositions"] = [p.to_dict() for p in t.complaint_propositions]
+            r["recommendation_propositions"] = [p.to_dict() for p in t.recommendation_propositions]
+            r["praise_propositions"] = [p.to_dict() for p in t.praise_propositions]
+            r["noise_propositions"] = [p.to_dict() for p in t.noise_propositions]
+
+        logger.info(
+            f"Stage 5b complete: Multi-aspect proposition embeddings encoded "
+            f"(COMPLAINT={len(all_comp_props)}, PRAISE={len(all_praise_props)}, RECOMMENDATION={len(all_rec_props)})."
+        )
 
         # -------------------------------------------------------------------
         # Stage 6: Supervised Calibrated Sentiment Classification
@@ -322,6 +362,8 @@ class KnowledgePipeline:
             "schema_report": schema_report.to_dict(),
             "quality_manifest": quality_manifest.to_dict(),
             "embedding_manifest": embedding_manifest.to_dict(),
+            "aspect_embedding_manifests": aspect_manifests,
+            "proposition_embeddings_count": sum(len(p) for p in aspect_propositions.values()),
         }
 
 

@@ -30,7 +30,7 @@ from app.core.auth import (
     AuthenticatedUser,
 )
 from app.services.db_service import db_service
-from app.models.schema import DomainModel, ThemeModel, ReviewModel, TicketModel
+from app.models.schema import DomainModel, ThemeModel, ReviewModel, TicketModel, PropositionModel
 
 logger = logging.getLogger(__name__)
 
@@ -357,6 +357,7 @@ class SemanticSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=512)
     domain: Optional[str] = Field(None, max_length=64)
     limit: int = Field(10, ge=1, le=100)
+    intent: Optional[str] = Field(None, max_length=32)
 
 
 @router.get("/datasets")
@@ -553,7 +554,7 @@ async def upload_custom_dataset(
         logger.error(f"Pipeline error during ingestion of '{file.filename}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Knowledge pipeline error: {str(e)}")
 
-    # Atomic commit under the state lock
+    # Cache custom dataset bundle under INIT_LOCK and switch active domain
     with INIT_LOCK:
         result["data_provenance"] = {"synthetic": False, "source": f"user upload: {file.filename}"}
         DOMAIN_CACHE["custom"] = result
@@ -1040,6 +1041,7 @@ def get_db_status(db=Depends(get_db), user: Optional[AuthenticatedUser] = _privi
             status["themes_count"] = db.query(ThemeModel).count()
             status["reviews_count"] = db.query(ReviewModel).count()
             status["tickets_count"] = db.query(TicketModel).count()
+            status["propositions_count"] = db.query(PropositionModel).count()
         except Exception:
             logger.warning("Record count query failed", exc_info=True)
             status["metrics_error"] = "record count unavailable"
@@ -1051,7 +1053,7 @@ def search_semantic(req: SemanticSearchRequest, db=Depends(get_db),
                     user: Optional[AuthenticatedUser] = _auth()):
     """
     Real-time semantic vector search using all-MiniLM-L6-v2 embeddings
-    and native pgvector cosine distance.
+    and native pgvector cosine distance. Supports optional proposition intent filtering.
     """
     ensure_initialized()
     domain = req.domain or state.active_domain
@@ -1064,7 +1066,10 @@ def search_semantic(req: SemanticSearchRequest, db=Depends(get_db),
 
     try:
         query_vec = transformer_encoder.encode(req.query, normalize_embeddings=True).tolist()
-        matches = db_service.semantic_vector_search(db, domain, query_vec, limit=req.limit)
+        if req.intent:
+            matches = db_service.search_propositions_semantic(db, query_vec, domain, intent=req.intent, limit=req.limit)
+        else:
+            matches = db_service.semantic_vector_search(db, domain, query_vec, limit=req.limit)
         return {
             "query": req.query,
             "domain": domain,
@@ -1076,6 +1081,81 @@ def search_semantic(req: SemanticSearchRequest, db=Depends(get_db),
     except Exception:
         logger.error("Semantic search error", exc_info=True)
         raise HTTPException(status_code=500, detail="Semantic search failed.")
+
+
+@router.get("/propositions")
+def list_propositions(
+    domain: Optional[str] = Query(None),
+    intent: Optional[str] = Query(None),
+    severity: Optional[str] = Query(None),
+    is_actionable: Optional[bool] = Query(None),
+    review_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db=Depends(get_db),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """Retrieves 4-way propositions with optional intent, severity, and actionability filtering."""
+    ensure_initialized()
+    target_domain = domain or state.active_domain or DEFAULT_DOMAIN
+    res = db_service.get_propositions(
+        db=db,
+        domain_id=target_domain,
+        intent=intent,
+        severity=severity,
+        is_actionable=is_actionable,
+        review_id=review_id,
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "domain": target_domain,
+        **res,
+    }
+
+
+@router.post("/search/propositions")
+def search_propositions(
+    req: SemanticSearchRequest,
+    db=Depends(get_db),
+    user: Optional[AuthenticatedUser] = _auth(),
+):
+    """
+    Proposition-level semantic vector search with optional 4-way intent filtering
+    (COMPLAINT, RECOMMENDATION, PRAISE, NOISE).
+    """
+    ensure_initialized()
+    domain = req.domain or state.active_domain or DEFAULT_DOMAIN
+
+    if transformer_encoder is None:
+        raise HTTPException(
+            status_code=503,
+            detail="SentenceTransformer encoder is not loaded for vector search.",
+        )
+
+    try:
+        query_vec = transformer_encoder.encode(req.query, normalize_embeddings=True).tolist()
+        matches = db_service.search_propositions_semantic(
+            db=db,
+            query_vector=query_vec,
+            domain_id=domain,
+            intent=req.intent,
+            limit=req.limit,
+        )
+        return {
+            "query": req.query,
+            "domain": domain,
+            "intent_filter": req.intent,
+            "total_matches": len(matches),
+            "results": matches,
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("Proposition semantic search error", exc_info=True)
+        raise HTTPException(status_code=500, detail="Proposition semantic search failed.")
 
 
 def _build_export_rows(reviews: list | None = None) -> list:
